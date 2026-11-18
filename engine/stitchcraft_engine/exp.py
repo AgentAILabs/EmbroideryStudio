@@ -2,7 +2,9 @@
 Record layout (units 0.1 mm, +Y up like DST):
     stitch        dx dy                      two signed bytes
     jump          0x80 0x04 dx dy
-    trim          0x80 0x02 0x00 0x00
+    trim          N x (0x80 0x04 0x00 0x00)   - there is NO trim opcode in EXP that other readers agree on: pyembroidery reads
+                  0x80 0x02 as a zero-move STITCH (found by the CI cross-check). So, as in our DST writer, a trim is N zero-move
+                  jumps (same "Trim jumps" machine setting). Machines differ - confirm on yours.
     colour change 0x80 0x01 0x00 0x00
 Moves are limited to +/-127 per axis (0x80 is the escape byte, so -128 is never written); longer moves are split.
 VALIDATION: tests pin hand-written byte vectors, and tests/test_crosscheck.py compares the result with pyembroidery's reader in CI.
@@ -27,7 +29,7 @@ def _b(v: int) -> int:
     return v & 0xFF
 
 
-def write_exp(pattern: Pattern, center: bool = True) -> bytes:
+def write_exp(pattern: Pattern, center: bool = True, trim_jumps: int = 3) -> bytes:
     bb = pattern.bbox()
     if bb is None:
         raise ExpError("pattern has no stitches")
@@ -41,7 +43,7 @@ def write_exp(pattern: Pattern, center: bool = True) -> bytes:
         if s.cmd == Cmd.COLOR_CHANGE:
             out += bytes([ESC, 0x01, 0x00, 0x00]); continue
         if s.cmd == Cmd.TRIM:
-            out += bytes([ESC, 0x02, 0x00, 0x00]); continue
+            out += bytes([ESC, 0x04, 0x00, 0x00]) * trim_jumps; continue
         tx = round((s.x - ox) * UNITS_PER_MM)
         ty = round(-(s.y - oy) * UNITS_PER_MM)
         dx, dy = tx - cx, ty - cy
@@ -59,7 +61,7 @@ def write_exp(pattern: Pattern, center: bool = True) -> bytes:
 
 
 def read_exp(data: bytes):
-    """Independent minimal reader for tests: returns [(kind, dx, dy)] with kind in stitch/jump/trim/color_change."""
+    """Independent minimal reader for tests: returns [(kind, dx, dy)] with kind in stitch/jump/color_change."""
     recs, i = [], 0
     sb = lambda v: v - 256 if v > 127 else v
     while i < len(data):
@@ -67,7 +69,7 @@ def read_exp(data: bytes):
             if i + 3 >= len(data):
                 raise ExpError("truncated control record")
             code = data[i + 1]
-            kind = {0x01: "color_change", 0x02: "trim", 0x04: "jump"}.get(code)
+            kind = {0x01: "color_change", 0x04: "jump"}.get(code)
             if kind is None:
                 raise ExpError(f"unknown control code 0x{code:02x}")
             recs.append((kind, sb(data[i + 2]), sb(data[i + 3])) if kind == "jump" else (kind, 0, 0)); i += 4

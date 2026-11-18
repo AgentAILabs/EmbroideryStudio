@@ -1444,7 +1444,9 @@ class ExpWriterTests(unittest.TestCase):
         self.assertEqual(enc([Stitch(0, 0), Stitch(0, 1.0), Stitch(0, 1.0, Cmd.END)]), bytes([0x00, 0x00, 0x00, 0xF6]))       # y-down 1 mm = -10 -> 0xF6
         self.assertEqual(enc([Stitch(0, 0), Stitch(-2.0, 0), Stitch(-2.0, 0, Cmd.END)]), bytes([0x00, 0x00, 0xEC, 0x00]))      # -20 -> 0xEC
         self.assertEqual(enc([Stitch(0, 0), Stitch(0, 0, Cmd.TRIM, 0), Stitch(0, 0, Cmd.COLOR_CHANGE, 1), Stitch(0, 0, Cmd.END)]),
-                         bytes([0x00, 0x00, 0x80, 0x02, 0x00, 0x00, 0x80, 0x01, 0x00, 0x00]))
+                         bytes([0x00, 0x00] + [0x80, 0x04, 0x00, 0x00] * 3 + [0x80, 0x01, 0x00, 0x00]))                  # trim = 3 zero-move jumps, then the colour change
+        self.assertEqual(write_exp(Pattern("t", [Stitch(0, 0), Stitch(0, 0, Cmd.TRIM, 0), Stitch(0, 0, Cmd.END)], T), center=False, trim_jumps=2),
+                         bytes([0x00, 0x00] + [0x80, 0x04, 0x00, 0x00] * 2))
     def test_never_writes_the_escape_byte_as_a_move_and_splits_long_moves(self):
         from stitchcraft_engine.exp import write_exp, read_exp
         d = doc({"id": "a", "type": "run", "color": "#f00", "points": [[0, 0], [60, 0]], "params": {"stitch_len": 40}},
@@ -1458,7 +1460,7 @@ class ExpWriterTests(unittest.TestCase):
         d = doc({"id": "a", "type": "fill", "color": "#c8102e", "rings": [SQ]}, {"id": "b", "type": "satin", "color": "#0000ff", "points": [[0, 40], [30, 45]], "params": {"width": 3}})
         p, _, st = generate(d); recs = read_exp(write_exp(p))
         self.assertEqual(sum(1 for r in recs if r[0] == "stitch"), st["stitches"]); self.assertEqual(sum(1 for r in recs if r[0] == "color_change"), st["color_changes"])
-        self.assertEqual(sum(1 for r in recs if r[0] == "trim"), st["trims"])
+        zero_jumps = sum(1 for r in recs if r == ("jump", 0, 0)); self.assertEqual(zero_jumps, 3 * st["trims"])            # each trim = 3 zero-move jumps
         # accumulate moves: stitch positions must equal the pattern's (centred, 0.1 mm, y up)
         x = y = 0; pts = []
         for k, dx, dy in recs:
@@ -1474,4 +1476,5 @@ class ExpWriterTests(unittest.TestCase):
         with self.assertRaises(ExpError): write_exp(Pattern("e", [], []))
         with self.assertRaises(ExpError): read_exp(bytes([0x80, 0x04, 0x00]))
         with self.assertRaises(ExpError): read_exp(bytes([0x80, 0x7f, 0x00, 0x00]))
+        with self.assertRaises(ExpError): read_exp(bytes([0x80, 0x02, 0x00, 0x00]))                    # 0x80 0x02 is not a command we write or accept
         with self.assertRaises(ExpError): read_exp(bytes([0x05]))

@@ -106,7 +106,7 @@ class PyembroideryExpCrossCheck(unittest.TestCase):
     """Our EXP writer read back by pyembroidery. A mismatch is a bug in exp.py (or in this test's reading of the library) - the
     message prints enough to tell which."""
     def test_exp_stitches_colour_changes_and_trims_match(self):
-        from stitchcraft_engine.exp import write_exp
+        from stitchcraft_engine.exp import write_exp, read_exp
         for name, d in designs().items():
             pat, _, st = generate(d); data = write_exp(pat)
             with tempfile.TemporaryDirectory() as t:
@@ -119,7 +119,6 @@ class PyembroideryExpCrossCheck(unittest.TestCase):
             first = next((i for i, (_, _, cmd) in enumerate(theirs.stitches) if (cmd & C) not in (pyembroidery.STITCH,)), None)
             print(f"[crosscheck-exp] {name}: wrote {len(data)} bytes; ours stitches={st['stitches']} jumps={st['jumps']} trims={st['trims']} colour={st['color_changes']} | theirs {dict(tc)}")
             seq_theirs = [(i, names.get(cmd & C, hex(cmd & C)), int(x), int(y)) for i, (x, y, cmd) in enumerate(theirs.stitches) if (cmd & C) != pyembroidery.STITCH]
-            from stitchcraft_engine.exp import read_exp
             seq_ours = [(i, k, dx, dy) for i, (k, dx, dy) in enumerate(read_exp(data)) if k != "stitch"]
             print(f"[crosscheck-exp]   NON-STITCH ours  (record#, kind, dx, dy): {seq_ours[:8]}")
             print(f"[crosscheck-exp]   NON-STITCH theirs(cmd#, kind, x, y)    : {seq_theirs[:8]}")
@@ -139,10 +138,11 @@ class PyembroideryExpCrossCheck(unittest.TestCase):
                 self.fail(f"{name}: EXP stitch deltas differ at {bad}\n  ours  : {od[max(0, bad - 2):bad + 4]}\n  theirs: {td[max(0, bad - 2):bad + 4]}"
                           f"\n  first abs ours {our_xy[:3]} theirs {their_xy[:3]}")
             cc = sum(1 for _, _, cmd in theirs.stitches if (cmd & C) == pyembroidery.COLOR_CHANGE)
-            tr = sum(1 for _, _, cmd in theirs.stitches if (cmd & C) == pyembroidery.TRIM)
-            print(f"[crosscheck-exp] {name}: stitches ok; colour changes ours={st['color_changes']} theirs={cc}; trims ours={st['trims']} theirs={tr}; y {'flipped' if td != od else 'same'}")
+            jumps_theirs = sum(1 for _, _, cmd in theirs.stitches if (cmd & C) == pyembroidery.JUMP)
+            jumps_ours = sum(1 for k, _, _ in read_exp(data) if k == "jump")
+            print(f"[crosscheck-exp] {name}: stitches ok; colour changes ours={st['color_changes']} theirs={cc}; JUMP records ours={jumps_ours} theirs={jumps_theirs}; y {'flipped' if td != od else 'same'}")
             self.assertEqual(cc, st["color_changes"], name)
-            self.assertEqual(tr, st["trims"], name)
+            self.assertEqual(jumps_theirs, jumps_ours, name)                  # trims are written as zero-move jumps: counted as jumps by the reader
 
 
 if __name__ == "__main__":
