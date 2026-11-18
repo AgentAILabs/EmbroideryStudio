@@ -15,11 +15,12 @@ from .font import layout_text
 from .geometry import polygon_area, smooth, inset_ring, rotate_closed, ring_self_intersections
 from .model import Cmd, Pattern, ThreadColor
 from .stitches import (DigitizingError, satin_from_rails, contour_fill, cross_fill, center_walk_underlay, edge_walk_underlay, running_stitch,
-                       satin_stitch, tatami_fill, underlay_path)
+                       satin_stitch, tatami_fill, underlay_path, zigzag_underlay, rails_from_centerline)
 from .validate import validate
 
 DEFAULTS = {
-    "fill": {"angle": 45.0, "spacing": 0.4, "stitch_len": 3.5, "underlay": "tatami", "pull_comp": 0.2, "pattern": "tatami", "cross_size": 2.0},
+    "fill": {"angle": 45.0, "spacing": 0.4, "stitch_len": 3.5, "underlay": "tatami", "pull_comp": 0.2, "pattern": "tatami", "cross_size": 2.0,
+             "regions": True},          # stitch holes / U-shapes region by region instead of jumping the gap on every row
     "satin": {"width": 3.0, "spacing": 0.4, "underlay": "auto", "pull_comp": 0.2},
     "run": {"stitch_len": 2.5},
     "column": {"spacing": 0.4, "underlay": "auto", "pull_comp": 0.2},
@@ -53,18 +54,24 @@ def _pts(v, ob: Optional[dict] = None, closed: bool = False) -> list:
     return smooth(pts, closed) if ob and ob.get("smooth") else pts
 
 
-def _satin_objs(oid, th, path, width, spacing, pull, underlay, split=0.0):
+UNDERLAYS = ("auto", "none", "center", "edge", "zigzag", "edge+zigzag")
+
+
+def _satin_objs(oid, th, path, width, spacing, pull, underlay, split=0.0, shorten=False):
     if underlay == "auto":
         underlay = "center" if width >= 2.0 else "none"
     under = []
     if underlay == "center":
         under = [center_walk_underlay(path)]
-    elif underlay == "edge" and width > 1.0:
+    elif underlay in ("edge", "edge+zigzag") and width > 1.0:
         under = [edge_walk_underlay(path, width)]
-    return StitchObject(oid, "satin", th, [satin_stitch(path, width, spacing, pull, split)], under)
+    if underlay in ("zigzag", "edge+zigzag") and width > 2.0:
+        l, r = rails_from_centerline(path, width)
+        under.append(zigzag_underlay(l, r))
+    return StitchObject(oid, "satin", th, [satin_stitch(path, width, spacing, pull, split, shorten)], under)
 
 
-def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0):
+def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0, shorten=False):
     """Two-rail satin: stitches zig-zag between the rails. Rails are resampled by arc length, so
     unequal rail lengths simply stretch the stitch angle. pull_comp pushes each rail outwards."""
     from .geometry import dist, polyline_length, resample_n
@@ -89,8 +96,10 @@ def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0):
     if underlay == "auto":
         underlay = "center" if width >= 2.0 else "none"
     under = [center_walk_underlay(underlay_path(mid))] if underlay == "center" else \
-            [running_stitch(underlay_path(a), 2.5), running_stitch(underlay_path(b[::-1]), 2.5)] if underlay == "edge" else []
-    return StitchObject(oid, "satin", th, [satin_from_rails(a, b, spacing, split)], under)
+            [running_stitch(underlay_path(a), 2.5), running_stitch(underlay_path(b[::-1]), 2.5)] if underlay in ("edge", "edge+zigzag") else []
+    if underlay in ("zigzag", "edge+zigzag") and width > 2.0:
+        under.append(zigzag_underlay(a, b))
+    return StitchObject(oid, "satin", th, [satin_from_rails(a, b, spacing, split, shorten)], under)
 
 
 MACHINE_DEFAULTS = {"max_stitch": 7.0, "min_stitch": 0.3, "trim_distance": 3.0, "trim_jumps": 3,
@@ -175,7 +184,7 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                     objs.append(StitchObject(oid, "fill", th, runs, []))      # patterned fills carry no underlay
                     continue
                 runs = tatami_fill(rings, _p(ob, "angle"), _p(ob, "spacing"), _p(ob, "stitch_len"),
-                                   pull_comp=_p(ob, "pull_comp") or 0.0)
+                                   pull_comp=_p(ob, "pull_comp") or 0.0, regions=bool(_p(ob, "regions")))
                 under = []
                 mode = _p(ob, "underlay")
                 mode = "tatami" if mode is True else "none" if mode in (False, None) else mode
@@ -187,7 +196,7 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                         else:
                             notes.append(f"{oid}: edge underlay skipped (shape too small or too complex to inset safely)")
                     if mode in ("tatami", "edge+tatami") or (mode == "edge" and not under):
-                        under += tatami_fill(rings, _p(ob, "angle") + 90, 2.0, 3.0)
+                        under += tatami_fill(rings, _p(ob, "angle") + 90, 2.0, 3.0, regions=bool(_p(ob, "regions")))
                 objs.append(StitchObject(oid, "fill", th, runs, under))
             elif typ == "satin":
                 w = _p(ob, "width")
@@ -198,10 +207,10 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                 elif w > 7.0:
                     notes.append(f"{oid}: satin {w:g} mm is loose (> 7 mm); enable auto-split, narrow it, or use a fill")
                 objs.append(_satin_objs(oid, th, _pts(ob["points"], ob, bool(ob.get("closed"))), _p(ob, "width"), _p(ob, "spacing"),
-                                        _p(ob, "pull_comp") or 0.0, _p(ob, "underlay"), split_of(ob)))
+                                        _p(ob, "pull_comp") or 0.0, _p(ob, "underlay"), split_of(ob), bool(_p(ob, "shorten"))))
             elif typ == "column":
                 objs.append(_column(oid, th, _pts(ob["rail1"], ob), _pts(ob["rail2"], ob), _p(ob, "spacing"),
-                                    _p(ob, "pull_comp") or 0.0, _p(ob, "underlay"), notes, split_of(ob)))
+                                    _p(ob, "pull_comp") or 0.0, _p(ob, "underlay"), notes, split_of(ob), bool(_p(ob, "shorten"))))
             elif typ == "run":
                 pts = _pts(ob["points"], ob, bool(ob.get("closed")))
                 objs.append(StitchObject(oid, "running", th,

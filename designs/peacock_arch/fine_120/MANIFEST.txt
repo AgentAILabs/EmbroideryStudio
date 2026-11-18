@@ -1,4 +1,4 @@
-EmbroideryStudio export package · 2026-11-18T17:46:50
+EmbroideryStudio export package · 2026-11-18T18:23:42
 design: peacock_arch_panel_fine120
 stitches: 6567  colour changes: 2
 trim jumps: 3

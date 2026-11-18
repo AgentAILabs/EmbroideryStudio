@@ -34,3 +34,10 @@ Record what worked (Trim jumps, Lock stitch mm, Trim above) - those three number
 
 ## Pass criteria (suggested)
 No thread breaks at 600 spm · no visible puckering after removing stabiliser as intended · outline within 0.5 mm of fill edge · lettering legible at 5 mm (or note the real minimum) · trims cut cleanly · colour changes land at the expected place.
+
+
+## Ricoma approval procedure (any new design)
+1. Load the DST; check the size on the machine screen equals the production sheet. 2. Trace the outline: it must clear the hoop.
+3. Needle, thread, stabiliser as on the sheet. 4. Stitch on the real garment fabric. 5. Watch for thread breaks, puckering, skipped stitches,
+registration (outlines on fills), coverage. 6. Write findings in the sheet's *Machine test record*. 7. Change density / underlay / pull comp
+in Expert mode, re-run Quality check. 8. Stitch again. 9. Approve for production only after a clean sample.

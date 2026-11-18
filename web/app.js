@@ -6,7 +6,7 @@ const PALETTE = ["#000000","#ffffff","#7f7f7f","#c8102e","#e4572e","#f28c28","#f
 const HOOPS = {"100 × 100 mm":[100,100],"130 × 180 mm":[130,180],"4 × 4 in":[101.6,101.6],"5 × 7 in":[127,177.8],"200 × 300 mm":[200,300],"240 × 150 mm":[240,150]};
 const THREADS = {"40wt": "40 wt (standard)", "60wt": "60 wt (fine)", "120": "120/2 (blouse / fine)"};
 const FABRICS = {cotton:{pull_comp:.2,spacing:.40},silk:{pull_comp:.3,spacing:.45},georgette:{pull_comp:.35,spacing:.45},velvet:{pull_comp:.4,spacing:.38},denim:{pull_comp:.1,spacing:.40},knit:{pull_comp:.4,spacing:.42}};
-const DEF = {fill:{angle:45,spacing:.4,stitch_len:3.5,underlay:"tatami",pull_comp:.2,pattern:"tatami",cross_size:2},satin:{width:3,spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true},run:{stitch_len:2.5},column:{spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true},text:{spacing:1,underlay:"auto",pull_comp:.1,auto_split:true},applique:{width:2.5,spacing:.4,stitch_len:2.5},embellishment:{}};
+const DEF = {fill:{angle:45,spacing:.4,stitch_len:3.5,underlay:"tatami",pull_comp:.2,pattern:"tatami",cross_size:2,regions:true},satin:{width:3,spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true,shorten:false},run:{stitch_len:2.5},column:{spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true,shorten:false},text:{spacing:1,underlay:"auto",pull_comp:.1,auto_split:true},applique:{width:2.5,spacing:.4,stitch_len:2.5},embellishment:{}};
 const TOOLHINT = {select:"Click to select, drag to move, drag the white handles to edit points. Space+drag or right-drag pans, wheel zooms.",fill:"Click points of the shape. Double-click, Enter or click the first point to finish. Esc cancels.",satin:"Click along the centre line of the column. Double-click or Enter to finish.",column:"Draw the FIRST edge (double-click/Enter to finish), then the SECOND edge. Stitches zig-zag between them.",run:"Click points of the line. Double-click or Enter to finish.",rect:"Drag to draw a rectangle.",ellipse:"Drag to draw an ellipse.",text:"Click where the text should start.",bead:"Click to place beads / stones / sequins. They are NOT stitched: they appear on the production sheet. Click again to add more to the same group.",applique:"Click the outline of the appliqué patch. Double-click or Enter to finish."};
 
 const S = { doc: newDoc(), sel: null, tool: "select", view: {x: 0, y: 0, z: 3}, mode: "beginner", vmode: "design",
@@ -467,6 +467,50 @@ async function generateSet() {
     out.textContent = rep.map(x => (x.status === "ok" ? "✔ " : "✖ ") + x.file + (x.status === "ok" ? `  ${x.grade}, ${x.stitches} stitches` : `  ${x.status}: ${x.reason || ""}`)).join("\n") + "\nZip downloaded (DST + project + preview + production sheet + verification per file).";
   } catch (e) { out.textContent = "Failed: " + e.message; }
 }
+function checklistHtml(cl) {
+  const pct = Math.round(100 * cl.passed / cl.total);
+  return `<div class="cl"><div class="clhead"><b>Production checklist ${cl.passed}/${cl.total}</b><span class="bar"><i style="width:${pct}%"></i></span><span class="chip ${cl.export_allowed ? "PASS" : "FAIL"}">${cl.export_allowed ? "export allowed" : "export blocked"}</span></div>` +
+    cl.items.map(i => `<div class="cli"><span class="chip ${i.level === "N/A" ? "NA" : i.level}">${i.level}</span><span><b>${i.n}.</b> ${esc(i.title)}<br><small>${esc(i.evidence)}</small></span></div>`).join("") + `</div>`;
+}
+/* ---------------------------------------------------------------- auto-digitize wizard */
+const CATS = {blouse_neck: "Maggam blouse neck", floral: "Maggam floral motif", saree_border: "Saree border / motif", logo: "Logo / lettering"};
+const FABS = {cotton: "Cotton", blouse: "Blouse fabric (raw silk / cotton silk)", silk: "Silk", georgette: "Georgette / chiffon", velvet: "Velvet", stretch: "Stretch / knit", denim: "Denim / canvas"};
+const WZ = {step: 1, file: null, res: null};
+const TESTSTEPS = ["Load the DST on the Ricoma and check the size shown matches the report", "Trace the design outline: it must clear the hoop", "Select needle, thread and stabiliser listed on the production sheet",
+  "Stitch on a sample of the real garment fabric", "Watch for thread breaks, puckering, skipped stitches, registration (outlines on fills)", "Note what to change (density, underlay, pull comp) and adjust in the editor",
+  "Stitch again after any change", "Approve for production only after a clean sample"];
+function wzStep(n) {
+  WZ.step = n; document.querySelectorAll("#wzSteps li").forEach((li, i) => li.className = i + 1 < n ? "done" : i + 1 === n ? "on" : "");
+  document.querySelectorAll("#dlgWizard .wzp").forEach(p => p.hidden = +p.dataset.p !== n);
+}
+function openWizard() {
+  const sel = (id, obj, v) => $(id).innerHTML = Object.entries(obj).map(([k, l]) => `<option value="${k}" ${k === v ? "selected" : ""}>${esc(l)}</option>`).join("");
+  sel("#wzCat", CATS, "blouse_neck"); sel("#wzFab", FABS, "blouse"); sel("#wzThr", THREADS, S.doc.thread || "40wt");
+  $("#wzErr").textContent = ""; WZ.res = null; wzStep(1); $("#dlgWizard").showModal();
+}
+async function wizardRun() {
+  const f = $("#wzFile").files[0]; if (!f) { $("#wzErr").textContent = "Choose an image first (PNG or JPG)."; return; }
+  if (!/\.(png|jpe?g)$/i.test(f.name)) { $("#wzErr").textContent = "Use a PNG or JPG image. For SVG artwork use Import art."; return; }
+  wzStep(2); $("#wzLog").textContent = "Cleaning the image, finding colour regions, choosing stitch types, applying the profile, optimising the sequence, checking…";
+  try {
+    const data = b64(new Uint8Array(await f.arrayBuffer()));
+    const r = await post("/api/autodigitize", {data, name: $("#wzName").value || f.name.replace(/\.[^.]+$/, ""), width_mm: +$("#wzW").value || 80, colors: +$("#wzC").value || 6,
+      quality: $("#wzQ").value, enhance: "auto", fabric: $("#wzFab").value, category: $("#wzCat").value, thread: $("#wzThr").value, hoop_w: +$("#wzHW").value || 130, hoop_h: +$("#wzHH").value || 180});
+    WZ.res = r; $("#wzLog").textContent = $("#wzLog2").textContent = "• " + r.log.join("\n• ");
+    const sv = await fetch("/api/export/svg", {method: "POST", body: JSON.stringify(r.design)});
+    $("#wzPrev").innerHTML = sv.ok ? `<img alt="stitch preview" src="${URL.createObjectURL(new Blob([await sv.text()], {type: "image/svg+xml"}))}">` : "Preview not available";
+    const st = r.checklist.stats; $("#wzStats").textContent = `${st.stitches} stitches · ${st.color_changes + 1} colour(s) · ${st.trims} trims · ${st.width_mm} × ${st.height_mm} mm · ~${st.est_minutes} min`;
+    $("#wzChecks").innerHTML = checklistHtml(r.checklist);
+    $("#wzExport").disabled = !r.checklist.export_allowed;
+    loadDoc(r.design); setView("stitch");
+    wzStep(3);
+  } catch (e) { wzStep(1); $("#wzErr").textContent = "Auto-digitize failed: " + e.message; }
+}
+function renderTestSteps() {
+  const key = "es-test-" + (S.doc.name || "design"); let st = {}; try { st = JSON.parse(localStorage.getItem(key) || "{}"); } catch (e) {}
+  $("#wzTest").innerHTML = TESTSTEPS.map((t, i) => `<label class="tst"><input type="checkbox" data-i="${i}" ${st[i] ? "checked" : ""}> ${i + 1}. ${esc(t)}</label>`).join("");
+  $("#wzTest").onchange = e => { const i = e.target.dataset.i; if (i === undefined) return; st[i] = e.target.checked; try { localStorage.setItem(key, JSON.stringify(st)); } catch (er) {} };
+}
 async function qualityCheck() {
   const dlg = $("#dlgQuality"); $("#qBody").textContent = "Running…"; dlg.showModal();
   try {
@@ -480,6 +524,7 @@ async function qualityCheck() {
     }
     const j = await post("/api/dst/report", {data: raw, name, hoop_w: S.doc.hoop.w, hoop_h: S.doc.hoop.h, thread: S.doc.thread || "40wt"});
     renderQuality(j, "Quality check - " + name + (S.viewDstB64 ? " (viewed file)" : ""));
+    if (!S.viewDstB64) { const cl = await post("/api/checklist", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", checklistHtml(cl)); }
   } catch (e) { $("#qBody").textContent = "Check failed: " + e.message; }
 }
 async function viewDst(file) {
@@ -542,10 +587,10 @@ function renderProps() {
   if (o.type === "fill") { const pt = P(o, "pattern");
     if (pt === "tatami") h += field("Direction °", "angle", o, {step: 5, tip: "Stitch angle"});
     if (pt !== "cross") h += field("Row spacing mm", "spacing", o, {step: .05, min: .2, pro: 1, tip: "Smaller = denser"}) + field("Stitch length mm", "stitch_len", o, {step: .5, min: 1, pro: 1});
-    if (pt === "tatami") h += field("Underlay", "underlay", o, {options: ["tatami", "edge", "edge+tatami", "none"], pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1, tip: "Extra length to offset fabric pull-in"});
+    if (pt === "tatami") h += field("Underlay", "underlay", o, {options: ["tatami", "edge", "edge+tatami", "none"], pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1, tip: "Extra length to offset fabric pull-in"}) + field("Region order (fewer trims)", "regions", o, {type: "check", pro: 1});
     if (pt !== "tatami") h += `<div class="note">${pt === "contour" ? "Concentric rings; shapes with holes or very complex outlines fall back to tatami (see Checks)." : "Cross-stitch grid; no underlay."}</div>`; }
-  if (o.type === "satin") h += field("Width mm", "width", o, {step: .25, min: .8}) + field("Underlay", "underlay", o, {options: ["auto", "center", "edge", "none"], pro: 1}) + field("Spacing mm", "spacing", o, {step: .05, min: .2, pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1}) + field("Auto-split long stitches", "auto_split", o, {type: "check", pro: 1, tip: "Splits stitches longer than the machine max stitch so wide satin stays clean"});
-  if (o.type === "column") h += field("Underlay", "underlay", o, {options: ["auto", "center", "edge", "none"], pro: 1}) + field("Spacing mm", "spacing", o, {step: .05, min: .2, pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1}) + field("Auto-split long stitches", "auto_split", o, {type: "check", pro: 1, tip: "Splits stitches longer than the machine max stitch so wide satin stays clean"}) + `<div class="note">Two-rail satin: stitches run edge to edge. Drag the rail points to reshape.</div>`;
+  if (o.type === "satin") h += field("Width mm", "width", o, {step: .25, min: .8}) + field("Underlay", "underlay", o, {options: ["auto", "none", "center", "edge", "zigzag", "edge+zigzag"], pro: 1}) + field("Curve shortening", "shorten", o, {type: "check", pro: 1}) + field("Spacing mm", "spacing", o, {step: .05, min: .2, pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1}) + field("Auto-split long stitches", "auto_split", o, {type: "check", pro: 1, tip: "Splits stitches longer than the machine max stitch so wide satin stays clean"});
+  if (o.type === "column") h += field("Underlay", "underlay", o, {options: ["auto", "none", "center", "edge", "zigzag", "edge+zigzag"], pro: 1}) + field("Curve shortening", "shorten", o, {type: "check", pro: 1}) + field("Spacing mm", "spacing", o, {step: .05, min: .2, pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1}) + field("Auto-split long stitches", "auto_split", o, {type: "check", pro: 1, tip: "Splits stitches longer than the machine max stitch so wide satin stays clean"}) + `<div class="note">Two-rail satin: stitches run edge to edge. Drag the rail points to reshape.</div>`;
   if (o.type === "run") h += field("Stitch length mm", "stitch_len", o, {step: .5, min: .5}) + field("Closed loop", "closed", o, {type: "check", direct: 1});
   if (o.type === "text") h += `<div class="row"><label>Text</label><input type="text" data-k="text" data-d=1 value="${esc(o.text)}"></div>` + field("Height mm", "height", o, {direct: 1, step: .5, min: 3}) + field("Letter spacing", "spacing", o, {step: .1, min: .5}) + field("Stroke width mm", "width", o, {step: .25, min: 1, tip: "Satin column width of each stroke"}) + `<div class="note">Built-in single-line satin font (A–Z, 0–9, - . !). Minimum practical height ≈ 5 mm.</div>`;
   if (o.type === "applique") h += field("Cover width mm", "width", o, {step: .25, min: 1.5}) + `<div class="note">Stitches: placement line → tack-down → satin cover. The machine pauses at the colour change so you can lay fabric.</div>`;
@@ -689,7 +734,13 @@ $("#libq").oninput = e => { libQ = e.target.value; renderLibrary(); };
 $("#libcats").onclick = e => { if (e.target.dataset.cat) { libCat = e.target.dataset.cat; renderLibrary(); } };
 $("#libgrid").onclick = e => { const b = e.target.closest("button[data-act]"); if (b) openFromLibrary(b.dataset.id, b.dataset.act === "3d"); };
 $("#v3fab").onchange = e => Viewer3D.setFabric(e.target.value); $("#v3reset").onclick = () => Viewer3D.reset();
-$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bExp").onclick = exportExp; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => { $("#mMore").open = false; $("#fileDst").click(); }; $("#bQuality").onclick = qualityCheck; $("#bSet").onclick = openSet; $("#setGo").onclick = e => { e.preventDefault(); generateSet(); };
+$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bExp").onclick = exportExp; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => { $("#mMore").open = false; $("#fileDst").click(); }; $("#bQuality").onclick = qualityCheck; $("#bSet").onclick = openSet; $("#bWizard").onclick = openWizard;
+$("#wzGo").onclick = e => { e.preventDefault(); wizardRun(); };
+$("#dlgWizard").addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (!b) return; e.preventDefault(); const n = +b.dataset.go; if (n > 2 && !WZ.res) return; if (n === 6) renderTestSteps(); wzStep(n); });
+$("#wzExport").onclick = e => { e.preventDefault(); exportDst(); };
+$("#wzSet").onclick = e => { e.preventDefault(); $("#dlgWizard").close(); openSet(); };
+$("#wzEdit").onclick = e => { e.preventDefault(); $("#dlgWizard").close(); const b = document.querySelector('#modeSeg [data-mode="pro"]'); if (b) b.click(); };
+$("#wzSheet").onclick = e => { e.preventDefault(); productionSheet(); }; $("#setGo").onclick = e => { e.preventDefault(); generateSet(); };
 $("#mMore .pop").addEventListener("click", e => { if (e.target.closest("button")) setTimeout(() => $("#mMore").open = false, 0); });
 document.addEventListener("click", e => { const m = $("#mMore"); if (m.open && !m.contains(e.target)) m.open = false; }); $("#fileDst").onchange = e => { const f = e.target.files[0]; if (f) viewDst(f); e.target.value = ""; };
 $("#bNew").onclick = () => { if (!S.doc.objects.length || confirm("Discard the current design?")) loadDoc(newDoc()); };
