@@ -5,7 +5,7 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 **Zero third-party runtime dependencies** (Pillow + NumPy only for optional image import).
 
 ## Designs
-`designs/peacock_arch/` – hand-digitized peacock-in-arch blouse panel (DST + project + sheet + stitch-out guide). Regenerate with `python3 tools/make_peacock_panel.py`.
+`designs/peacock_arch/` – hand-digitized peacock-in-arch blouse panel (DST + project + sheet + stitch-out guide). Regenerate with `python3 tools/make_peacock_panel.py`. `designs/peacock_sleeve/` has the scaled sleeve-end pair (A + true mirror B).
 
 ## Docs
 [User guide](docs/user-guide.md) · [Architecture](docs/architecture.md) · [Status audit](docs/status.md) · [Roadmap](docs/roadmap.md) · [Stitch-out test](docs/testing/README.md)

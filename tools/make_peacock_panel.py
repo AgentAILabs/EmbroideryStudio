@@ -76,6 +76,39 @@ def tube(center, w0, w1, color, name):
     return {"id": oid("tube"), "type": "column", "color": color, "name": name, "rail1": r1, "rail2": r2, "smooth": True, "params": {"underlay": "center"}}
 
 
+def transform(d, scale=1.0, flip=False):
+    """Scale all geometry about the origin and/or mirror it left-right (a true mirrored copy for the other sleeve).
+    Stitch parameters (satin widths, spacing) and bead/stone sizes stay physical - only positions are scaled."""
+    import copy
+    d = copy.deepcopy(d)
+    f = lambda p: [round((-p[0] if flip else p[0]) * scale, 3), round(p[1] * scale, 3)]
+    for o in d["objects"]:
+        if flip and o["type"] == "fill":                       # a mirrored fill must run in the mirrored direction (80 deg -> 100 deg)
+            o["params"] = dict(o.get("params", {}), angle=(180.0 - float(o.get("params", {}).get("angle", 45.0))) % 180.0)
+        if "rings" in o:
+            o["rings"] = [[f(p) for p in r] for r in o["rings"]]
+        for k in ("points", "rail1", "rail2"):
+            if k in o:
+                o[k] = [f(p) for p in o[k]]
+    return d
+
+
+MIN_COLUMN_MM = 1.5      # a satin column narrower than this on average is not reliably stitchable
+
+
+def drop_unstitchable(d, min_column_mm=MIN_COLUMN_MM):
+    """Remove details that a scale-down pushed below the minimum stitchable size. Returns (design, [names dropped])."""
+    dropped, keep = [], []
+    for o in d["objects"]:
+        if o["type"] == "column":
+            n = max(1, len(o["rail1"]) - 2)
+            w = sum(math.dist(a, b) for a, b in zip(o["rail1"][1:-1], o["rail2"][1:-1])) / n
+            if w < min_column_mm:
+                dropped.append(o["name"]); continue
+        keep.append(o)
+    return dict(d, objects=keep), dropped
+
+
 def build():
     _n[0] = 0
     O = []
@@ -139,20 +172,37 @@ def build():
     return {"name": "peacock_arch_panel", "hoop": dict(HOOP), "fabric": "silk", "stabiliser": "cut-away", "objects": stitched + placeholders}
 
 
-if __name__ == "__main__":
-    out = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "designs" / "peacock_arch"
-    out.mkdir(parents=True, exist_ok=True)
-    d = build()
+def cli(argv):
+    import argparse
+    ap = argparse.ArgumentParser(description="Peacock-in-arch panel -> DST + project + sheet + package files")
+    ap.add_argument("out_dir", nargs="?", default=str(ROOT / "designs" / "peacock_arch"))
+    ap.add_argument("--scale", type=float, default=1.0, help="geometry scale (sleeve panel ~0.65)")
+    ap.add_argument("--mirror", action="store_true", help="mirror left-right (the other sleeve)")
+    ap.add_argument("--name", default="peacock_arch_panel")
+    a = ap.parse_args(argv)
+    if not 0.3 <= a.scale <= 1.5:
+        ap.error("--scale must be between 0.3 and 1.5")
+    out = Path(a.out_dir); out.mkdir(parents=True, exist_ok=True)
+    d = transform(build(), a.scale, a.mirror); d["name"] = a.name
+    d, dropped = drop_unstitchable(d)
+    if dropped:
+        print(f"OMITTED (below {MIN_COLUMN_MM} mm after scaling): {', '.join(dropped)}")
     p, notes, st = generate(d); rep = run_checks(d, p)
     for i in rep.issues: print(i.severity.upper(), i.code, i.message)
     for n in notes: print("NOTE", n)
-    print(f"stitches={st['stitches']} colours={st['color_changes'] + 1} trims={st['trims']} size={st['width_mm']}x{st['height_mm']} mm est={st['est_minutes']} min")
+    print(f"{a.name}: stitches={st['stitches']} colours={st['color_changes'] + 1} trims={st['trims']} size={st['width_mm']}x{st['height_mm']} mm est={st['est_minutes']} min")
     if not rep.ok:
-        sys.exit(2)
+        return 2
     data, err = sheet.package(d)
-    if err: print(err); sys.exit(2)
+    if err:
+        print(err); return 2
     import zipfile, io
     z = zipfile.ZipFile(io.BytesIO(data))
     for n in z.namelist():
         (out / n).write_bytes(z.read(n))
     print("wrote", sorted(z.namelist()))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(cli(sys.argv[1:]))

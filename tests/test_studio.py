@@ -1063,3 +1063,55 @@ class PeacockPanelDesignTests(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             for name in ("peacock_arch_panel.dst", "peacock_arch_panel.esproj"):
                 self.assertEqual((Path(t) / name).read_bytes(), (self.root / "designs" / "peacock_arch" / name).read_bytes(), name + " in the repo is stale: rerun tools/make_peacock_panel.py")
+
+
+class PeacockSleeveTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        root = Path(__file__).resolve().parent.parent
+        spec = importlib.util.spec_from_file_location("peacock_s", root / "tools" / "make_peacock_panel.py")
+        cls.m = importlib.util.module_from_spec(spec); spec.loader.exec_module(cls.m)
+        base = cls.m.build()
+        cls.a, cls.dropped = cls.m.drop_unstitchable(cls.m.transform(base, 0.65, False))
+        cls.b, _ = cls.m.drop_unstitchable(cls.m.transform(base, 0.65, True))
+        cls.root = root
+    def test_scaled_sleeve_is_clean_and_the_right_size(self):
+        p, n, st = generate(self.a); rep = run_checks(self.a, p)
+        self.assertTrue(rep.ok); self.assertEqual([i.message for i in rep.issues], []); self.assertEqual(n, [])
+        self.assertTrue(60 < st["width_mm"] < 66 and 90 < st["height_mm"] < 97, (st["width_mm"], st["height_mm"]))
+        self.assertEqual(st["color_changes"], 2)
+    def test_only_sub_minimum_details_are_dropped_and_they_are_reported(self):
+        self.assertTrue(self.dropped and all(x.startswith("Feather eye") for x in self.dropped), self.dropped)
+        full, none = self.m.drop_unstitchable(self.m.build()); self.assertEqual(none, [])                  # at full size nothing is dropped
+    def test_mirror_is_exact_mirror_of_geometry_and_fill_direction(self):
+        ka = {o["name"]: o for o in self.a["objects"]}
+        for o in self.b["objects"]:
+            src = ka[o["name"]]
+            for key in ("points", "rail1", "rail2"):
+                if key in o: self.assertEqual(o[key], [[-x if x else 0.0, y] for x, y in src[key]], (o["name"], key))
+            if o["type"] == "fill":
+                self.assertEqual(o["params"]["angle"], (180 - src["params"].get("angle", 45)) % 180, o["name"])
+        self.assertEqual(sorted(ka), sorted(o["name"] for o in self.b["objects"]))
+    def test_mirrored_design_is_a_mirror_in_the_stitches_too(self):
+        pa, pb = generate(self.a)[0], generate(self.b)[0]
+        ba, bb = pa.bbox(), pb.bbox()
+        self.assertAlmostEqual(ba[0], -bb[2], delta=0.8); self.assertAlmostEqual(ba[2], -bb[0], delta=0.8); self.assertAlmostEqual(ba[1], bb[1], delta=0.8)
+        sa, sb = generate(self.a)[2], generate(self.b)[2]
+        self.assertAlmostEqual(sa["stitches"], sb["stitches"], delta=sa["stitches"] * 0.02)                # same amount of embroidery
+        self.assertEqual([t["hex"] for t in sa["threads"]], [t["hex"] for t in sb["threads"]])
+    def test_scale_does_not_change_stitch_parameters_or_bead_sizes(self):
+        for o in self.a["objects"]:
+            if o["type"] == "satin" and o["name"] == "Outer arch": self.assertEqual(o["params"]["width"], 2.4)
+            if o["type"] == "embellishment": self.assertIn(o["size_mm"], (2.0, 2.5, 3.0))
+    def test_cli_rejects_nonsense_scale(self):
+        import subprocess
+        r = subprocess.run([sys.executable, str(self.root / "tools" / "make_peacock_panel.py"), "/tmp/x_unused", "--scale", "9"], capture_output=True, text=True)
+        self.assertNotEqual(r.returncode, 0); self.assertIn("--scale", r.stderr)
+    def test_committed_sleeve_files_match_a_fresh_build(self):
+        import tempfile, subprocess
+        for sub, extra, name in (("A", [], "peacock_sleeve_A"), ("B", ["--mirror"], "peacock_sleeve_B_mirrored")):
+            with tempfile.TemporaryDirectory() as t:
+                r = subprocess.run([sys.executable, str(self.root / "tools" / "make_peacock_panel.py"), t, "--scale", "0.65", "--name", name] + extra, capture_output=True, text=True)
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                self.assertEqual((Path(t) / f"{name}.dst").read_bytes(), (self.root / "designs" / "peacock_sleeve" / sub / f"{name}.dst").read_bytes(), f"{name}.dst is stale: rerun tools/make_peacock_panel.py")
