@@ -54,6 +54,9 @@ def designs():
         "peacock_sleeve_mirrored": peacock_sleeve_mirrored(),    # scaled + mirrored production variant
         "peacock_panel": peacock(),                       # the real production design: ~70 objects, 3 colours, locks and trims
         **library_samples(),
+        "fine_thread_120": {"name": "f120", "hoop": {"w": 100, "h": 100}, "thread": "120", "objects": [
+            {"id": "c", "type": "column", "color": "#c00", "rail1": [[i * 3.0, 0] for i in range(12)], "rail2": [[i * 3.0, 2.5] for i in range(12)], "params": {"underlay": "center"}},
+            {"id": "f", "type": "fill", "color": "#00c", "rings": [[[0, 10], [30, 10], [30, 25], [0, 25]]]}]},
         "far_jump": {"name": "far", "hoop": {"w": 200, "h": 200}, "objects": [
             {"id": "a", "type": "run", "color": "#f00", "points": [[0, 0], [10, 0]]},
             {"id": "b", "type": "run", "color": "#00f", "points": [[90, 90], [100, 90]]}]},
@@ -147,3 +150,22 @@ class PyembroideryExpCrossCheck(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipIf(pyembroidery is None, "pyembroidery not installed (CI installs it)")
+class RealWorldLayoutCrossCheck(unittest.TestCase):
+    """Real files end END + 0x1A. Our reader and pyembroidery must agree on them, and the verifier's stage 2 must pass."""
+    def test_trailing_eof_marker_read_identically(self):
+        from stitchcraft_engine import dst_verify
+        d = designs()["multi"]; data = write_dst(generate(d)[0]).data + b"\x1a"
+        with tempfile.TemporaryDirectory() as t:
+            f = Path(t) / "x.dst"; f.write_bytes(data); theirs = pyembroidery.read(str(f))
+        self.assertIsNotNone(theirs)
+        n_theirs = sum(1 for x, y, c in theirs.stitches if (c & pyembroidery.COMMAND_MASK) == pyembroidery.STITCH)
+        ours = read_dst(data); n_ours = sum(1 for _, _, c in ours.records if c == "stitch")
+        self.assertEqual(n_theirs, n_ours)
+        r = dst_verify.verify(data, (100, 100))
+        stage2 = next(s for s in r["stages"] if s["stage"].startswith("2"))
+        self.assertEqual(stage2["result"], "PASS", stage2)
+        self.assertTrue(any("independent decoder" in c["what"] and "pyembroidery=" in c["evidence"] for c in stage2["checks"]))
+

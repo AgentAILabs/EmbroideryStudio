@@ -932,7 +932,7 @@ class TrimLockTests(unittest.TestCase):
         d["machine"] = machine_kw; return d
     def test_defaults_are_the_professional_sequence(self):
         from stitchcraft_engine.design import machine
-        m = machine({}); self.assertEqual((m["lock_len"], m["trim_at_color_change"], m["trim_at_end"]), (0.6, 1, 1))
+        m = machine({}); self.assertEqual((m["lock_len"], m["trim_at_color_change"], m["trim_at_end"]), (1.0, 1, 1))
         p, _, st = generate(self.design()); s = _seq(p)
         self.assertGreater(st["lock_stitches"], 0); self.assertIn(" T(", s); self.assertTrue(s.rstrip().endswith(")") and " E(" in s)
         from stitchcraft_engine.model import Cmd
@@ -944,7 +944,7 @@ class TrimLockTests(unittest.TestCase):
         self.assertNotEqual(kinds[ci - 1], Cmd.TRIM); self.assertNotEqual(kinds[-2], Cmd.TRIM)
     def test_machine_profile_clamps(self):
         from stitchcraft_engine.design import machine
-        for given, want in ((0.1, 0.4), (5, 1.5), (0, 0.0), (-3, 0.0), ("x", 0.6), (0.8, 0.8)):
+        for given, want in ((0.1, 0.4), (5, 1.5), (0, 0.0), (-3, 0.0), ("x", 1.0), (0.8, 0.8)):
             self.assertEqual(machine({"machine": {"lock_len": given}})["lock_len"], want, given)
         self.assertEqual(machine({"machine": {"trim_at_end": 0}})["trim_at_end"], 0)
     def test_dst_has_the_trim_jumps_before_colour_change_and_end(self):
@@ -1257,12 +1257,18 @@ class DenseVertexRunningStitchTests(unittest.TestCase):
         out = running_stitch(pts, 2.5)
         self.assertIn((10.0, 0.0), [(round(x, 6), round(y, 6)) for x, y in out]); self.assertIn((10.0, 10.0), [(round(x, 6), round(y, 6)) for x, y in out])
     def test_delivered_peacock_files_are_still_byte_identical(self):
-        import importlib.util, hashlib
+        import hashlib
+        root = Path(__file__).resolve().parent.parent
+        v1 = (root / "designs" / "peacock_arch" / "v1_tested" / "peacock_arch_panel_v1.dst").read_bytes()
+        self.assertEqual(hashlib.sha256(v1).hexdigest(), "368c90c4ad38da1bc5e140cc25675e66244bb9361443c9c999764d3f7d0dcdae")   # the file the user first stitched
+        self.assertTrue(read_dst(v1).ends_properly)
+    def test_v2_peacock_is_reproducible_from_the_generator(self):
+        import importlib.util
         root = Path(__file__).resolve().parent.parent
         spec = importlib.util.spec_from_file_location("pk_id", root / "tools" / "make_peacock_panel.py"); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-        self.assertEqual(hashlib.sha256(write_dst(generate(m.build())[0]).data).hexdigest(), "368c90c4ad38da1bc5e140cc25675e66244bb9361443c9c999764d3f7d0dcdae")   # the file the user is stitching
+        self.assertEqual(write_dst(generate(m.build())[0]).data, (root / "designs" / "peacock_arch" / "peacock_arch_panel.dst").read_bytes())
         a, _ = m.drop_unstitchable(m.transform(m.build(), 0.65, False)); a["name"] = "peacock_sleeve_A"
-        self.assertEqual(hashlib.sha256(write_dst(generate(a)[0]).data).hexdigest(), "4a7b48d7ca0177b73ee5ed39b89eef16a7dffe7640eedc3447cd77fe17b0833f")
+        self.assertEqual(write_dst(generate(a)[0]).data, (root / "designs" / "peacock_sleeve" / "A" / "peacock_sleeve_A.dst").read_bytes())
 
 class OrderRuleScopeTests(unittest.TestCase):
     def test_columns_before_a_fill_are_fine_but_satin_and_run_are_not(self):

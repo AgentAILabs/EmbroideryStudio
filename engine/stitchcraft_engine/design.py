@@ -15,7 +15,7 @@ from .font import layout_text
 from .geometry import polygon_area, smooth, inset_ring, rotate_closed, ring_self_intersections
 from .model import Cmd, Pattern, ThreadColor
 from .stitches import (DigitizingError, satin_from_rails, contour_fill, cross_fill, center_walk_underlay, edge_walk_underlay, running_stitch,
-                       satin_stitch, tatami_fill)
+                       satin_stitch, tatami_fill, underlay_path)
 from .validate import validate
 
 DEFAULTS = {
@@ -31,6 +31,15 @@ FABRICS = {  # unverified starting points; flagged as such in the UI until stitc
     "georgette": {"pull_comp": 0.35, "spacing": 0.45}, "velvet": {"pull_comp": 0.4, "spacing": 0.38},
     "denim": {"pull_comp": 0.1, "spacing": 0.40}, "knit": {"pull_comp": 0.4, "spacing": 0.42},
 }
+# Thread-weight presets. `spacing` is the stitch-line spacing in mm (a satin advances this far per stitch); a line of thread covers
+# about its own diameter, so finer thread needs closer lines: 40 wt (~0.35-0.4 mm) -> 0.40, 60 wt -> 0.30, 120/2 (~0.2 mm) -> 0.22.
+# Derived from measuring 20 commercial blouse-work DST files (median 0.21 mm advance, 1.0 mm tie-in) - see docs/dst-analysis.md.
+THREADS = {
+    "40wt":  {"label": "40 wt (standard)", "k": 1.0,  "lock_len": None},
+    "60wt":  {"label": "60 wt (fine)",     "k": 0.75, "lock_len": 0.8},
+    "120":   {"label": "120/2 (blouse / zari-fine)", "k": 0.55, "lock_len": 1.0},
+}
+MIN_SPACING = 0.18
 SPM = 700.0           # assumed machine speed, stitches per minute
 COLOR_CHANGE_S, TRIM_S = 20.0, 6.0
 
@@ -79,13 +88,13 @@ def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0):
     mid = [((p[0] + q[0]) / 2, (p[1] + q[1]) / 2) for p, q in zip(a, b)]
     if underlay == "auto":
         underlay = "center" if width >= 2.0 else "none"
-    under = [center_walk_underlay(mid)] if underlay == "center" else \
-            [running_stitch(a, 2.5), running_stitch(b[::-1], 2.5)] if underlay == "edge" else []
+    under = [center_walk_underlay(underlay_path(mid))] if underlay == "center" else \
+            [running_stitch(underlay_path(a), 2.5), running_stitch(underlay_path(b[::-1]), 2.5)] if underlay == "edge" else []
     return StitchObject(oid, "satin", th, [satin_from_rails(a, b, spacing, split)], under)
 
 
 MACHINE_DEFAULTS = {"max_stitch": 7.0, "min_stitch": 0.3, "trim_distance": 3.0, "trim_jumps": 3,
-                    "lock_len": 0.6,              # tie-in / tie-off stitch length in mm (0 = no lock stitches)
+                    "lock_len": 1.0,              # tie-in / tie-off stitch length in mm (0 = no lock stitches); production files use 1.0 mm
                     "trim_at_color_change": 1, "trim_at_end": 1,
                     "smart_direction": 1}         # start a run at its nearer end when that turns a trim into a carried jump
 
@@ -131,6 +140,16 @@ def generate(design: dict, trim_distance: Optional[float] = None):
     objs: List[StitchObject] = []
     notes: List[str] = []
     mach = machine(design)
+    th = THREADS.get(design.get("thread") or "40wt")
+    if th is None:
+        raise ValueError("unknown thread preset %r (use %s)" % (design.get("thread"), ", ".join(THREADS)))
+    if th["k"] != 1.0:                                   # closer stitch lines for finer thread, unless an object sets its own
+        design = dict(design, objects=[
+            dict(ob, params=dict(ob.get("params") or {}, spacing=max(MIN_SPACING, round(DEFAULTS[ob["type"]]["spacing"] * th["k"], 3))))
+            if ob.get("type") in ("fill", "satin", "column", "applique") and "spacing" not in (ob.get("params") or {}) else ob
+            for ob in design.get("objects", [])])
+    if th["lock_len"] and "lock_len" not in (design.get("machine") or {}):
+        mach["lock_len"] = th["lock_len"]
     split_of = lambda ob: (mach["max_stitch"] if ob.get("params", {}).get("auto_split", True) else 0.0)
     for ob in design.get("objects", []):
         if ob.get("hidden") or ob.get("guide") or ob.get("type") == "embellishment":
@@ -278,7 +297,7 @@ def stats(p: Pattern, design: Optional[dict] = None) -> dict:
     return {
         "lock_stitches": p.lock_stitches,
         "embellishments": emb,
-        "fabric": (design or {}).get("fabric"), "stabiliser": (design or {}).get("stabiliser"),
+        "fabric": (design or {}).get("fabric"), "thread": (design or {}).get("thread") or "40wt", "stabiliser": (design or {}).get("stabiliser"),
         "stitches": c["stitch"], "jumps": c["jump"], "trims": c["trim"], "color_changes": c["color_change"],
         "width_mm": round(bb[2] - bb[0], 2) if bb else 0, "height_mm": round(bb[3] - bb[1], 2) if bb else 0,
         "est_minutes": round(seconds / 60, 1), "assumed_spm": SPM,
@@ -290,5 +309,6 @@ def stats(p: Pattern, design: Optional[dict] = None) -> dict:
 def run_checks(design: dict, pattern: Pattern):
     hoop = design.get("hoop", {})
     m = machine(design)
+    k = THREADS.get(design.get("thread") or "40wt", THREADS["40wt"])["k"]
     return validate(pattern, float(hoop.get("w", 100)), float(hoop.get("h", 100)), float(hoop.get("margin", 3)),
-                    max_stitch=m["max_stitch"], min_stitch=m["min_stitch"])
+                    max_stitch=m["max_stitch"], min_stitch=m["min_stitch"], max_per_mm2=round(16.0 / k, 1))   # finer thread -> closer lines -> more penetrations per mm2

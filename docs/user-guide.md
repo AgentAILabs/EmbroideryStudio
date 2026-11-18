@@ -62,6 +62,11 @@ The engine also **starts a run at its nearer end** when that turns a trim into a
 Appliqué passes (placement, tack-down, cover) are started a third of the way round the outline from each other so their locks do not stack into one over-dense spot.
 The production sheet lists the lock length, how many lock stitches were added, and the trim policy.
 
+## Thread weight and the quality check
+* **Thread weight** (Design panel): 40 wt (standard, 0.40 mm line spacing), 60 wt (0.30) or **120/2 (0.22, blouse / fine thread)**. Finer thread needs closer lines or fabric shows through. Objects with their own spacing keep it. Tie stitches become 1.0 mm for 60 wt / 120/2.
+* **Quality check** (top bar): exports the design in memory and runs six stages (container, encoding, machine limits, stitch quality, thread path, simulation). PASS / WARN / FAIL with the evidence for each line. If you opened a .dst through *More ▾ → Open DST to inspect*, the check runs on that file instead - any DST from any source.
+* Details of what is checked and why: `docs/dst-analysis.md`.
+
 ## Importing artwork
 * **SVG**: fills → fills, strokes → satin (1–7 mm) or running. Unsupported path commands (arcs, S/T) and transforms are rejected/flagged instead of silently distorted. Files with DOCTYPE/entity declarations are rejected.
 * **PNG/JPG** (flat colour, ≤ 8 colours): an **Import** dialog asks for the real width in mm, the number of thread colours and a quality (Draft / Standard / High). The image is denoised, reduced to a thread palette (near-duplicate shades merged), edges are traced at sub-pixel accuracy and smoothed, and **every separate shape becomes its own editable object**: large areas → fill (angle follows the shape), narrow bands (< 5.5 mm) → satin column, hairlines (< 1 mm) → running stitch. Holes stay empty; specks and antialiasing fringes are dropped. Afterwards a summary tells you what happened (objects, colours merged, resolution in dpi, photo detected). Use **High** to keep small details, **Draft** for a quick look. Photos and gradients are flagged and still digitize badly - use a flat-colour image or SVG.

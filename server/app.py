@@ -26,7 +26,7 @@ from stitchcraft_engine.exp import write_exp                                    
 from stitchcraft_engine.model import Cmd                                        # noqa: E402
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
 from stitchcraft_engine.raster import digitize_image, enhance_image, RasterUnavailable        # noqa: E402
-from stitchcraft_engine import templates                                        # noqa: E402
+from stitchcraft_engine import templates, dst_analyze, dst_verify                                        # noqa: E402
 from stitchcraft_engine.outline import column_from_outline                      # noqa: E402
 import sheet                                                                   # noqa: E402
 
@@ -135,6 +135,22 @@ def api_view_dst(d):
             out.append([x / 10, -y / 10, 1 if cmd == "jump" else 0, th])
     return {"stitches": out, "threads": [pal[i % len(pal)] for i in range(th + 1)], "header": f.header,
             "color_changes": f.color_changes, "ends_properly": f.ends_properly}
+
+
+def api_dst_report(d):
+    """Analysis + six-stage verification of any DST (ours or a third party's): metrics and PASS/WARN/FAIL with evidence."""
+    raw = base64.b64decode(d["data"])
+    if len(raw) > 30_000_000:
+        raise ValueError("file too large")
+    try:
+        f = read_dst(raw)
+    except Exception as e:  # noqa: BLE001
+        raise ValueError(f"not a readable DST file: {e}") from e
+    if len(f.records) > 2_000_000:
+        raise ValueError("file too large")
+    k = {"40wt": 1.0, "60wt": 0.75, "120": 0.55}.get(str(d.get("thread", "40wt")), 1.0)
+    hoop = (float(d.get("hoop_w", 200)), float(d.get("hoop_h", 300)))
+    return {"analysis": dst_analyze.analyze(raw, str(d.get("name", ""))), "verify": dst_verify.verify(raw, hoop, k, int(d.get("needles", 15)), str(d.get("name", "")))}
 
 
 def api_exp(d):
@@ -280,6 +296,8 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_svg(d))
             if path == "/api/import/raster":
                 return self._send(200, api_raster(d))
+            if path == "/api/dst/report":
+                return self._send(200, api_dst_report(d))
             if path == "/api/enhance":
                 return self._send(200, api_enhance(d))
             self._send(404, {"error": "not found"})

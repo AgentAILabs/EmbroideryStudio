@@ -1,10 +1,11 @@
-EmbroideryStudio export package · 2026-11-18T15:22:29
+EmbroideryStudio export package · 2026-11-18T17:46:49
 design: peacock_sleeve_A
-stitches: 2476  colour changes: 2
+stitches: 2252  colour changes: 2
 trim jumps: 3
-DST records: 2656
-DST sha256: 4a7b48d7ca0177b73ee5ed39b89eef16a7dffe7640eedc3447cd77fe17b0833f
+DST records: 2432
+DST sha256: d0f12aeb87fbcc06e357d427175c99e029ae0b9a0d9340028ad130ff83106fcc
 
+peacock_sleeve_A.exp: Melco EXP of the same stitches; trims are written as 3 zero-move jumps (no agreed trim opcode in EXP). Read back by pyembroidery in CI; not machine-tested.
 NOT machine-tested. Stitch a sample on matching fabric and stabiliser before production use.
 
 CHECKS

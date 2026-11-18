@@ -179,11 +179,14 @@ def cli(argv):
     ap.add_argument("--scale", type=float, default=1.0, help="geometry scale (sleeve panel ~0.65)")
     ap.add_argument("--mirror", action="store_true", help="mirror left-right (the other sleeve)")
     ap.add_argument("--name", default="peacock_arch_panel")
+    ap.add_argument("--thread", default="40wt", choices=["40wt", "60wt", "120"], help="thread weight: sets stitch-line spacing and tie length (120 = fine blouse thread)")
     a = ap.parse_args(argv)
     if not 0.3 <= a.scale <= 1.5:
         ap.error("--scale must be between 0.3 and 1.5")
     out = Path(a.out_dir); out.mkdir(parents=True, exist_ok=True)
     d = transform(build(), a.scale, a.mirror); d["name"] = a.name
+    if a.thread != "40wt":
+        d["thread"] = a.thread
     d, dropped = drop_unstitchable(d)
     if dropped:
         print(f"OMITTED (below {MIN_COLUMN_MM} mm after scaling): {', '.join(dropped)}")
