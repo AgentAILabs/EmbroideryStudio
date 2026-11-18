@@ -133,7 +133,7 @@ def verify(data: bytes, hoop=(100.0, 100.0), thread_k: float = 1.0, needles: int
     c.append(("PASS" if a["dens_max"] <= lim else "WARN", f"needle penetrations per mm2 <= {lim:.0f}", f"max {a['dens_max']}, p90 {a['dens_p90']}"))
     c.append(("PASS" if a["cluster_max_in_0.2mm"] <= 12 else "FAIL", "no thread-break / fabric-cut cluster (<= 12 penetrations in 0.2 mm)", f"max {a['cluster_max_in_0.2mm']}"))
     adv, n = satin_advance(runs)
-    if n >= 30:
+    if n >= max(30, 0.08 * a['stitches']):          # only judge satin spacing when the design is really satin (fill rows also zig-zag)
         line = adv / 2.0
         lo, hi = 0.15, 0.55
         c.append(("PASS" if lo <= line <= hi else "WARN", f"satin line spacing {lo}-{hi} mm (coverage vs. thread-break)",
