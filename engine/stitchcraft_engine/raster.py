@@ -509,3 +509,70 @@ def digitize_raster(data: bytes, width_mm: float, max_colors: int = 6, min_area_
         return _digitize_legacy(data, width_mm, max_colors, min_area_mm2, simplify_mm)
     r = digitize_image(data, width_mm, max_colors, quality)
     return r["objects"], r["notes"], r["size_mm"]
+
+
+# ---------------------------------------------------------------- image enhancer (upscale + clean-up)
+def sharpness(im) -> float:
+    """Blur metric: variance of the Laplacian on a grey copy normalised to 256 px wide (higher = sharper)."""
+    import numpy as np
+    from PIL import Image
+    g = im.convert("L"); g = g.resize((256, max(1, round(256 * g.height / g.width))), Image.BILINEAR)
+    a = np.asarray(g, dtype=float)
+    lap = a[1:-1, 1:-1] * 4 - a[:-2, 1:-1] - a[2:, 1:-1] - a[1:-1, :-2] - a[1:-1, 2:]
+    return float(lap.var())
+
+
+_ENH = {"blur": 0.6, "amount": 60, "radius": 1.4, "gain": 6.0}     # tuned on tools/image_bench.py (blurred + low-res variants)
+
+
+def enhance_image(data: bytes, scale: float = 2.0, mode: str = "auto"):
+    """Upscale a PNG/JPEG (default 200 %) and clean it up for tracing. Returns (png_bytes, info).
+    Honest limits: no method invents detail that is not in the picture. For flat-colour artwork (logos, lettering) this
+    gives sharp, noise-free edges at the new size; photos are only resampled and gently sharpened.
+    mode: auto (clean-up only if the image is blurry or low-resolution; crisp images are just resampled) | sharpen (always) | resample (plain high-quality resize)."""
+    if not (data[:8] == b"\x89PNG\r\n\x1a\n" or data[:3] == b"\xff\xd8\xff"):
+        raise ValueError("unsupported image type: only PNG and JPEG are accepted")
+    if not 1.0 <= scale <= 4.0:
+        raise ValueError("scale must be between 1 and 4 (100 % - 400 %)")
+    if mode not in ("auto", "sharpen", "resample"):
+        raise ValueError("mode must be auto, sharpen or resample")
+    try:
+        import io
+        import numpy as np
+        from PIL import Image, ImageFilter
+    except ImportError as e:
+        raise RasterUnavailable("the image enhancer needs the optional Pillow and NumPy packages") from e
+    Image.MAX_IMAGE_PIXELS = 40_000_000
+    im = Image.open(io.BytesIO(data)); is_jpeg = data[:3] == b"\xff\xd8\xff"
+    if im.mode in ("RGBA", "LA", "P"):
+        im = im.convert("RGBA"); bg = Image.new("RGBA", im.size, (255, 255, 255, 255)); im = Image.alpha_composite(bg, im)
+    im = im.convert("RGB")
+    w, h = im.size
+    if w * h * scale * scale > 36_000_000:
+        raise ValueError("result would exceed 36 megapixels; use a smaller scale or a smaller image")
+    s0 = sharpness(im)
+    arr = np.asarray(im.resize((96, max(1, round(96 * h / w))))); photo = len({(int(p[0]) >> 4, int(p[1]) >> 4, int(p[2]) >> 4) for p in arr.reshape(-1, 3)}) > 400
+    lowres = max(w, h) < 500
+    soft = s0 < 60.0 or lowres                     # blurry, or too few pixels to hold crisp edges
+    info = {"source_px": [w, h], "sharpness_before": round(s0, 1), "jpeg": is_jpeg, "photographic": photo, "soft": soft, "low_resolution": lowres}
+    clean = mode == "sharpen" or (mode == "auto" and soft and not photo)
+    nw, nh = round(w * scale), round(h * scale)
+    out = im.resize((nw, nh), Image.LANCZOS)
+    steps = ["Lanczos resample %.0f%%" % (scale * 100)]
+    if clean and not photo:
+        # light smoothing, mild unsharp mask, levels stretch, then a sigmoid tone curve that steepens soft edges (flat art only)
+        out = out.filter(ImageFilter.GaussianBlur(_ENH["blur"] * scale / 2))
+        amount = _ENH["amount"]
+        out = out.filter(ImageFilter.UnsharpMask(radius=_ENH["radius"] * scale, percent=amount, threshold=2))
+        a = np.asarray(out).astype(float); lo, hi = np.percentile(a, 0.5), np.percentile(a, 99.5)
+        if hi - lo > 40:
+            a = np.clip((a - lo) / (hi - lo), 0, 1)
+            if _ENH["gain"]:                                   # steepen soft edges (sigmoid tone curve) - flat art only
+                g = _ENH["gain"]; a = 1 / (1 + np.exp(-g * (a - 0.5))); a = (a - a.min()) / max(1e-6, a.max() - a.min())
+            out = Image.fromarray((a * 255).astype("uint8"))
+        steps += ["noise smoothing", "edge sharpening (unsharp %d%%)" % amount, "levels stretch", "edge steepening"]
+    elif mode != "resample" and photo:
+        out = out.filter(ImageFilter.UnsharpMask(radius=1.0 * scale, percent=60, threshold=3)); steps.append("light sharpening (photo)")
+    info.update({"steps": steps, "result_px": [nw, nh], "sharpness_after": round(sharpness(out), 1)})
+    buf = io.BytesIO(); out.save(buf, "PNG", optimize=True)
+    return buf.getvalue(), info

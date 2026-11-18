@@ -329,6 +329,28 @@ class Step2Tests(unittest.TestCase):
             r = server.api_raster({"data": base64.b64encode(png).decode(), "width_mm": 60, "colors": 4, "quality": q})
             self.assertEqual(r["report"]["quality"], q); self.assertEqual(len(r["objects"]), 1)
         with self.assertRaises(ValueError): server.api_raster({"data": base64.b64encode(png).decode(), "width_mm": 60, "quality": "ultra"})
+    def test_enhancer_upscales_200_percent_and_helps_blurry_art(self):
+        import sys; sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+        import image_bench as B
+        from PIL import Image, ImageFilter
+        from stitchcraft_engine.raster import enhance_image, digitize_image
+        im = B.ARTWORKS["ring"](); truth = B.truth_masks(im)
+        b = io.BytesIO(); im.resize((300, 300), Image.LANCZOS).filter(ImageFilter.GaussianBlur(2)).save(b, "PNG"); blurry = b.getvalue()
+        out, info = enhance_image(blurry, 2.0)
+        self.assertEqual(Image.open(io.BytesIO(out)).size, (600, 600)); self.assertTrue(info["soft"]); self.assertGreater(len(info["steps"]), 1)
+        iou = lambda data: B.score(*(lambda r: (r["objects"], truth, *r["size_mm"]))(digitize_image(data, 80, 8, "standard")))["iou"]
+        self.assertGreater(iou(out), iou(blurry) + 0.03)
+        for bad in (0.5, 5):
+            with self.assertRaises(ValueError): enhance_image(blurry, bad)
+        with self.assertRaises(ValueError): enhance_image(b"not an image", 2)
+    def test_enhancer_leaves_sharp_hires_art_alone_and_api(self):
+        from PIL import Image, ImageDraw
+        im = Image.new("RGB", (900, 900), "white"); ImageDraw.Draw(im).ellipse((100, 100, 800, 800), fill=(200, 0, 0), outline=None)
+        b = io.BytesIO(); im.save(b, "PNG"); raw = base64.b64encode(b.getvalue()).decode()
+        r = server.api_enhance({"data": raw, "scale": 2}); self.assertEqual(r["info"]["steps"], ["Lanczos resample 200%"])
+        r = server.api_raster({"data": raw, "width_mm": 60, "enhance": "auto"}); self.assertTrue(r["report"]["enhance"]["skipped"])
+        r = server.api_raster({"data": raw, "width_mm": 60, "enhance": "always"}); self.assertGreater(len(r["report"]["enhance"]["steps"]), 1)
+        with self.assertRaises(ValueError): server.api_raster({"data": raw, "width_mm": 60, "enhance": "x"})
     def test_photo_is_flagged(self):
         import random
         from PIL import Image

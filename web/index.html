@@ -43,6 +43,7 @@
     <label>Width in the hoop (mm) <input type="number" id="impW" min="5" max="1000" step="1"></label>
     <label>Thread colours <input type="number" id="impC" min="2" max="8" value="6"></label>
     <label>Quality <select id="impQ"><option value="draft">Draft (fast, coarse)</option><option value="standard" selected>Standard</option><option value="high">High (keeps small details)</option></select></label>
+    <label>Enhance image (2× upscale + sharpen) <select id="impE"><option value="auto" selected>Auto – only if blurry / low-res</option><option value="always">Always</option><option value="off">Off</option></select></label>
     <div id="impReport" hidden></div>
     <div class="row"><button value="cancel" id="impCancel">Cancel</button><button value="go" class="primary" id="impGo">Import</button></div>
   </form>
