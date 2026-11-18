@@ -1,0 +1,97 @@
+{
+ "app": "EmbroideryStudio",
+ "version": 1,
+ "doc": {
+  "name": "Sample heart",
+  "hoop": {
+   "w": 100,
+   "h": 100,
+   "margin": 3
+  },
+  "fabric": "cotton",
+  "objects": [
+   {
+    "id": "o1",
+    "type": "fill",
+    "name": "Heart",
+    "color": "#c8102e",
+    "smooth": true,
+    "rings": [
+     [
+      [
+       0,
+       8
+      ],
+      [
+       -12,
+       -4
+      ],
+      [
+       -6,
+       -14
+      ],
+      [
+       0,
+       -8
+      ],
+      [
+       6,
+       -14
+      ],
+      [
+       12,
+       -4
+      ]
+     ]
+    ],
+    "params": {
+     "angle": 30
+    }
+   },
+   {
+    "id": "o2",
+    "type": "run",
+    "name": "Heart outline",
+    "color": "#7c0a1e",
+    "smooth": true,
+    "closed": true,
+    "points": [
+     [
+      0,
+      8
+     ],
+     [
+      -12,
+      -4
+     ],
+     [
+      -6,
+      -14
+     ],
+     [
+      0,
+      -8
+     ],
+     [
+      6,
+      -14
+     ],
+     [
+      12,
+      -4
+     ]
+    ]
+   },
+   {
+    "id": "o3",
+    "type": "text",
+    "name": "Label",
+    "color": "#1e3a8a",
+    "text": "LOVE",
+    "height": 9,
+    "x": -14,
+    "y": 22
+   }
+  ]
+ }
+}

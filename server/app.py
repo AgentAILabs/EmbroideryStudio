@@ -1,0 +1,166 @@
+"""EmbroideryStudio API + static host (stdlib only).  python3 server/app.py [port]
+POST /api/generate        design JSON -> stitches, stats, issues
+POST /api/export/dst      design JSON -> .dst  (blocked on validation errors)
+POST /api/export/svg      design JSON -> preview SVG
+POST /api/import/dst      {data(base64)} -> stitches (view only)
+POST /api/import/svg      {svg, width_mm?} -> objects
+POST /api/import/raster   {data(base64), width_mm, colors} -> objects
+GET  /api/health"""
+import base64, json, os, sys, hashlib
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "engine"))
+from stitchcraft_engine.design import generate, run_checks, FABRICS            # noqa: E402
+from stitchcraft_engine.dst import write_dst, read_dst                          # noqa: E402
+from stitchcraft_engine.model import Cmd                                        # noqa: E402
+from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
+from stitchcraft_engine.raster import digitize_raster, RasterUnavailable        # noqa: E402
+
+WEB = ROOT / "web"
+MAX_BODY = 25 * 1024 * 1024
+MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json"}
+
+
+def compact(pattern):
+    """Stitches as parallel arrays for fast transfer: [x,y,cmdcode,thread]; cmd 0=stitch 1=jump 2=trim 3=colour 4=end."""
+    code = {Cmd.STITCH: 0, Cmd.JUMP: 1, Cmd.TRIM: 2, Cmd.COLOR_CHANGE: 3, Cmd.END: 4}
+    return [[round(s.x, 3), round(s.y, 3), code[s.cmd], s.thread] for s in pattern.stitches]
+
+
+def issues(rep):
+    return [{"code": i.code, "severity": i.severity, "message": i.message, "index": i.index} for i in rep.issues]
+
+
+def api_generate(d):
+    pattern, notes, st = generate(d)
+    rep = run_checks(d, pattern)
+    return {"stitches": compact(pattern), "threads": [t.hex for t in pattern.threads], "stats": st,
+            "notes": notes, "issues": issues(rep)}
+
+
+def api_dst(d):
+    pattern, notes, st = generate(d)
+    rep = run_checks(d, pattern)
+    if not rep.ok:
+        return None, {"error": "Export blocked", "issues": issues(rep)}
+    res = write_dst(pattern)
+    back = read_dst(res.data)
+    if not back.ends_properly or back.color_changes != int(back.header["CO"]):
+        return None, {"error": "DST round-trip check failed"}
+    return res, None
+
+
+def api_preview_svg(d):
+    from stitchcraft_engine.preview import preview_svg
+    pattern, _, _ = generate(d)
+    h = d.get("hoop", {})
+    return preview_svg(pattern, float(h.get("w", 0)), float(h.get("h", 0))).encode()
+
+
+def api_view_dst(d):
+    """Read an existing .dst so it can be inspected/simulated (view only)."""
+    f = read_dst(base64.b64decode(d["data"]))
+    if len(f.records) > 2_000_000:
+        raise ValueError("file too large")
+    pal = ["#c8102e", "#2563eb", "#2e9e44", "#f28c28", "#6d28d9", "#14b8a6", "#000000", "#ec4899"]
+    out, x, y, th = [], 0, 0, 0
+    for dx, dy, cmd in f.records:
+        x += dx; y += dy
+        if cmd == "color_change":
+            th += 1; out.append([x / 10, -y / 10, 3, th])
+        elif cmd == "end":
+            out.append([x / 10, -y / 10, 4, th])
+        else:
+            out.append([x / 10, -y / 10, 1 if cmd == "jump" else 0, th])
+    return {"stitches": out, "threads": [pal[i % len(pal)] for i in range(th + 1)], "header": f.header,
+            "color_changes": f.color_changes, "ends_properly": f.ends_properly}
+
+
+def api_svg(d):
+    from stitchcraft_engine.pipeline import digitize_svg  # noqa: F401  (ensures module import works)
+    doc = parse_svg(d["svg"])
+    objs = []
+    for sh in doc.shapes:
+        if sh.fill and sh.closed:
+            objs.append({"id": sh.id, "type": "fill", "color": sh.fill, "rings": [[list(p) for p in r] for r in sh.rings]})
+        if sh.stroke:
+            for k, r in enumerate(sh.rings):
+                pts = [list(p) for p in (r + [r[0]] if sh.closed else r)]
+                w = sh.stroke_width_mm
+                o = {"id": f"{sh.id}.s{k}", "color": sh.stroke, "points": pts}
+                o.update({"type": "satin", "params": {"width": round(w, 2)}} if 1.0 <= w <= 7.0 else {"type": "run"})
+                objs.append(o)
+    return {"objects": objs, "width_mm": doc.width_mm, "height_mm": doc.height_mm, "notes": doc.warnings}
+
+
+def api_raster(d):
+    objs, notes, size = digitize_raster(base64.b64decode(d["data"]), float(d.get("width_mm", 80)), int(d.get("colors", 6)))
+    return {"objects": objs, "notes": notes, "width_mm": size[0], "height_mm": size[1]}
+
+
+class H(BaseHTTPRequestHandler):
+    def _send(self, code, body, ctype="application/json", extra=None):
+        if isinstance(body, (dict, list)):
+            body = json.dumps(body).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        path = self.path.split("?")[0]
+        if path == "/api/font":
+            from stitchcraft_engine.font import GLYPHS, GLYPH_W, GLYPH_H, GAP
+            return self._send(200, {"glyphs": GLYPHS, "w": GLYPH_W, "h": GLYPH_H, "gap": GAP})
+        if path == "/api/health":
+            return self._send(200, {"ok": True, "fabrics": FABRICS})
+        f = (WEB / ("index.html" if path == "/" else path.lstrip("/"))).resolve()
+        if WEB not in f.parents and f != WEB or not f.is_file():
+            return self._send(404, {"error": "not found"})
+        self._send(200, f.read_bytes(), MIME.get(f.suffix, "application/octet-stream"))
+
+    def do_POST(self):
+        n = int(self.headers.get("Content-Length") or 0)
+        if n > MAX_BODY:
+            return self._send(413, {"error": "body too large"})
+        try:
+            d = json.loads(self.rfile.read(n) or b"{}")
+            path = self.path.split("?")[0]
+            if path == "/api/generate":
+                return self._send(200, api_generate(d))
+            if path == "/api/export/dst":
+                res, err = api_dst(d)
+                if err:
+                    return self._send(422, err)
+                name = "".join(c for c in d.get("name", "design") if c.isalnum() or c in "-_") or "design"
+                return self._send(200, res.data, "application/octet-stream",
+                                  {"Content-Disposition": f'attachment; filename="{name}.dst"', "X-SHA256": res.sha256})
+            if path == "/api/export/svg":
+                return self._send(200, api_preview_svg(d), "image/svg+xml",
+                                  {"Content-Disposition": 'attachment; filename="preview.svg"'})
+            if path == "/api/import/dst":
+                return self._send(200, api_view_dst(d))
+            if path == "/api/import/svg":
+                return self._send(200, api_svg(d))
+            if path == "/api/import/raster":
+                return self._send(200, api_raster(d))
+            self._send(404, {"error": "not found"})
+        except (UnsupportedSvg, RasterUnavailable, ValueError, KeyError, TypeError) as e:
+            self._send(400, {"error": str(e)})
+        except Exception as e:  # noqa: BLE001
+            self._send(500, {"error": f"internal error: {type(e).__name__}"})
+
+    def log_message(self, *a):
+        pass
+
+
+if __name__ == "__main__":
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
+    print(f"EmbroideryStudio on http://127.0.0.1:{port}")
+    ThreadingHTTPServer(("127.0.0.1", port), H).serve_forever()

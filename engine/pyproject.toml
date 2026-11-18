@@ -1,0 +1,7 @@
+[project]
+name = "stitchcraft-engine"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = []   # core is pure Python; OpenCV/NumPy/Shapely/PyEmbroidery arrive in Phase 4 (see docs)
+[project.optional-dependencies]
+dev = ["pytest"]

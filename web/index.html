@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EmbroideryStudio</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header id="top">
+  <div class="brand"><span class="logo">✶</span> EmbroideryStudio</div>
+  <input id="docName" value="Untitled design" aria-label="Design name">
+  <div class="grp">
+    <button id="bNew" title="New design">New</button>
+    <button id="bOpen" title="Open project (.esproj)">Open</button>
+    <button id="bSave" title="Save project (Ctrl+S)">Save</button>
+    <button id="bImport" title="Import SVG / PNG / JPG">Import art</button>
+  </div>
+  <div class="grp">
+    <button id="bUndo" title="Undo (Ctrl+Z)">↶</button><button id="bRedo" title="Redo (Ctrl+Y)">↷</button>
+  </div>
+  <div class="grp seg" id="viewSeg">
+    <button data-view="design" class="on" title="Artwork / object outlines">Design</button>
+    <button data-view="stitch" title="Real stitch data from the engine">Stitches</button>
+  </div>
+  <div class="grp seg" id="modeSeg">
+    <button data-mode="beginner" class="on" title="Presets and plain-language help">Beginner</button>
+    <button data-mode="pro" title="All stitch parameters">Pro</button>
+  </div>
+  <div class="grow"></div>
+  <button id="bViewDst" title="Inspect an existing .dst file (view only)">View DST</button>
+  <button id="bSvg" title="Export preview SVG">Preview SVG</button>
+  <button id="bSheet">Production sheet</button>
+  <button id="bExport" class="primary">Export DST</button>
+  <input type="file" id="fileDst" accept=".dst" hidden>
+  <input type="file" id="fileOpen" accept=".esproj,.json" hidden>
+  <input type="file" id="fileImport" accept=".svg,.png,.jpg,.jpeg" hidden>
+</header>
+
+<aside id="tools">
+  <button data-tool="select" class="on" title="Select / move (V)">⬉<span>Select</span></button>
+  <button data-tool="fill" title="Fill shape – click points, double-click to finish (F)">▰<span>Fill</span></button>
+  <button data-tool="satin" title="Satin column – click the centre line (S)">≋<span>Satin</span></button>
+  <button data-tool="run" title="Running stitch / outline (R)">┄<span>Run</span></button>
+  <button data-tool="rect" title="Rectangle fill (drag)">▭<span>Rect</span></button>
+  <button data-tool="ellipse" title="Ellipse fill (drag)">◯<span>Ellipse</span></button>
+  <button data-tool="text" title="Lettering (T)">A<span>Text</span></button>
+  <button data-tool="applique" title="Appliqué shape (A)">◲<span>Appliqué</span></button>
+  <hr>
+  <button id="bFit" title="Zoom to hoop (0)">⤢<span>Fit</span></button>
+  <label class="chk"><input type="checkbox" id="snap" checked> Snap 1 mm</label>
+</aside>
+
+<main id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hint"></div>
+  <div id="sim">
+    <button id="sPlay" title="Play / pause (P)">▶</button>
+    <button id="sStep" title="Step forward">⏭</button>
+    <button id="sReset" title="Back to start">⏮</button>
+    <input type="range" id="sPos" min="0" max="0" value="0" aria-label="Simulation position">
+    <label>Speed <input type="range" id="sSpeed" min="1" max="100" value="30"></label>
+    <span id="sInfo">0 / 0</span>
+  </div>
+</main>
+
+<aside id="side">
+  <section><h3>Properties</h3><div id="props"></div></section>
+  <section><h3>Objects <small>(stitch order, top = first)</small></h3><ul id="objs"></ul></section>
+  <section><h3>Design</h3><div id="designProps"></div></section>
+  <section><h3>Colour sequence</h3><div id="seq"></div></section>
+  <section><h3>Checks</h3><div id="stats"></div><ul id="issues"></ul></section>
+</aside>
+<script src="app.js"></script>
+</body></html>
