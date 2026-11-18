@@ -12,14 +12,14 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from .builder import StitchObject, build_pattern
 from .font import layout_text
-from .geometry import polygon_area, smooth
+from .geometry import polygon_area, smooth, inset_ring
 from .model import Cmd, Pattern, ThreadColor
 from .stitches import (DigitizingError, center_walk_underlay, edge_walk_underlay, running_stitch,
                        satin_stitch, tatami_fill)
 from .validate import validate
 
 DEFAULTS = {
-    "fill": {"angle": 45.0, "spacing": 0.4, "stitch_len": 3.5, "underlay": True, "pull_comp": 0.2},
+    "fill": {"angle": 45.0, "spacing": 0.4, "stitch_len": 3.5, "underlay": "tatami", "pull_comp": 0.2},
     "satin": {"width": 3.0, "spacing": 0.4, "underlay": "auto", "pull_comp": 0.2},
     "run": {"stitch_len": 2.5},
     "text": {"spacing": 1.0, "underlay": "auto", "pull_comp": 0.1},
@@ -79,8 +79,17 @@ def generate(design: dict, trim_distance: float = 3.0):
                 runs = tatami_fill(rings, _p(ob, "angle"), _p(ob, "spacing"), _p(ob, "stitch_len"),
                                    pull_comp=_p(ob, "pull_comp") or 0.0)
                 under = []
-                if _p(ob, "underlay") and sum(polygon_area(r) for r in rings) >= 25:
-                    under = tatami_fill(rings, _p(ob, "angle") + 90, 2.0, 3.0)
+                mode = _p(ob, "underlay")
+                mode = "tatami" if mode is True else "none" if mode in (False, None) else mode
+                if mode != "none" and sum(polygon_area(r) for r in rings) >= 25:
+                    if mode in ("edge", "edge+tatami"):
+                        edge = [inset_ring(r, 0.5) for r in rings]
+                        if all(edge):
+                            under += [running_stitch(e, 2.5, closed=True) for e in edge]
+                        else:
+                            notes.append(f"{oid}: edge underlay skipped (shape too small or too complex to inset safely)")
+                    if mode in ("tatami", "edge+tatami") or (mode == "edge" and not under):
+                        under += tatami_fill(rings, _p(ob, "angle") + 90, 2.0, 3.0)
                 objs.append(StitchObject(oid, "fill", th, runs, under))
             elif typ == "satin":
                 objs.append(_satin_objs(oid, th, _pts(ob["points"], ob, bool(ob.get("closed"))), _p(ob, "width"), _p(ob, "spacing"),

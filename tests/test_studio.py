@@ -79,3 +79,21 @@ class ViewExportTests(unittest.TestCase):
         pat, _, st = generate(d)
         self.assertEqual(sum(1 for s in v["stitches"] if s[2] == 0), st["stitches"])
         self.assertTrue(server.api_preview_svg(d).startswith(b"<svg"))
+
+class EdgeUnderlayTests(unittest.TestCase):
+    def test_inset_ring_square_and_failure_modes(self):
+        from stitchcraft_engine.geometry import inset_ring
+        r = inset_ring([(0, 0), (10, 0), (10, 10), (0, 10)], 1)
+        self.assertEqual([tuple(round(v, 6) for v in p) for p in r], [(1, 1), (9, 1), (9, 9), (1, 9)])
+        self.assertIsNotNone(inset_ring([(0, 0), (10, 0), (10, 4), (4, 4), (4, 10), (0, 10)], 0.5))
+        self.assertIsNone(inset_ring([(0, 0), (1, 0), (1, 1), (0, 1)], 0.6))   # collapses
+
+    def test_edge_underlay_adds_stitches_inside_shape(self):
+        base = {"id": "a", "type": "fill", "color": "#f00", "rings": [SQ]}
+        n0 = generate(doc(dict(base, params={"underlay": "none"})))[0].counts()["stitch"]
+        ne = generate(doc(dict(base, params={"underlay": "edge"})))[0]
+        self.assertGreater(ne.counts()["stitch"], n0)
+        bb = ne.bbox(); self.assertLessEqual(bb[2] - bb[0], 20.5)          # nothing outside the fill
+        self.assertTrue(run_checks(doc(base), ne).ok)
+        self.assertEqual(generate(doc(dict(base, params={"underlay": True})))[0].counts(),
+                         generate(doc(dict(base, params={"underlay": "tatami"})))[0].counts())   # legacy bool

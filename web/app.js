@@ -345,6 +345,7 @@ function renderPanels() { renderSeq(); renderStats(); renderDesign(); }
 function field(label, key, o, opts = {}) {
   const pro = opts.pro && S.mode !== "pro"; if (pro) return "";
   let v = opts.direct ? o[key] : P(o, key);
+  if (key === "underlay" && o.type === "fill") v = v === true ? "tatami" : v === false ? "none" : v;
   if (v === undefined && o.type === "text" && key === "width") v = +Math.max(1, Math.min(o.height * .16, 4)).toFixed(2);
   if (opts.type === "check") return `<div class="row"><label>${label}</label><input type="checkbox" data-k="${key}" ${v ? "checked" : ""} ${opts.direct ? "data-d=1" : ""}></div>`;
   if (opts.options) return `<div class="row"><label>${label}</label><select data-k="${key}" ${opts.direct ? "data-d=1" : ""}>${opts.options.map(x => `<option ${x === v ? "selected" : ""}>${x}</option>`).join("")}</select></div>`;
@@ -356,7 +357,7 @@ function renderProps() {
   let h = `<div class="row"><label>Name</label><input type="text" data-k="name" data-d=1 value="${esc(o.name || "")}"></div>`;
   h += `<div class="note">Thread colour</div><div class="sw" id="osw"></div><div class="row"><label>Custom</label><input type="color" data-k="color" data-d=1 value="${o.color}"></div>`;
   if (o.type !== "text") h += field("Smooth curve", "smooth", o, {type: "check", direct: 1});
-  if (o.type === "fill") h += field("Direction °", "angle", o, {step: 5, tip: "Stitch angle"}) + field("Row spacing mm", "spacing", o, {step: .05, min: .2, pro: 1, tip: "Smaller = denser"}) + field("Stitch length mm", "stitch_len", o, {step: .5, min: 1, pro: 1}) + field("Underlay", "underlay", o, {type: "check"}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1, tip: "Extra length to offset fabric pull-in"});
+  if (o.type === "fill") h += field("Direction °", "angle", o, {step: 5, tip: "Stitch angle"}) + field("Row spacing mm", "spacing", o, {step: .05, min: .2, pro: 1, tip: "Smaller = denser"}) + field("Stitch length mm", "stitch_len", o, {step: .5, min: 1, pro: 1}) + field("Underlay", "underlay", o, {options: ["tatami", "edge", "edge+tatami", "none"], pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1, tip: "Extra length to offset fabric pull-in"});
   if (o.type === "satin") h += field("Width mm", "width", o, {step: .25, min: .8}) + field("Underlay", "underlay", o, {options: ["auto", "center", "edge", "none"], pro: 1}) + field("Spacing mm", "spacing", o, {step: .05, min: .2, pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1});
   if (o.type === "run") h += field("Stitch length mm", "stitch_len", o, {step: .5, min: .5}) + field("Closed loop", "closed", o, {type: "check", direct: 1});
   if (o.type === "text") h += `<div class="row"><label>Text</label><input type="text" data-k="text" data-d=1 value="${esc(o.text)}"></div>` + field("Height mm", "height", o, {direct: 1, step: .5, min: 3}) + field("Letter spacing", "spacing", o, {step: .1, min: .5}) + field("Stroke width mm", "width", o, {step: .25, min: 1, tip: "Satin column width of each stroke"}) + `<div class="note">Built-in single-line satin font (A–Z, 0–9, - . !). Minimum practical height ≈ 5 mm.</div>`;

@@ -15,7 +15,7 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 | Auto digitizing | SVG import (fills → tatami, strokes → satin/run); flat-colour PNG/JPG import (quantise → trace → fills) |
 | Lettering | Built-in single-line satin font (A–Z, 0–9, `- . !`), height / spacing / stroke width |
 | Appliqué | Placement line → tack-down → satin cover, with fabric-placement stop note |
-| Stitch properties | Direction, density, stitch length, underlay, **pull compensation** (fill + satin), satin width |
+| Stitch properties | Direction, density, stitch length, underlay (tatami / **edge-walk inset** / both), **pull compensation** (fill + satin), satin width |
 | Fabric presets | cotton, silk, georgette, velvet, denim, knit (flagged unverified until stitch-tested) |
 | Object tools | Order list (stitch sequence), hide, duplicate, flip, rotate 90°, scale %, **repeat/array** (borders, Maggam-style rows), add border |
 | Simulation | Play/pause/step/scrub/speed driven by the real stitch array, needle marker, colour changes |
@@ -28,6 +28,6 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 - Not machine-tested: stitch `samples` on a test fabric before production (matrix in `docs/requirements-finalized.md` §F).
 - Lettering is a simple stroke font, no TrueType fonts, no Telugu/Hindi yet.
 - Only DST export (PES/JEF/EXP planned; pyembroidery cross-check needs network).
-- No auto edge-inset underlay / skeleton satin-from-outline (needs Shapely); no node curves (polylines only).
+- Edge-inset underlay is a pure-Python miter inset: it falls back (with a note) on shapes too small or complex. No skeleton satin-from-outline; curves are Catmull-Rom smoothing, not Bezier nodes.
 - No accounts / cloud; projects are local files + browser autosave.
 See `docs/roadmap.md`.

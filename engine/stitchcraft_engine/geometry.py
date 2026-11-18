@@ -78,3 +78,45 @@ def smooth(pts: Sequence[Point], closed: bool = False, n: int = 8) -> List[Point
             out.append(tuple(0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t ** 3)
                              for a, b, c, d in zip(p0, p1, p2, p3)))
     return out[:-1] if closed else out
+
+
+def _signed_area(r: Sequence[Point]) -> float:
+    return sum(r[i][0] * r[(i + 1) % len(r)][1] - r[(i + 1) % len(r)][0] * r[i][1] for i in range(len(r))) / 2
+
+
+def inset_ring(ring: Sequence[Point], d: float, miter_limit: float = 2.5):
+    """Move every edge of a closed ring inwards by d mm (miter joins). Pure-Python, for underlay only.
+    Returns None when the result is not trustworthy (collapsed, self-folded, or outside the original),
+    so callers fall back instead of stitching a bad path."""
+    P = [tuple(p) for p in ring]
+    if len(P) > 1 and P[0] == P[-1]:
+        P = P[:-1]
+    n = len(P)
+    if n < 3 or d <= 0:
+        return None
+    a0 = _signed_area(P)
+    if abs(a0) < 4 * d * d:
+        return None
+    sgn = 1.0 if a0 > 0 else -1.0
+    out = []
+    for i in range(n):
+        p0, p1, p2 = P[i - 1], P[i], P[(i + 1) % n]
+        e1, e2 = (p1[0] - p0[0], p1[1] - p0[1]), (p2[0] - p1[0], p2[1] - p1[1])
+        l1, l2 = math.hypot(*e1), math.hypot(*e2)
+        if l1 < 1e-9 or l2 < 1e-9:
+            continue
+        # inward normals (interior on the left for positive area in y-up maths; sgn handles orientation)
+        n1 = (-e1[1] / l1 * sgn, e1[0] / l1 * sgn)
+        n2 = (-e2[1] / l2 * sgn, e2[0] / l2 * sgn)
+        bx, by = n1[0] + n2[0], n1[1] + n2[1]
+        dot = 1 + n1[0] * n2[0] + n1[1] * n2[1]          # = 2 cos^2(theta/2)
+        if dot < 1e-6:
+            return None
+        out.append((p1[0] + bx * d / dot, p1[1] + by * d / dot))   # miter vertex
+        if math.hypot(out[-1][0] - p1[0], out[-1][1] - p1[1]) > d * miter_limit:
+            return None
+    if len(out) < 3 or abs(_signed_area(out)) >= abs(a0) or (_signed_area(out) > 0) != (a0 > 0):
+        return None
+    if not all(point_in_ring(q, P) for q in out):
+        return None
+    return out
