@@ -91,14 +91,17 @@ def split_long(a: Point, b: Point, max_len: float, k: int) -> List[Point]:
 
 
 def satin_from_rails(left: Sequence[Point], right: Sequence[Point], spacing: float = 0.4,
-                     max_len: float = 0.0) -> List[Point]:
+                     max_len: float = 0.0, shorten: bool = False) -> List[Point]:
     """Zigzag: one needle penetration every `spacing` mm along the column, alternating rails.
     max_len > 0 enables satin splitting: stitches longer than max_len get staggered interior points."""
     if spacing <= 0:
         raise DigitizingError("satin spacing must be > 0")
     n = max(1, round(max(polyline_length(left), polyline_length(right)) / spacing))
     lp, rp = resample_n(left, n), resample_n(right, n)
-    base = _prune_short([lp[k] if k % 2 == 0 else rp[k] for k in range(n + 1)], 0.3)      # tapering tips: drop sub-0.3 mm stitches
+    pts = [lp[k] if k % 2 == 0 else rp[k] for k in range(n + 1)]
+    if shorten:
+        pts = _shorten_inner(pts, lp, rp, spacing)
+    base = _prune_short(pts, 0.3)      # tapering tips: drop sub-0.3 mm stitches
     if max_len <= 0:
         return base
     out = [base[0]]
@@ -109,10 +112,48 @@ def satin_from_rails(left: Sequence[Point], right: Sequence[Point], spacing: flo
 
 
 def satin_stitch(path: Sequence[Point], width: float, spacing: float = 0.4, pull_comp: float = 0.0,
-                 max_len: float = 0.0) -> List[Point]:
+                 max_len: float = 0.0, shorten: bool = False) -> List[Point]:
     """pull_comp widens the column (total mm) to offset fabric pull-in; default 0 until machine-tested."""
     left, right = rails_from_centerline(path, width + pull_comp)
-    return satin_from_rails(left, right, spacing, max_len)
+    return satin_from_rails(left, right, spacing, max_len, shorten)
+
+
+def _shorten_inner(pts: List[Point], lp: Sequence[Point], rp: Sequence[Point], spacing: float) -> List[Point]:
+    """Stitch shortening: on the inside of a tight curve the penetrations of one rail crowd together (same-side gap much smaller
+    than the nominal 2 x spacing). Every second crowded penetration is pulled a third of the way towards the opposite rail, so the
+    needle does not hit the same spot over and over (bunching, thread breaks). Straight sections are untouched."""
+    out = list(pts)
+    nominal = 2.0 * spacing
+    crowded_count = {0: 0, 1: 0}
+    for k in range(2, len(pts)):
+        side = k % 2
+        if dist(pts[k], pts[k - 2]) < 0.55 * nominal:
+            crowded_count[side] += 1
+            if crowded_count[side] % 2 == 0:
+                a = lp[k] if side == 0 else rp[k]
+                b = rp[k] if side == 0 else lp[k]
+                w = dist(a, b)
+                if w > 1.2:                      # never shorten a stitch below ~0.8 mm
+                    t = 1.0 / 3.0
+                    out[k] = (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+        else:
+            crowded_count[side] = 0
+    return out
+
+
+def zigzag_underlay(left: Sequence[Point], right: Sequence[Point], inset: float = 0.5, advance: float = 1.0) -> List[Point]:
+    """Zig-zag underlay for satin columns > ~3.5 mm: an open zig-zag inside the column (inset from both edges) that lifts the
+    satin and grips the fabric. advance = distance along the column per underlay stitch."""
+    n = min(len(left), len(right))
+    a, b = [], []
+    for p, q in zip(left[:n], right[:n]):
+        w = dist(p, q)
+        if w < 1e-9:
+            a.append(tuple(p)); b.append(tuple(q)); continue
+        t = min(inset, 0.25 * w) / w
+        a.append((p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t))
+        b.append((q[0] + (p[0] - q[0]) * t, q[1] + (p[1] - q[1]) * t))
+    return satin_from_rails(a, b, advance)
 
 
 def center_walk_underlay(path: Sequence[Point], stitch_len: float = 2.5) -> List[Point]:
@@ -155,7 +196,7 @@ def underlay_path(points: Sequence[Point], tol: float = 0.1) -> List[Point]:
 # ---------------------------------------------------------------- tatami / fill
 def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spacing: float = 0.4,
                 stitch_len: float = 3.5, stagger: int = 3, min_stitch: float = 0.3,
-                max_connect: float = 3.0, pull_comp: float = 0.0) -> List[List[Point]]:
+                max_connect: float = 3.0, pull_comp: float = 0.0, regions: bool = False) -> List[List[Point]]:
     """Scanline fill with even-odd holes. Returns a list of runs; consecutive runs need a JUMP.
     Needle penetrations are staggered row to row (`stagger` phases) for the classic tatami texture."""
     if spacing <= 0 or stitch_len <= 0:
@@ -168,6 +209,7 @@ def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spaci
     ymin, ymax = min(ys), max(ys)
 
     segs: List[List[Point]] = []
+    rows_iv = []
     j, y = 0, ymin + spacing / 2
     while y < ymax:
         xs = []
@@ -183,6 +225,7 @@ def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spaci
         forward = j % 2 == 0
         phase = (j % max(stagger, 1)) / max(stagger, 1) * stitch_len
         row = []
+        rows_iv.append((j, y, intervals, phase))
         for xa, xb in intervals:
             end_min = max(min_stitch, END_MIN)       # no 0.3-0.5 mm stubs at the row ends: the end stitch absorbs them
             k = math.ceil((xa + end_min - phase) / stitch_len)
@@ -199,6 +242,8 @@ def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spaci
         j += 1
         y += spacing
 
+    if regions:
+        segs = _region_order(rows_iv, stitch_len, min_stitch)
     runs: List[List[Point]] = []
     cur: List[Point] = []
     for seg in segs:
@@ -218,6 +263,50 @@ def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spaci
         runs.append(cur)
     return [_prune_short([rotate(p, ang) for p in run], min_stitch) for run in runs]
 
+
+
+def _row_points(xa, xb, y, phase, stitch_len, min_stitch, forward):
+    end_min = max(min_stitch, END_MIN)
+    k = math.ceil((xa + end_min - phase) / stitch_len)
+    grid = []
+    while True:
+        x = phase + k * stitch_len
+        if x >= xb - end_min:
+            break
+        grid.append((x, y)); k += 1
+    pts = [(xa, y)] + grid + [(xb, y)]
+    return pts if forward else pts[::-1]
+
+
+def _region_order(rows_iv, stitch_len, min_stitch):
+    """Split the scanline intervals into regions (an interval continues a region only when exactly one interval of the previous
+    row overlaps it and vice versa), then stitch each region completely, back and forth, before moving on. A ring with a hole,
+    a U or a C shape is sewn as a few connected blocks instead of jumping across the gap on every row (one trim per row)."""
+    regions, active = [], []                     # active: list of (region index, (xa, xb)) from the previous row
+    for j, y, ivs, phase in rows_iv:
+        new_active = []
+        for iv in ivs:
+            prev = [a for a in active if a[1][0] < iv[1] and iv[0] < a[1][1]]
+            if len(prev) == 1 and sum(1 for o in ivs if prev[0][1][0] < o[1] and o[0] < prev[0][1][1]) == 1:
+                r = prev[0][0]
+            else:
+                r = len(regions); regions.append([])
+            regions[r].append((y, iv, phase)); new_active.append((r, iv))
+        active = new_active
+    out, cur = [], None
+    left = list(range(len(regions)))
+    while left:
+        def entry_cost(r):
+            y, (xa, xb), _ = regions[r][0]
+            return 0.0 if cur is None else min(dist(cur, (xa, y)), dist(cur, (xb, y)))
+        r = min(left, key=lambda r: (entry_cost(r), r)); left.remove(r)
+        y0, (xa0, xb0), _ = regions[r][0]
+        forward = cur is None or dist(cur, (xa0, y0)) <= dist(cur, (xb0, y0))
+        for y, (xa, xb), phase in regions[r]:
+            seg = _row_points(xa, xb, y, phase, stitch_len, min_stitch, forward)
+            out.append(seg); forward = not forward
+        cur = out[-1][-1]
+    return out
 
 
 def _thin(ring: Sequence[Point], min_gap: float) -> List[Point]:

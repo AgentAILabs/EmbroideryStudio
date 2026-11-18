@@ -26,7 +26,7 @@ from stitchcraft_engine.exp import write_exp                                    
 from stitchcraft_engine.model import Cmd                                        # noqa: E402
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
 from stitchcraft_engine.raster import digitize_image, enhance_image, RasterUnavailable        # noqa: E402
-from stitchcraft_engine import templates, dst_analyze, dst_verify                                        # noqa: E402
+from stitchcraft_engine import templates, dst_analyze, dst_verify, checklist, profiles, sequence, placements as placements_mod                                        # noqa: E402
 from stitchcraft_engine.outline import column_from_outline                      # noqa: E402
 import sheet                                                                   # noqa: E402
 
@@ -108,6 +108,10 @@ def api_dst(d):
     back = read_dst(res.data)
     if not back.ends_properly or back.color_changes != int(back.header["CO"]):
         return None, {"error": "DST round-trip check failed"}
+    fails = [i for i in checklist.evaluate(d)["items"] if i["level"] == "FAIL"]
+    if fails:                                        # production checklist gate: never hand a FAIL to the machine
+        return None, {"error": "Export blocked by the production checklist",
+                      "issues": [{"code": f"CHECK{i['n']}", "severity": "error", "message": f"{i['title']}: {i['evidence']}"} for i in fails]}
     return res, None
 
 
@@ -144,6 +148,39 @@ def api_placements(d):
     if data is None:
         raise ValueError(rep["error"] + ": " + "; ".join(f"{r['file']}: {r.get('reason', '')}" for r in rep["placements"])[:600])
     return data, rep
+
+
+def api_checklist(d):
+    check_design(d)
+    return checklist.evaluate(d)
+
+
+def api_autodigitize(d):
+    """Professional auto-digitizing pipeline: image -> clean + vectorise -> stitch types -> fabric/category profile
+    (density, underlay, pull comp, shortening) -> safe auto-fix -> sequence optimisation -> 15-item checklist."""
+    imp = api_raster({k: d[k] for k in ("data", "width_mm", "colors", "quality", "enhance") if k in d})
+    if not imp["objects"]:
+        raise ValueError("; ".join(imp["notes"]) or "nothing to digitize")
+    hoop = {"w": float(d.get("hoop_w", 100)), "h": float(d.get("hoop_h", 100)), "margin": 3}
+    thread = str(d.get("thread", "40wt"))
+    from stitchcraft_engine.design import THREADS
+    if thread not in THREADS:
+        raise ValueError(f"unknown thread preset {thread!r}")
+    design = {"name": placements_mod.slug(d.get("name") or "design"), "hoop": hoop, "thread": thread, "stabiliser": d.get("stabiliser", "cut-away"),
+              "source": {"type": "raster", "report": imp.get("report") or {}}, "objects": imp["objects"]}
+    log = [f"digitized: {len(imp['objects'])} object(s) " + ", ".join(f"{v} {k}" for k, v in (imp.get("report") or {}).get("objects", {}).items() if v)]
+    log += [f"import: {n}" for n in imp.get("notes", [])]
+    design, l2 = profiles.apply_profile(design, str(d.get("fabric", "cotton")), str(d.get("category", "blouse_neck")))
+    design, l3 = placements_mod.autofix(design)
+    design, l4 = sequence.optimize_sequence(design)
+    return {"design": design, "log": log + l2 + l3 + l4, "import_report": imp.get("report"), "checklist": checklist.evaluate(design)}
+
+
+def api_profile(d):
+    check_design(d["design"])
+    design, log = profiles.apply_profile(d["design"], d.get("fabric"), d.get("category"), bool(d.get("overwrite")))
+    design, l2 = sequence.optimize_sequence(design) if d.get("optimize", True) else (design, [])
+    return {"design": design, "log": log + l2}
 
 
 def api_autofix(d):
@@ -313,6 +350,12 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_svg(d))
             if path == "/api/import/raster":
                 return self._send(200, api_raster(d))
+            if path == "/api/checklist":
+                return self._send(200, api_checklist(d))
+            if path == "/api/autodigitize":
+                return self._send(200, api_autodigitize(d))
+            if path == "/api/profile":
+                return self._send(200, api_profile(d))
             if path == "/api/autofix":
                 return self._send(200, api_autofix(d))
             if path == "/api/placements":

@@ -6,6 +6,7 @@ from stitchcraft_engine.design import generate, run_checks, machine
 from stitchcraft_engine.dst import write_dst, read_dst
 from stitchcraft_engine.exp import write_exp
 from stitchcraft_engine.preview import preview_svg
+from stitchcraft_engine.checklist import colour_report_csv, evaluate as checklist_evaluate
 
 E = lambda v: html.escape(str(v), quote=True)
 DISCLAIMER = "NOT machine-tested. Stitch a sample on matching fabric and stabiliser before production use."
@@ -82,6 +83,7 @@ def package(design: dict):
         f"{n}.production-sheet.html": sheet_html(design, pattern, notes, st, rep.issues).encode(),
         f"{n}.stitchcraft.json": json.dumps(pattern.to_dict()).encode(),
         f"{n}.exp": write_exp(pattern, trim_jumps=m["trim_jumps"]),
+        f"{n}.colours.csv": colour_report_csv(design, st).encode(),
     }
     checks = "\n".join([f"{i.severity.upper()} {i.code}: {i.message}" for i in rep.issues] + [f"NOTE {x}" for x in notes]) or "No problems found"
     manifest = "\n".join([f"EmbroideryStudio export package · {datetime.now().isoformat(timespec='seconds')}",
@@ -136,6 +138,7 @@ def placement_set(design: dict, spec: list, source_side: str = "left", thread=No
         files[f"{name}.preview.svg"] = preview_svg(pattern, float(h.get("w", 0)), float(h.get("h", 0))).encode()
         files[f"{name}.production-sheet.html"] = sheet_html(d, pattern, notes, st, rep.issues).encode()
         files[f"{name}.verification.json"] = json.dumps(ver, indent=1).encode()
+        files[f"{name}.colours.csv"] = colour_report_csv(d, st).encode()
         row.update(status="ok", grade=ver["grade"], stitches=st["stitches"], colours=st["color_changes"] + 1, trims=st["trims"],
                    size_mm=[st["width_mm"], st["height_mm"]], minutes=st["est_minutes"], sha256=res.sha256, notes=list(notes)[:20])
         rows.append(row)
