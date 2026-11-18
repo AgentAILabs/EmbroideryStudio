@@ -5,8 +5,8 @@ const $ = (s, r = document) => r.querySelector(s);
 const PALETTE = ["#000000","#ffffff","#7f7f7f","#c8102e","#e4572e","#f28c28","#ffc72c","#f6e27a","#9bd13b","#2e9e44","#0b6e4f","#14b8a6","#4cc3ff","#2563eb","#1e3a8a","#6d28d9","#c026d3","#ec4899","#f9a8d4","#7c4a2d","#d2a679","#b08d57","#d4af37","#a8a29e"];
 const HOOPS = {"100 × 100 mm":[100,100],"130 × 180 mm":[130,180],"4 × 4 in":[101.6,101.6],"5 × 7 in":[127,177.8],"200 × 300 mm":[200,300],"240 × 150 mm":[240,150]};
 const FABRICS = {cotton:{pull_comp:.2,spacing:.40},silk:{pull_comp:.3,spacing:.45},georgette:{pull_comp:.35,spacing:.45},velvet:{pull_comp:.4,spacing:.38},denim:{pull_comp:.1,spacing:.40},knit:{pull_comp:.4,spacing:.42}};
-const DEF = {fill:{angle:45,spacing:.4,stitch_len:3.5,underlay:true,pull_comp:.2},satin:{width:3,spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true},run:{stitch_len:2.5},column:{spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true},text:{spacing:1,underlay:"auto",pull_comp:.1,auto_split:true},applique:{width:2.5,spacing:.4,stitch_len:2.5}};
-const TOOLHINT = {select:"Click to select, drag to move, drag the white handles to edit points. Space+drag or right-drag pans, wheel zooms.",fill:"Click points of the shape. Double-click, Enter or click the first point to finish. Esc cancels.",satin:"Click along the centre line of the column. Double-click or Enter to finish.",column:"Draw the FIRST edge (double-click/Enter to finish), then the SECOND edge. Stitches zig-zag between them.",run:"Click points of the line. Double-click or Enter to finish.",rect:"Drag to draw a rectangle.",ellipse:"Drag to draw an ellipse.",text:"Click where the text should start.",applique:"Click the outline of the appliqué patch. Double-click or Enter to finish."};
+const DEF = {fill:{angle:45,spacing:.4,stitch_len:3.5,underlay:true,pull_comp:.2},satin:{width:3,spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true},run:{stitch_len:2.5},column:{spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true},text:{spacing:1,underlay:"auto",pull_comp:.1,auto_split:true},applique:{width:2.5,spacing:.4,stitch_len:2.5},embellishment:{}};
+const TOOLHINT = {select:"Click to select, drag to move, drag the white handles to edit points. Space+drag or right-drag pans, wheel zooms.",fill:"Click points of the shape. Double-click, Enter or click the first point to finish. Esc cancels.",satin:"Click along the centre line of the column. Double-click or Enter to finish.",column:"Draw the FIRST edge (double-click/Enter to finish), then the SECOND edge. Stitches zig-zag between them.",run:"Click points of the line. Double-click or Enter to finish.",rect:"Drag to draw a rectangle.",ellipse:"Drag to draw an ellipse.",text:"Click where the text should start.",bead:"Click to place beads / stones / sequins. They are NOT stitched: they appear on the production sheet. Click again to add more to the same group.",applique:"Click the outline of the appliqué patch. Double-click or Enter to finish."};
 
 const S = { doc: newDoc(), sel: null, tool: "select", view: {x: 0, y: 0, z: 3}, mode: "beginner", vmode: "design",
   gen: null, draft: null, cursor: null, sim: {i: 0, playing: false}, hist: [], hi: -1, color: "#c8102e", font: null, n: 1 };
@@ -86,6 +86,7 @@ function inRing(p, r) { let c = false; for (let i = 0, j = r.length - 1; i < r.l
 function hit(o, p, tol) {
   if (o.hidden) return false;
   if (o.type === "fill" || o.type === "applique") return o.rings.reduce((n, r) => n + inRing(p, r), 0) % 2 === 1 || o.rings.some(r => r.some((q, i) => segDist(p, q, r[(i + 1) % r.length]) < tol));
+  if (o.type === "embellishment") { const r = Math.max((o.size_mm || 4) / 2, tol); return o.points.some(q => dist2(p, q) <= r * r); }
   if (o.type === "satin" || o.type === "run") { const w = o.type === "satin" ? ((o.params || {}).width ?? 3) / 2 : 0; const P = o.points; for (let i = 0; i < P.length - 1; i++) if (segDist(p, P[i], P[i + 1]) < Math.max(tol, w)) return true; return false; }
   if (o.type === "column") { const R = [o.rail1, o.rail2]; if (R.some(r => r.some((q, i) => i < r.length - 1 && segDist(p, q, r[i + 1]) < tol))) return true; const ring = o.rail1.concat(o.rail2.slice().reverse()); return inRing(p, ring); }
   if (o.type === "text") { const [w, h] = textSize(o); return p[0] >= o.x - tol && p[0] <= o.x + w + tol && p[1] >= o.y - tol && p[1] <= o.y + h + tol; }
@@ -118,7 +119,9 @@ function drawObjects(c) {
   for (const o of S.doc.objects) {
     if (o.hidden) continue; const on = o.id === S.sel;
     c.save(); c.lineJoin = "round"; c.lineCap = "round";
-    if (o.type === "fill" || o.type === "applique") {
+    if (o.guide) { c.setLineDash([6, 4]); c.strokeStyle = "#6b7280"; c.lineWidth = 1.2; c.beginPath(); const pts = o.rings ? null : o.points || []; if (o.rings) o.rings.forEach(r => pathOf(c, r, true)); else pathOf(c, shown(o, pts, !!o.closed), !!o.closed); c.stroke(); }
+    else if (o.type === "embellishment") drawEmbellishment(c, o);
+    else if (o.type === "fill" || o.type === "applique") {
       c.beginPath(); o.rings.forEach(r => pathOf(c, shown(o, r, true), true));
       c.fillStyle = o.color + (o.type === "applique" ? "99" : "cc"); c.fill("evenodd");
       c.strokeStyle = o.type === "applique" ? "#555" : "#0006"; c.setLineDash(o.type === "applique" ? [6, 4] : []); c.lineWidth = 1; c.stroke();
@@ -135,9 +138,16 @@ function drawObjects(c) {
     c.restore();
     if (on) {
       const b = bbox(allPts(o)); if (b) { const a = toScreen([b[0], b[1]]), d = toScreen([b[2], b[3]]); c.strokeStyle = "#2563eb"; c.setLineDash([4, 3]); c.lineWidth = 1; c.strokeRect(a[0] - 4, a[1] - 4, d[0] - a[0] + 8, d[1] - a[1] + 8); c.setLineDash([]); }
-      if (o.type !== "text" && S.tool === "select") for (const p of allPts(o)) { const q = toScreen(p); c.fillStyle = "#fff"; c.strokeStyle = "#2563eb"; c.lineWidth = 1.5; c.beginPath(); c.rect(q[0] - 4, q[1] - 4, 8, 8); c.fill(); c.stroke(); }
+      if (o.type !== "text" && S.tool === "select") for (const p of allPts(o)) { const q = toScreen(p), hollow = o.type === "embellishment"; c.strokeStyle = "#2563eb"; c.lineWidth = 1.5; c.beginPath(); c.rect(q[0] - 4, q[1] - 4, 8, 8); if (!hollow) { c.fillStyle = "#fff"; c.fill(); } c.stroke(); }
     }
   }
+}
+function drawEmbellishment(c, o) {
+  const r = Math.max(2.5, (o.size_mm || 4) / 2 * S.view.z); c.setLineDash([]);
+  for (const p of o.points) { const q = toScreen(p); c.beginPath();
+    if (o.kind === "stone") { c.moveTo(q[0], q[1] - r); c.lineTo(q[0] + r, q[1]); c.lineTo(q[0], q[1] + r); c.lineTo(q[0] - r, q[1]); c.closePath(); c.fillStyle = o.color + "cc"; c.fill(); c.strokeStyle = "#0008"; c.lineWidth = 1.2; c.stroke(); }
+    else { c.arc(q[0], q[1], r, 0, 7); c.fillStyle = o.color; c.fill(); c.strokeStyle = "#0008"; c.lineWidth = 1.2; c.stroke();
+      if (o.kind === "sequin") { c.beginPath(); c.arc(q[0], q[1], Math.max(1, r * .22), 0, 7); c.fillStyle = "#fff"; c.fill(); } else { c.beginPath(); c.arc(q[0] - r * .3, q[1] - r * .3, r * .25, 0, 7); c.fillStyle = "#fff9"; c.fill(); } } }
 }
 function drawStitches(c, upto, thick) {
   const g = S.gen; if (!g || !g.stitches) return; const st = g.stitches; let prev = null, th = st.length ? st[0][3] : 0;
@@ -167,6 +177,7 @@ function draw() {
   if (S.vmode === "design") { drawObjects(ctx); }
   else if (S.gen && S.gen.stitches) {
     const needle = drawStitches(ctx, S.sim.i, true);
+    for (const o of S.doc.objects) if (!o.hidden && (o.type === "embellishment" || o.guide)) { ctx.save(); if (o.type === "embellishment" && !o.guide) drawEmbellishment(ctx, o); else if (o.guide) { ctx.setLineDash([6, 4]); ctx.strokeStyle = "#6b7280"; ctx.beginPath(); if (o.rings) o.rings.forEach(r => pathOf(ctx, r, true)); else pathOf(ctx, o.points || [], !!o.closed); ctx.stroke(); } ctx.restore(); }
     if (needle) { ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(needle[0], needle[1], 4, 0, 7); ctx.fill(); }
   } else drawObjects(ctx);
   if (S.draft) drawDraft();
@@ -190,6 +201,25 @@ function addObject(o, select = true) {
   o.id = "o" + (S.n++); o.color = o.color || S.color; o.name = o.name || `${o.type[0].toUpperCase() + o.type.slice(1)} ${S.doc.objects.length + 1}`;
   const f = FABRICS[S.doc.fabric]; if (f && (o.type === "fill" || o.type === "satin")) { o.params = Object.assign({pull_comp: f.pull_comp, spacing: f.spacing}, o.params || {}); }
   S.doc.objects.push(o); if (select) S.sel = o.id; commit(); renderAll(); return o;
+}
+function addMany(objs) {
+  objs.forEach(o => { o.id = "o" + (S.n++); o.color = o.color || S.color; o.name = o.name || `${o.type} ${S.n}`; S.doc.objects.push(o); });
+  S.sel = objs.length ? objs[0].id : null; commit(); renderAll(); return objs;
+}
+async function renderTemplates() {
+  const el = $("#tpl"); let cat = [];
+  try { cat = (await (await fetch("/api/templates")).json()).templates; } catch (e) { el.innerHTML = `<div class="note">Templates unavailable (engine not reachable).</div>`; return; }
+  const groups = [...new Set(cat.map(t => t.group))];
+  el.innerHTML = `<div class="row"><label>Template</label><select id="tplSel">${groups.map(g => `<optgroup label="${esc(g)}">${cat.filter(t => t.group === g).map(t => `<option value="${t.id}">${esc(t.label)}</option>`).join("")}</optgroup>`).join("")}</select></div><div id="tplArgs"></div><div class="btns"><button id="tplGo">Insert</button></div><div class="note" id="tplNote"></div>`;
+  const args = () => { const t = cat.find(x => x.id === $("#tplSel").value); $("#tplArgs").innerHTML = t.params.map(p => `<div class="row"><label>${esc(p.label)}</label><input type="number" data-tp="${p.key}" value="${p.default}" min="${p.min}" max="${p.max}" step="${p.step}"></div>`).join("");
+    $("#tplNote").textContent = t.group.startsWith("Neckline") ? "Guide outline only: drawn dashed, never stitched. Generic proportions - adjust to your pattern." : "Stitched objects in the current thread colour."; };
+  $("#tplSel").onchange = args; args();
+  $("#tplGo").onclick = async () => {
+    const params = {}; document.querySelectorAll("[data-tp]").forEach(i => params[i.dataset.tp] = parseFloat(i.value));
+    try { const r = await post("/api/template", {id: $("#tplSel").value, params, color: S.color}); const objs = addMany(r.objects);
+      const b = bbox(objs.flatMap(allPts)), h = S.doc.hoop; if (b && (b[2] - b[0] > h.w || b[3] - b[1] > h.h)) alert("The template is larger than the current hoop (" + h.w + " × " + h.h + " mm). Choose a bigger hoop under Design, or scale it down.");
+    } catch (e) { alert("Template failed: " + e.message); }
+  };
 }
 function finishDraft() {
   const dr = S.draft; S.draft = null; if (!dr) return;
@@ -228,6 +258,8 @@ cv.addEventListener("pointerdown", e => {
   }
   if (t === "rect" || t === "ellipse") { const p = snapP(w, e.altKey); S.draft = {kind: t, a: p, b: p}; drag = {type: "shape"}; return; }
   if (t === "text") { const p = snapP(w, e.altKey); const o = addObject({type: "text", text: "TEXT", height: 10, x: p[0], y: p[1]}); S.tool = "select"; setTool("select"); return; }
+  if (t === "bead") { const p = snapP(w, e.altKey); let o = selObj(); if (!o || o.type !== "embellishment") o = addObject({type: "embellishment", kind: "bead", size_mm: 4, color: "#d4af37", points: []}, true);
+    o.points.push([p[0], p[1]]); commit(); renderAll(); return; }
   const p = snapP(w, e.altKey);
   if (!S.draft) S.draft = {kind: "poly", pts: []};
   const pts = S.draft.pts;
@@ -261,7 +293,7 @@ addEventListener("keydown", e => {
   if (e.key === "Escape") { S.draft = null; S.colRail = null; draw(); return; }
   if (e.key === "Enter" && S.draft) { finishDraft(); return; }
   if ((e.key === "Delete" || e.key === "Backspace") && S.sel) { deleteSel(); return; }
-  const map = {v: "select", f: "fill", s: "satin", c: "column", r: "run", t: "text", a: "applique"};
+  const map = {v: "select", f: "fill", s: "satin", c: "column", r: "run", t: "text", a: "applique", e: "bead"};
   if (map[k] && !e.ctrlKey) { setTool(map[k]); return; }
   if (k === "p") { togglePlay(); return; }
   if (e.key === "0") { fit(); return; }
@@ -401,8 +433,10 @@ function renderProps() {
   const el = $("#props"), o = selObj();
   if (!o) { el.innerHTML = `<div class="note">Nothing selected. Pick a tool on the left and draw, or import artwork.</div><div class="note">Default colour</div><div class="sw" id="defsw"></div>`; swatches($("#defsw"), S.color, c => { S.color = c; renderProps(); }); return; }
   let h = `<div class="row"><label>Name</label><input type="text" data-k="name" data-d=1 value="${esc(o.name || "")}"></div>`;
-  h += `<div class="note">Thread colour</div><div class="sw" id="osw"></div><div class="row"><label>Custom</label><input type="color" data-k="color" data-d=1 value="${o.color}"></div>`;
-  if (o.type !== "text") h += field("Smooth curve", "smooth", o, {type: "check", direct: 1});
+  h += `<div class="note">${o.type === "embellishment" ? "Colour (for the production sheet)" : "Thread colour"}</div><div class="sw" id="osw"></div><div class="row"><label>Custom</label><input type="color" data-k="color" data-d=1 value="${o.color}"></div>`;
+  if (o.type === "embellishment") h += field("Type", "kind", o, {options: ["bead", "stone", "sequin"], direct: 1}) + field("Size mm", "size_mm", o, {direct: 1, step: .5, min: 1}) + `<div class="note">${o.points.length} placed · not stitched · listed on the production sheet. Click the canvas with the Bead tool to add more.</div>`;
+  else h += field("Guide only (not stitched)", "guide", o, {type: "check", direct: 1});
+  if (o.type !== "text" && o.type !== "embellishment") h += field("Smooth curve", "smooth", o, {type: "check", direct: 1});
   if (o.type === "fill") h += field("Direction °", "angle", o, {step: 5, tip: "Stitch angle"}) + field("Row spacing mm", "spacing", o, {step: .05, min: .2, pro: 1, tip: "Smaller = denser"}) + field("Stitch length mm", "stitch_len", o, {step: .5, min: 1, pro: 1}) + field("Underlay", "underlay", o, {options: ["tatami", "edge", "edge+tatami", "none"], pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1, tip: "Extra length to offset fabric pull-in"});
   if (o.type === "satin") h += field("Width mm", "width", o, {step: .25, min: .8}) + field("Underlay", "underlay", o, {options: ["auto", "center", "edge", "none"], pro: 1}) + field("Spacing mm", "spacing", o, {step: .05, min: .2, pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1}) + field("Auto-split long stitches", "auto_split", o, {type: "check", pro: 1, tip: "Splits stitches longer than the machine max stitch so wide satin stays clean"});
   if (o.type === "column") h += field("Underlay", "underlay", o, {options: ["auto", "center", "edge", "none"], pro: 1}) + field("Spacing mm", "spacing", o, {step: .05, min: .2, pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1}) + field("Auto-split long stitches", "auto_split", o, {type: "check", pro: 1, tip: "Splits stitches longer than the machine max stitch so wide satin stays clean"}) + `<div class="note">Two-rail satin: stitches run edge to edge. Drag the rail points to reshape.</div>`;
@@ -526,5 +560,6 @@ addEventListener("resize", resize);
   let saved = null; try { saved = localStorage.getItem("es.autosave"); } catch (e) {}
   resize(); if (saved) { try { const d = JSON.parse(saved); if (d.objects) { S.doc = Object.assign(newDoc(), d); S.n = 1 + Math.max(0, ...S.doc.objects.map(o => parseInt(String(o.id).replace(/\D/g, "")) || 0)); } } catch (e) {} }
   $("#docName").value = S.doc.name; commit(); renderAll(); fit(); setTool("select");
+  renderTemplates();
   window.__ES = S;
 })();

@@ -386,3 +386,76 @@ class FrontEndStaticTests(unittest.TestCase):
         dynamic_ids = set(re.findall(r'id="(\w+)"', js))                      # panels built from template strings
         wired = set(re.findall(r'\$\("#(\w+)"\)\.on', js))
         self.assertEqual(sorted(i for i in wired if i not in static_ids | dynamic_ids), [])
+
+
+class EmbellishmentGuideTests(unittest.TestCase):
+    BEADS = {"id": "e1", "type": "embellishment", "kind": "bead", "size_mm": 4, "color": "#d4af37", "points": [[0, 0], [10, 0], [20, 0]], "name": "neck beads"}
+    STONE = {"id": "e2", "type": "embellishment", "kind": "stone", "size_mm": 6, "color": "#ffffff", "points": [[5, 10]]}
+    def test_embellishments_never_reach_the_dst(self):
+        base = doc({"id": "a", "type": "fill", "color": "#f00", "rings": [SQ]})
+        withe = doc({"id": "a", "type": "fill", "color": "#f00", "rings": [SQ]}, self.BEADS, self.STONE)
+        a, b = generate(base)[0], generate(withe)[0]
+        self.assertEqual(a.counts(), b.counts()); self.assertEqual(a.bbox(), b.bbox())      # identical stitches
+        self.assertEqual(server.api_dst(base)[0].sha256, server.api_dst(withe)[0].sha256)    # identical DST bytes
+        self.assertEqual(generate(withe)[2]["embellishments"], {"bead": 3, "stone": 1})
+    def test_guides_are_not_stitched(self):
+        g = {"id": "g", "type": "run", "color": "#888", "guide": True, "closed": True, "points": [[0, 0], [90, 0], [90, 90], [0, 90]]}
+        p, _, _ = generate(doc({"id": "a", "type": "fill", "color": "#f00", "rings": [SQ]}, g))
+        bb = p.bbox(); self.assertLessEqual(bb[2], 21)                                       # 90 mm guide did not add stitches
+    def test_embellishment_only_design_is_valid_but_cannot_export_dst(self):
+        d = doc(self.BEADS); r = server.api_generate(d)
+        self.assertEqual(r["stitches"], []); self.assertEqual(r["stats"]["embellishments"], {"bead": 3})
+        self.assertTrue(any("Nothing to stitch" in n for n in r["notes"]))
+        with self.assertRaises(ValueError): server.api_dst(d)                                # nothing to export
+    def test_sheet_lists_embellishments_with_positions(self):
+        d = doc({"id": "a", "type": "fill", "color": "#f00", "rings": [SQ]}, self.BEADS, self.STONE)
+        h = server.sheet.sheet_html(d)
+        for t in ("Embellishments", "not</b> in the DST", "bead", "stone", "(10.0, 0.0)", "#d4af37", "neck beads"): self.assertIn(t, h)
+        only = server.sheet.sheet_html(doc(self.BEADS)); self.assertIn("Embellishments", only)   # sheet still builds
+    def test_sheet_ignores_hidden_and_guide_embellishments(self):
+        d = doc({"id": "a", "type": "fill", "color": "#f00", "rings": [SQ]}, dict(self.BEADS, hidden=True))
+        self.assertNotIn("Embellishments", server.sheet.sheet_html(d))
+
+
+class TemplateTests(unittest.TestCase):
+    def test_every_template_builds_and_stitched_ones_pass_checks(self):
+        from stitchcraft_engine import templates as T
+        for t in T.catalog():
+            objs = T.build(t["id"], {})
+            self.assertTrue(objs, t["id"])
+            for i, o in enumerate(objs): o["id"] = f"t{i}"
+            d = doc(*objs)
+            if t["group"].startswith("Neckline"):
+                self.assertTrue(all(o.get("guide") for o in objs), t["id"])
+                self.assertTrue(server._only_unstitched(d))                       # guides never stitch
+            else:
+                p, _, st = generate(d)
+                self.assertTrue(run_checks(d, p).ok, (t["id"], [i.message for i in run_checks(d, p).errors]))
+                self.assertGreater(st["stitches"], 50, t["id"])
+    def test_neck_guide_size_is_in_inches(self):
+        from stitchcraft_engine import templates as T
+        for tid in ("neck_round", "neck_boat", "neck_v", "neck_square", "neck_back_u"):
+            pts = T.build(tid, {"width_in": 6, "depth_in": 5})[0]["points"]
+            xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+            self.assertAlmostEqual(max(xs) - min(xs), 6 * 25.4, delta=0.5, msg=tid)
+            self.assertAlmostEqual(max(ys) - min(ys), 5 * 25.4, delta=0.5, msg=tid)
+    def test_border_length_and_centering(self):
+        from stitchcraft_engine import templates as T
+        o = T.build("border_scallop", {"length_mm": 100})[0]["points"]
+        self.assertAlmostEqual(min(p[0] for p in o), -50, delta=.01); self.assertAlmostEqual(max(p[0] for p in o), 50, delta=.01)
+    def test_params_are_clamped_and_bad_input_survives(self):
+        from stitchcraft_engine import templates as T
+        self.assertLessEqual(len(T.build("border_dots", {"length_mm": 1e9, "gap": -5})), T.MAX_OBJECTS)
+        self.assertTrue(T.build("border_petal", {"length_mm": "abc", "petal_w": None}))
+        with self.assertRaises(ValueError): T.build("nope", {})
+        self.assertEqual(T.build("border_zigzag", {}, color="javascript:evil")[0]["color"], "#c8102e")   # colour sanitised
+    def test_templates_over_http(self):
+        import threading, urllib.request
+        from http.server import ThreadingHTTPServer
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), server.H); threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            base = f"http://127.0.0.1:{srv.server_address[1]}"
+            cat = json.loads(urllib.request.urlopen(base + "/api/templates").read())["templates"]; self.assertGreaterEqual(len(cat), 9)
+            r = urllib.request.Request(base + "/api/template", data=json.dumps({"id": "neck_v", "params": {}}).encode(), method="POST")
+            self.assertTrue(json.loads(urllib.request.urlopen(r).read())["objects"][0]["guide"])
+        finally: srv.shutdown(); srv.server_close()

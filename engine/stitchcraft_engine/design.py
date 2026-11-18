@@ -117,8 +117,8 @@ def generate(design: dict, trim_distance: Optional[float] = None):
     mach = machine(design)
     split_of = lambda ob: (mach["max_stitch"] if ob.get("params", {}).get("auto_split", True) else 0.0)
     for ob in design.get("objects", []):
-        if ob.get("hidden"):
-            continue
+        if ob.get("hidden") or ob.get("guide") or ob.get("type") == "embellishment":
+            continue          # guides and embellishment placeholders are never stitched (they go on the production sheet)
         oid, typ = str(ob["id"]), ob["type"]
         try:
             th = tid(ob.get("color"))
@@ -187,6 +187,12 @@ def generate(design: dict, trim_distance: Optional[float] = None):
     return pattern, notes, stats(pattern, design)
 
 
+def empty_stats(design: Optional[dict] = None) -> dict:
+    """Stats for a design with nothing to stitch (e.g. only embellishment placeholders / guides)."""
+    base = stats(Pattern("empty", [], []), design)
+    return base
+
+
 def _bbox(ob: dict):
     pts = [p for r in ob.get("rings", []) for p in r] + list(ob.get("points", [])) + list(ob.get("rail1", [])) + list(ob.get("rail2", []))
     if ob.get("type") == "text":
@@ -229,7 +235,12 @@ def stats(p: Pattern, design: Optional[dict] = None) -> dict:
             sequence.append([s.thread, 0])
         if s.cmd == Cmd.STITCH:
             sequence[-1][1] += 1
+    emb: Dict[str, int] = {}
+    for o in (design or {}).get("objects", []):
+        if o.get("type") == "embellishment" and not o.get("hidden") and not o.get("guide"):
+            emb[o.get("kind", "bead")] = emb.get(o.get("kind", "bead"), 0) + len(o.get("points", []))
     return {
+        "embellishments": emb,
         "fabric": (design or {}).get("fabric"), "stabiliser": (design or {}).get("stabiliser"),
         "stitches": c["stitch"], "jumps": c["jump"], "trims": c["trim"], "color_changes": c["color_change"],
         "width_mm": round(bb[2] - bb[0], 2) if bb else 0, "height_mm": round(bb[3] - bb[1], 2) if bb else 0,

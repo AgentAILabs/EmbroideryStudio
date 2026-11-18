@@ -16,14 +16,18 @@ def _safe(name: str) -> str:
 
 def sheet_html(design: dict, pattern=None, notes=None, st=None, issues=None) -> str:
     if pattern is None:
-        pattern, notes, st = generate(design)
-        issues = run_checks(design, pattern).issues
+        try:
+            pattern, notes, st = generate(design)
+            issues = run_checks(design, pattern).issues
+        except ValueError:          # nothing stitchable (embellishments / guides only)
+            from stitchcraft_engine.design import empty_stats
+            pattern, notes, st, issues = None, ["Nothing to stitch - this design only has embellishment placeholders or guides."], empty_stats(design), []
     h, m = design.get("hoop", {}), machine(design)
     hoop = f'{h.get("w", 100)} × {h.get("h", 100)} mm (margin {h.get("margin", 3)} mm)'
     rows = "".join(f'<tr><td>{i + 1}</td><td><span class="sw" style="background:{E(s["hex"])}"></span> {E(s["hex"])}</td><td>{s["stitches"]}</td></tr>'
                    for i, s in enumerate(st["color_sequence"]))
     appl = [o for o in design.get("objects", []) if o.get("type") == "applique" and not o.get("hidden")]
-    emb = [o for o in design.get("objects", []) if o.get("type") == "embellishment" and not o.get("hidden")]
+    emb = [o for o in design.get("objects", []) if o.get("type") == "embellishment" and not o.get("hidden") and not o.get("guide")]
     emb_html = ""
     if emb:
         agg = {}
@@ -37,7 +41,7 @@ def sheet_html(design: dict, pattern=None, notes=None, st=None, issues=None) -> 
                     "</table><p class='m'>Positions in mm from the design centre (x right, y down):</p><table><tr><th>Group</th><th>Type</th><th>Positions</th></tr>" + pos + "</table>")
     msgs = [f'<li class="{"e" if i.severity == "error" else "w"}">{E(i.message)}</li>' for i in (issues or [])][:40]
     msgs += [f'<li class="w">{E(n)}</li>' for n in (notes or [])]
-    svg = preview_svg(pattern, float(h.get("w", 0)), float(h.get("h", 0)))
+    svg = preview_svg(pattern, float(h.get("w", 0)), float(h.get("h", 0))) if pattern else ""
     return f"""<!doctype html><html><head><meta charset="utf-8"><title>Production sheet - {E(design.get('name', 'design'))}</title>
 <style>body{{font:14px system-ui,sans-serif;margin:24px;max-width:860px;color:#111}}table{{border-collapse:collapse;margin:6px 0}}td,th{{border:1px solid #999;padding:4px 10px;text-align:left}}
 h1{{margin:0}}.m{{color:#555}}.sw{{display:inline-block;width:16px;height:16px;border:1px solid #000;vertical-align:middle}}.e{{color:#b91c1c}}.w{{color:#b45309}}

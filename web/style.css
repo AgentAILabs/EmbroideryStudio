@@ -35,3 +35,6 @@ button:hover{border-color:var(--acc)}button.primary{background:var(--acc);border
 @media (max-width:900px){body{grid-template-columns:56px 1fr;grid-template-rows:46px 1fr 40vh;grid-template-areas:"top top" "tools stage" "side side"}}
 
 .chk2{display:flex;align-items:center;gap:4px;color:var(--mute);white-space:nowrap}
+
+#top button,#top .brand{white-space:nowrap}
+#top{gap:6px}#top button{padding:5px 8px}#top .grp{gap:3px}

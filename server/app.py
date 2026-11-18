@@ -7,6 +7,8 @@ POST /api/export/svg      design JSON -> preview SVG
 POST /api/import/dst      {data(base64)} -> stitches (view only)
 POST /api/import/svg      {svg, width_mm?} -> objects
 POST /api/import/raster   {data(base64), width_mm, colors} -> objects
+GET  /api/templates       template catalogue
+POST /api/template        {id, params, color} -> objects
 GET  /api/health"""
 import base64, json, os, sys, hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -14,11 +16,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "engine"))
-from stitchcraft_engine.design import generate, run_checks, FABRICS, machine            # noqa: E402
+from stitchcraft_engine.design import generate, run_checks, FABRICS, machine, empty_stats            # noqa: E402
 from stitchcraft_engine.dst import write_dst, read_dst                          # noqa: E402
 from stitchcraft_engine.model import Cmd                                        # noqa: E402
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
 from stitchcraft_engine.raster import digitize_raster, RasterUnavailable        # noqa: E402
+from stitchcraft_engine import templates                                        # noqa: E402
 import sheet                                                                   # noqa: E402
 
 WEB = ROOT / "web"
@@ -52,8 +55,16 @@ def check_design(d):
         raise ValueError(f"design too complex (limit {MAX_POINTS} points)")
 
 
+def _only_unstitched(d):
+    objs = [o for o in d.get("objects", []) if not o.get("hidden")]
+    return bool(objs) and all(o.get("guide") or o.get("type") == "embellishment" for o in objs)
+
+
 def api_generate(d):
     check_design(d)
+    if _only_unstitched(d):        # e.g. only embellishment placeholders / guides: valid, just nothing to stitch
+        return {"stitches": [], "threads": [], "stats": empty_stats(d), "issues": [],
+                "notes": ["Nothing to stitch yet - embellishments and guides are not part of the DST."]}
     pattern, notes, st = generate(d)
     rep = run_checks(d, pattern)
     return {"stitches": compact(pattern), "threads": [t.hex for t in pattern.threads], "stats": st,
@@ -149,6 +160,8 @@ class H(BaseHTTPRequestHandler):
         if path == "/api/font":
             from stitchcraft_engine.font import GLYPHS, GLYPH_W, GLYPH_H, GAP
             return self._send(200, {"glyphs": GLYPHS, "w": GLYPH_W, "h": GLYPH_H, "gap": GAP})
+        if path == "/api/templates":
+            return self._send(200, {"templates": templates.catalog()})
         if path == "/api/health":
             return self._send(200, {"ok": True, "fabrics": FABRICS})
         f = (WEB / ("index.html" if path == "/" else path.lstrip("/"))).resolve()
@@ -172,6 +185,8 @@ class H(BaseHTTPRequestHandler):
                 name = sheet._safe(d.get("name"))
                 return self._send(200, res.data, "application/octet-stream",
                                   {"Content-Disposition": f'attachment; filename="{name}.dst"', "X-SHA256": res.sha256})
+            if path == "/api/template":
+                return self._send(200, {"objects": templates.build(d.get("id", ""), d.get("params") or {}, d.get("color", "#c8102e"))})
             if path == "/api/export/package":
                 check_design(d)
                 data, err = sheet.package(d)
