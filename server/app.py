@@ -137,6 +137,23 @@ def api_view_dst(d):
             "color_changes": f.color_changes, "ends_properly": f.ends_properly}
 
 
+def api_placements(d):
+    """Placement set: design + [{id, width_mm?, ...}] -> zip of named DSTs. Returns (bytes, report)."""
+    check_design(d["design"])
+    data, rep = sheet.placement_set(d["design"], d.get("placements") or [], str(d.get("source_side", "left")), d.get("thread"))
+    if data is None:
+        raise ValueError(rep["error"] + ": " + "; ".join(f"{r['file']}: {r.get('reason', '')}" for r in rep["placements"])[:600])
+    return data, rep
+
+
+def api_autofix(d):
+    """Conservative auto-correction of a design. Returns {design, log}."""
+    check_design(d)
+    from stitchcraft_engine import placements
+    fixed, log = placements.autofix(d)
+    return {"design": fixed, "log": log}
+
+
 def api_dst_report(d):
     """Analysis + six-stage verification of any DST (ours or a third party's): metrics and PASS/WARN/FAIL with evidence."""
     raw = base64.b64decode(d["data"])
@@ -296,6 +313,12 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_svg(d))
             if path == "/api/import/raster":
                 return self._send(200, api_raster(d))
+            if path == "/api/autofix":
+                return self._send(200, api_autofix(d))
+            if path == "/api/placements":
+                data, rep = api_placements(d)
+                return self._send(200, data, "application/zip", {"Content-Disposition": f'attachment; filename="{rep["base"]}-placements.zip"',
+                                                                  "X-Placement-Report": base64.b64encode(json.dumps([{k: r.get(k) for k in ("file", "status", "grade", "stitches", "reason")} for r in rep["placements"]]).encode()).decode()})
             if path == "/api/dst/report":
                 return self._send(200, api_dst_report(d))
             if path == "/api/enhance":

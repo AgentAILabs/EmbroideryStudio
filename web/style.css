@@ -80,3 +80,12 @@ dialog::backdrop{background:#0006}
 #qBody .chk2{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;margin:4px 0 0 2px;font-size:12px}#qBody .chk2 span.ev{color:var(--mute);grid-column:2;margin-top:-2px;margin-bottom:3px}
 #qBody .met{display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0;color:var(--mute);font-size:12px}#qBody .met b{color:var(--ink)}
 dialog#dlgQuality .row2{display:flex;justify-content:flex-end;margin-top:10px}
+
+dialog#dlgSet{border:1px solid var(--line);border-radius:10px;padding:16px;width:min(560px,94vw);background:var(--panel);color:var(--ink)}
+dialog#dlgSet label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0}
+dialog#dlgSet .hint{font-size:12px;color:var(--mute);margin:0 0 8px}
+#setRows .pl{display:grid;grid-template-columns:22px 1fr 96px;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
+#setRows .pl input[type=number]{width:100%;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg)}
+#setRows .pl small{color:var(--mute)}
+dialog#dlgSet .row2{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+#setOut{margin-top:8px;white-space:pre-wrap}

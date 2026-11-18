@@ -25,6 +25,7 @@
     <button data-mode="pro" title="All stitch parameters">Pro</button>
   </div>
   <div class="grow"></div>
+  <button id="bSet" title="Make the same design for left / right / neck ... as separate, named, verified DST files">Placement set</button>
   <button id="bQuality" title="Run the six-stage DST verification on this design (or on the .dst you are viewing)">Quality check</button>
   <details class="menu" id="mMore"><summary title="More exports and tools">More ▾</summary><div class="pop">
     <button id="bViewDst" title="Inspect an existing .dst file (view + verification report)">Open DST to inspect…</button>
@@ -39,6 +40,17 @@
   <input type="file" id="fileOpen" accept=".esproj,.json" hidden>
   <input type="file" id="fileImport" accept=".svg,.png,.jpg,.jpeg" hidden>
 </header>
+<dialog id="dlgSet">
+  <form method="dialog" id="setForm">
+    <h3>Placement set - one design, one DST per position</h3>
+    <p class="hint">Each file is a separate, named, auto-corrected and verified DST: <code>{design}_left.dst</code>, <code>_right.dst</code>, <code>_neck.dst</code> ... Right is a <b>true mirror image</b> of left (not a rotated copy).</p>
+    <label>Artwork is drawn for the <select id="setSide"><option value="left">left side</option><option value="right">right side</option></select></label>
+    <label>Thread <select id="setThread"></select></label>
+    <div id="setRows"></div>
+    <div id="setOut" class="note" hidden></div>
+    <div class="row2"><button value="cancel">Close</button><button value="go" class="primary" id="setGo">Generate &amp; download zip</button></div>
+  </form>
+</dialog>
 <dialog id="dlgQuality">
   <form method="dialog">
     <h3 id="qTitle">Quality check</h3>

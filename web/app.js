@@ -446,6 +446,27 @@ function renderQuality(j, title) {
     v.stages.map(s => `<div class="stage"><b><span class="chip ${s.result}">${s.result}</span>${esc(s.stage)}</b><div class="chk2">${s.checks.map(c => `<span class="chip ${c.level}" style="font-size:10px;align-self:start">${c.level}</span><span>${esc(c.what)}</span><span class="ev">${esc(c.evidence)}</span>`).join("")}</div></div>`).join("") +
     `<p class="note">Automated checks of the file's structure and stitch data. They cannot replace a test stitch-out on your fabric and stabiliser.</p>`;
 }
+const PLACEMENTS = [["left", "Left (sleeve / side)", 1], ["right", "Right (true mirror of left)", 1], ["neck", "Neck (front neckline)", 1], ["back_neck", "Back neck", 0], ["front", "Front panel", 0], ["back", "Back panel", 0], ["sleeve_left", "Sleeve - left", 0], ["sleeve_right", "Sleeve - right", 0], ["center", "Centre / single motif", 0]];
+function openSet() {
+  if (!S.doc.objects.length) { alert("Add or import some artwork first."); return; }
+  $("#setRows").innerHTML = PLACEMENTS.map(([id, label, on]) => `<div class="pl"><input type="checkbox" data-pl="${id}" ${on ? "checked" : ""}><span>${label} <small>_${id}.dst</small></span><input type="number" data-w="${id}" min="5" max="500" step="1" placeholder="width mm"></div>`).join("");
+  $("#setThread").innerHTML = Object.keys(THREADS).map(k => `<option value="${k}" ${k === (S.doc.thread || "40wt") ? "selected" : ""}>${THREADS[k]}</option>`).join("");
+  const nm = (S.doc.name || "design").replace(/[^\w-]+/g, "_"); $("#dlgSet .hint").innerHTML = `Files are named after the design name (<b>${esc(nm)}</b>): <code>${esc(nm)}_left.dst</code>, <code>_right.dst</code>, <code>_neck.dst</code> … Each is auto-corrected and verified. Right is a <b>true mirror image</b> of left, not a rotated copy. Rename the design in the top bar first if needed.`;
+  $("#setOut").hidden = true; $("#dlgSet").showModal();
+}
+async function generateSet() {
+  const spec = [...document.querySelectorAll("#setRows input[data-pl]")].filter(c => c.checked).map(c => { const w = parseFloat(document.querySelector(`#setRows input[data-w="${c.dataset.pl}"]`).value); return w ? {id: c.dataset.pl, width_mm: w} : {id: c.dataset.pl}; });
+  const out = $("#setOut"); out.hidden = false;
+  if (!spec.length) { out.textContent = "Tick at least one placement."; return; }
+  out.textContent = "Generating, correcting and verifying…";
+  try {
+    const r = await fetch("/api/placements", {method: "POST", body: JSON.stringify({design: S.doc, placements: spec, source_side: $("#setSide").value, thread: $("#setThread").value})});
+    if (!r.ok) { const j = await r.json().catch(() => ({})); out.textContent = "Not generated: " + (j.error || r.statusText); return; }
+    const rep = JSON.parse(atob(r.headers.get("X-Placement-Report") || "W10=")); const buf = await r.arrayBuffer();
+    download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + "-placements.zip", buf, "application/zip");
+    out.textContent = rep.map(x => (x.status === "ok" ? "✔ " : "✖ ") + x.file + (x.status === "ok" ? `  ${x.grade}, ${x.stitches} stitches` : `  ${x.status}: ${x.reason || ""}`)).join("\n") + "\nZip downloaded (DST + project + preview + production sheet + verification per file).";
+  } catch (e) { out.textContent = "Failed: " + e.message; }
+}
 async function qualityCheck() {
   const dlg = $("#dlgQuality"); $("#qBody").textContent = "Running…"; dlg.showModal();
   try {
@@ -578,7 +599,7 @@ function renderDesign() {
   <div class="row"><label title="Tie-in / tie-off stitch length. 0 = no lock stitches">Lock stitch mm</label><input type="number" id="mLock" value="${(d.machine || {}).lock_len ?? 1}" step=".1" min="0" max="1.5"></div>
   <div class="row"><label title="Tie off + trim before every thread colour change">Trim at colour change</label><input type="checkbox" id="mTC" ${((d.machine || {}).trim_at_color_change ?? 1) ? "checked" : ""}></div>
   <div class="row"><label title="Tie off + trim before the end of the design">Trim at end</label><input type="checkbox" id="mTE" ${((d.machine || {}).trim_at_end ?? 1) ? "checked" : ""}></div>
-  <div class="btns"><button id="bCenter">Centre design</button><button id="bOpt" title="Group objects by thread colour">Optimise colours</button><button id="bVer">Save version…</button></div><ul id="vers" style="list-style:none;margin:0;padding:0"></ul>`;
+  <div class="btns"><button id="bFix" title="Fit to hoop, centre, drop specks, fix hairline columns, remove duplicate points, relieve over-dense areas. Undoable.">Auto-fix</button><button id="bCenter">Centre design</button><button id="bOpt" title="Group objects by thread colour">Optimise colours</button><button id="bVer">Save version…</button></div><ul id="vers" style="list-style:none;margin:0;padding:0"></ul>`;
   const sig = html.replace(/ value="[^"]*"/g, "").replace(/ selected/g, "").replace(/ checked/g, "");
   if (el.dataset.sig === sig) {   // same structure: sync values in place so a click in progress is never lost to a rebuild
     const sync = (id, v) => { const x = $("#" + id); if (x && document.activeElement !== x) x.value = v; };
@@ -593,6 +614,13 @@ function renderDesign() {
   mset("max_stitch", $("#mMax")); mset("trim_distance", $("#mTrim")); mset("trim_jumps", $("#mJ")); mset("lock_len", $("#mLock"));
   const mflag = (k, el) => el.onchange = () => { S.doc.machine = S.doc.machine || {}; S.doc.machine[k] = el.checked ? 1 : 0; commit(); renderAll(); };
   mflag("trim_at_color_change", $("#mTC")); mflag("trim_at_end", $("#mTE"));
+  $("#bFix").onclick = async () => {
+    try { const j = await post("/api/autofix", S.doc);
+      if (!j.log.length) { alert("Nothing to fix - the design already passes the automatic corrections."); return; }
+      const keepName = S.doc.name; S.doc = Object.assign(newDoc(), j.design, {name: keepName}); S.sel = null; commit(); renderAll(); fit();
+      alert("Auto-fix applied (Ctrl+Z undoes it):\n\n• " + j.log.join("\n• "));
+    } catch (e) { alert("Auto-fix failed: " + e.message); }
+  };
   $("#bOpt").onclick = optimiseColours; $("#bVer").onclick = saveVersion; renderVersions();
   const setH = (w, h) => { S.doc.hoop.w = w; S.doc.hoop.h = h; commit(); fit(); renderAll(); };
   $("#hoopSel").onchange = e => { const v = HOOPS[e.target.value]; if (v) setH(v[0], v[1]); };
@@ -661,7 +689,7 @@ $("#libq").oninput = e => { libQ = e.target.value; renderLibrary(); };
 $("#libcats").onclick = e => { if (e.target.dataset.cat) { libCat = e.target.dataset.cat; renderLibrary(); } };
 $("#libgrid").onclick = e => { const b = e.target.closest("button[data-act]"); if (b) openFromLibrary(b.dataset.id, b.dataset.act === "3d"); };
 $("#v3fab").onchange = e => Viewer3D.setFabric(e.target.value); $("#v3reset").onclick = () => Viewer3D.reset();
-$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bExp").onclick = exportExp; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => { $("#mMore").open = false; $("#fileDst").click(); }; $("#bQuality").onclick = qualityCheck;
+$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bExp").onclick = exportExp; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => { $("#mMore").open = false; $("#fileDst").click(); }; $("#bQuality").onclick = qualityCheck; $("#bSet").onclick = openSet; $("#setGo").onclick = e => { e.preventDefault(); generateSet(); };
 $("#mMore .pop").addEventListener("click", e => { if (e.target.closest("button")) setTimeout(() => $("#mMore").open = false, 0); });
 document.addEventListener("click", e => { const m = $("#mMore"); if (m.open && !m.contains(e.target)) m.open = false; }); $("#fileDst").onchange = e => { const f = e.target.files[0]; if (f) viewDst(f); e.target.value = ""; };
 $("#bNew").onclick = () => { if (!S.doc.objects.length || confirm("Discard the current design?")) loadDoc(newDoc()); };
