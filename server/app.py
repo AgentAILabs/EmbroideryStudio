@@ -25,7 +25,7 @@ from stitchcraft_engine.dst import write_dst, read_dst                          
 from stitchcraft_engine.exp import write_exp                                    # noqa: E402
 from stitchcraft_engine.model import Cmd                                        # noqa: E402
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
-from stitchcraft_engine.raster import digitize_image, RasterUnavailable        # noqa: E402
+from stitchcraft_engine.raster import digitize_image, enhance_image, RasterUnavailable        # noqa: E402
 from stitchcraft_engine import templates                                        # noqa: E402
 from stitchcraft_engine.outline import column_from_outline                      # noqa: E402
 import sheet                                                                   # noqa: E402
@@ -175,8 +175,24 @@ def api_raster(d):
     raw = base64.b64decode(d["data"])
     if raw[:4] == b"%PDF":
         raise ValueError("PDF import is not supported yet; export the artwork as SVG or PNG")
+    enh = None
+    mode = str(d.get("enhance", "off"))
+    if mode not in ("off", "auto", "always"):
+        raise ValueError("enhance must be off, auto or always")
+    if mode != "off":
+        out, info = enhance_image(raw, 2.0, "sharpen" if mode == "always" else "auto")
+        if len(info["steps"]) > 1:                       # only use it when it actually cleaned something
+            raw, enh = out, info
+        else:
+            enh = dict(info, skipped="image is already sharp and high-resolution")
     r = digitize_image(raw, float(d.get("width_mm", 80)), int(d.get("colors", 6)), str(d.get("quality", "standard")))
-    return {"objects": r["objects"], "notes": r["notes"], "width_mm": r["size_mm"][0], "height_mm": r["size_mm"][1], "report": r["report"]}
+    return {"objects": r["objects"], "notes": r["notes"], "width_mm": r["size_mm"][0], "height_mm": r["size_mm"][1], "report": dict(r["report"], enhance=enh)}
+
+
+def api_enhance(d):
+    raw = base64.b64decode(d["data"])
+    out, info = enhance_image(raw, float(d.get("scale", 2.0)), str(d.get("mode", "auto")))
+    return {"png": base64.b64encode(out).decode(), "info": info}
 
 
 class H(BaseHTTPRequestHandler):
@@ -264,6 +280,8 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_svg(d))
             if path == "/api/import/raster":
                 return self._send(200, api_raster(d))
+            if path == "/api/enhance":
+                return self._send(200, api_enhance(d))
             self._send(404, {"error": "not found"})
         except (UnsupportedSvg, RasterUnavailable, ValueError, KeyError, TypeError) as e:
             self._send(400, {"error": str(e)})

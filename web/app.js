@@ -361,7 +361,7 @@ function fitObjects(objs, targetW) {
 function askImport() {
   return new Promise(resolve => {
     const dlg = $("#dlgImport"); $("#impW").value = Math.round(S.doc.hoop.w * .7); $("#impReport").hidden = true;
-    dlg.onclose = () => resolve(dlg.returnValue === "go" ? {w: parseFloat($("#impW").value), c: parseInt($("#impC").value) || 6, q: $("#impQ").value} : null);
+    dlg.onclose = () => resolve(dlg.returnValue === "go" ? {w: parseFloat($("#impW").value), c: parseInt($("#impC").value) || 6, q: $("#impQ").value, e: $("#impE").value} : null);
     dlg.showModal();
   });
 }
@@ -369,6 +369,8 @@ function importSummary(r, scaled) {
   const l = [];
   l.push("Imported " + ((r.objectsN) || 0) + " objects, " + (r.colours_used || 0) + " colour(s)" + (r.colours_merged ? " (" + r.colours_merged + " near-duplicate shade(s) merged)" : "") + ".");
   if (r.dpi) l.push("Source resolution ≈ " + r.dpi + " dpi at this size" + (r.dpi < 150 ? " – low; edges may be rough, use a larger image." : "."));
+  const e = r.enhance;
+  if (e) l.push(e.skipped ? "Enhancer: skipped (" + e.skipped + ")." : "Enhancer: " + e.source_px.join("×") + " → " + e.result_px.join("×") + " px (" + e.steps.join(", ") + ")" + (e.photographic ? " – photo: only lightly sharpened." : "."));
   return l;
 }
 async function importFile(file) {
@@ -378,7 +380,7 @@ async function importFile(file) {
     else {
       const o = await askImport(); if (!o || !o.w) return;
       const buf = new Uint8Array(await file.arrayBuffer()); let bin = ""; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
-      res = await post("/api/import/raster", {data: btoa(bin), width_mm: o.w, colors: o.c, quality: o.q});
+      res = await post("/api/import/raster", {data: btoa(bin), width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e});
       if (res.report) { res.report.objectsN = res.objects.length; res.notes = importSummary(res.report).concat(res.notes || []); }
     }
     if (!res.objects.length) { alert((res.notes || []).join("\n") || "Nothing to digitize. For images, use flat-colour artwork on a plain background."); return; }
