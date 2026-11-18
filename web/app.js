@@ -35,7 +35,7 @@ async function doRegen() {
   try {
     const r = await fetch("/api/generate", {method: "POST", body: JSON.stringify(S.doc)});
     const j = await r.json(); if (seq !== regenSeq) return;
-    if (!r.ok) { S.gen = {error: j.error}; } else { S.gen = j; S.sim.i = Math.min(S.sim.i, j.stitches.length); if (!S.sim.playing && S.vmode === "stitch") S.sim.i = j.stitches.length; }
+    if (!r.ok) { S.gen = {error: j.error}; } else { S.gen = j; S.sim.i = Math.min(S.sim.i, j.stitches.length); if (!S.sim.playing && (S.vmode === "stitch" || S.vmode === "3d")) S.sim.i = j.stitches.length; }
   } catch (e) { S.gen = {error: "Engine not reachable: " + e.message}; }
   renderPanels(); draw();
 }
@@ -171,7 +171,9 @@ function drawStitches(c, upto, thick) {
   if (showJumps) { c.save(); c.strokeStyle = "#9ca3af"; c.lineWidth = 1; c.setLineDash([4, 3]); c.stroke(jumps); c.restore(); }
   return n > 0 && n <= st.length ? toScreen([st[Math.min(n, st.length) - 1][0], st[Math.min(n, st.length) - 1][1]]) : null;
 }
+function updateSimBar() { const n = S.gen && S.gen.stitches ? S.gen.stitches.length : 0; $("#sPos").max = n; $("#sPos").value = S.sim.i; $("#sInfo").textContent = `${S.sim.i} / ${n}`; }
 function draw() {
+  if (S.vmode === "3d") { feed3d(false); updateSimBar(); return; }
   const d = devicePixelRatio || 1; ctx.setTransform(d, 0, 0, d, 0, 0); ctx.clearRect(0, 0, cv.clientWidth, cv.clientHeight);
   drawGrid(ctx);
   if (S.vmode === "design") { drawObjects(ctx); }
@@ -283,6 +285,7 @@ cv.addEventListener("pointerup", () => {
   draw();
 });
 addEventListener("keydown", e => {
+  if (!$("#lib").hidden) { if (e.key === "Escape") closeLibrary(); return; }
   const tag = (e.target.tagName || "").toLowerCase(); if (tag === "input" || tag === "select" || tag === "textarea") { if (e.key === "Escape") e.target.blur(); return; }
   if (e.key === " ") { spaceDown = true; e.preventDefault(); return; }
   const k = e.key.toLowerCase();
@@ -421,6 +424,31 @@ async function viewDst(file) {
     const hw = Math.max(S.doc.hoop.w, w + 20), hh = Math.max(S.doc.hoop.h, h + 20); S.doc.hoop.w = Math.ceil(hw); S.doc.hoop.h = Math.ceil(hh); S.sim.i = st.length; setView("stitch"); fit(); renderPanels();
   } catch (e) { alert("Could not read DST: " + e.message); }
 }
+/* ---------------------------------------------------------------- library */
+let LIB = null, libCat = "All", libQ = "";
+async function openLibrary() {
+  $("#lib").hidden = false;
+  if (!LIB) { try { LIB = (await (await fetch("/api/library")).json()).designs || []; } catch (e) { LIB = []; } }
+  renderLibrary(); $("#libq").focus();
+}
+function closeLibrary() { $("#lib").hidden = true; }
+function renderLibrary() {
+  const cats = ["All", ...new Set(LIB.map(d => d.category))];
+  $("#libcats").innerHTML = cats.map(c => `<button data-cat="${esc(c)}" class="${c === libCat ? "on" : ""}">${esc(c)}</button>`).join("");
+  const q = libQ.trim().toLowerCase();
+  const list = LIB.filter(d => (libCat === "All" || d.category === libCat) && (!q || (d.name + " " + d.description + " " + d.category).toLowerCase().includes(q)));
+  $("#libgrid").innerHTML = list.map(d => `<div class="card"><img loading="lazy" alt="${esc(d.name)}" src="/api/library/${d.id}/thumb.svg">
+    <div class="m"><b>${esc(d.name)}</b>${esc(d.category)} · ${d.width_mm} × ${d.height_mm} mm<br>${d.stitches} stitches · ${d.colours} colour${d.colours > 1 ? "s" : ""} · ~${d.est_minutes} min<br>${(d.threads || []).map(h => `<span class="sw2" style="background:${esc(h)}"></span>`).join("")}</div>
+    <div class="b"><button data-act="open" data-id="${d.id}" title="Open in the editor">Open</button><button data-act="3d" data-id="${d.id}" title="Open and view in 3D">3D</button><a href="/api/library/${d.id}/dst" download="${d.id}.dst" title="Download the DST">DST</a></div></div>`).join("") || `<div class="note" style="padding:20px">${LIB.length ? "No designs match." : "The library is empty or could not be loaded."}</div>`;
+}
+async function openFromLibrary(id, to3d) {
+  const d = (LIB || []).find(x => x.id === id); if (!d) return;
+  if (S.doc.objects.length && !confirm(`Replace the current design with “${d.name}”? Save it first if you want to keep it (undo history is cleared).`)) return;
+  try {
+    const j = await (await fetch(`/api/library/${id}/esproj`)).json(); loadDoc(j.doc); closeLibrary(); await doRegen();
+    if (to3d) setView("3d"); else setView("design");
+  } catch (e) { alert("Could not open the design: " + e.message); }
+}
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 
 /* ---------------------------------------------------------------- panels */
@@ -549,29 +577,54 @@ Object.keys(HELP).forEach(k => HELP[k] === null && delete HELP[k]);
 let raf = null;
 function togglePlay() {
   if (!S.gen || !S.gen.stitches) return; S.sim.playing = !S.sim.playing; $("#sPlay").textContent = S.sim.playing ? "⏸" : "▶";
-  if (S.sim.playing) { setView("stitch"); if (S.sim.i >= S.gen.stitches.length) S.sim.i = 0; tick(); }
+  if (S.sim.playing) { setView(simView()); if (S.sim.i >= S.gen.stitches.length) S.sim.i = 0; tick(); }
 }
 function tick() {
   if (!S.sim.playing) return; const n = S.gen.stitches.length, step = Math.max(1, Math.round(Math.pow(+$("#sSpeed").value / 100, 2.2) * 400));
   S.sim.i = Math.min(n, S.sim.i + step); draw();
   if (S.sim.i >= n) { S.sim.playing = false; $("#sPlay").textContent = "▶"; return; } raf = requestAnimationFrame(tick);
 }
-function setView(v) { S.vmode = v; document.querySelectorAll("#viewSeg button").forEach(b => b.classList.toggle("on", b.dataset.view === v)); if (v === "stitch" && !S.sim.playing && S.gen && S.gen.stitches) S.sim.i = S.gen.stitches.length; draw(); }
+function setView(v) {
+  if (v === "3d") {
+    if (typeof Viewer3D === "undefined" || !Viewer3D.supported() || !Viewer3D.init($("#gl"))) { alert("The 3D view needs WebGL, which this browser or device does not provide. The Stitches view works everywhere."); return; }
+  }
+  const was = S.vmode;
+  S.vmode = v; document.querySelectorAll("#viewSeg button").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+  $("#cv").hidden = v === "3d"; $("#gl").hidden = v !== "3d"; $("#v3bar").hidden = v !== "3d"; $("#hint").hidden = v === "3d";
+  // entering the stitch/3D view from the design view starts at the finished design; moving between them, or using the
+  // simulation controls (which call setView), must NOT move the position - it used to, so Step and the slider read back the end.
+  if ((v === "stitch" || v === "3d") && was === "design" && !S.sim.playing && S.gen && S.gen.stitches) S.sim.i = S.gen.stitches.length;
+  if (v === "3d") { Viewer3D.resize(); feed3d(true); }
+  draw();
+}
+const simView = () => S.vmode === "3d" ? "3d" : "stitch";      // the simulation controls keep you in the 3D view instead of dropping you back to 2D
+function feed3d(force) {
+  if (S.vmode !== "3d" || typeof Viewer3D === "undefined") return;
+  if (force || S._g3 !== S.gen) { S._g3 = S.gen; Viewer3D.setData(S.gen && S.gen.stitches ? S.gen : {stitches: [], threads: []}); }
+  Viewer3D.setProgress(S.sim.i);
+}
 
 /* ---------------------------------------------------------------- wiring */
 document.querySelectorAll("#tools [data-tool]").forEach(b => b.onclick = () => setTool(b.dataset.tool));
 document.querySelectorAll("#viewSeg button").forEach(b => b.onclick = () => setView(b.dataset.view));
 document.querySelectorAll("#modeSeg button").forEach(b => b.onclick = () => { S.mode = b.dataset.mode; document.querySelectorAll("#modeSeg button").forEach(x => x.classList.toggle("on", x === b)); renderProps(); });
+$("#bLib").onclick = openLibrary; $("#libx").onclick = closeLibrary;
+$("#lib").onclick = e => { if (e.target.id === "lib") closeLibrary(); };
+$("#libq").oninput = e => { libQ = e.target.value; renderLibrary(); };
+$("#libcats").onclick = e => { if (e.target.dataset.cat) { libCat = e.target.dataset.cat; renderLibrary(); } };
+$("#libgrid").onclick = e => { const b = e.target.closest("button[data-act]"); if (b) openFromLibrary(b.dataset.id, b.dataset.act === "3d"); };
+$("#v3fab").onchange = e => Viewer3D.setFabric(e.target.value); $("#v3reset").onclick = () => Viewer3D.reset();
 $("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => $("#fileDst").click(); $("#fileDst").onchange = e => { const f = e.target.files[0]; if (f) viewDst(f); e.target.value = ""; };
 $("#bNew").onclick = () => { if (!S.doc.objects.length || confirm("Discard the current design?")) loadDoc(newDoc()); };
 $("#bOpen").onclick = () => $("#fileOpen").click(); $("#bImport").onclick = () => $("#fileImport").click();
 $("#fileOpen").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); if (!j.doc || !Array.isArray(j.doc.objects)) throw new Error("not an EmbroideryStudio project"); loadDoc(j.doc); } catch (err) { alert("Could not open: " + err.message); } e.target.value = ""; };
 $("#fileImport").onchange = e => { const f = e.target.files[0]; if (f) importFile(f); e.target.value = ""; };
 $("#docName").oninput = e => { S.doc.name = e.target.value; }; $("#docName").onchange = () => commit();
-$("#sJumps").onchange = draw; $("#sPlay").onclick = togglePlay; $("#sStep").onclick = () => { S.sim.playing = false; setView("stitch"); if (S.gen) S.sim.i = Math.min(S.gen.stitches.length, S.sim.i + 1); draw(); };
-$("#sReset").onclick = () => { S.sim.playing = false; $("#sPlay").textContent = "▶"; setView("stitch"); S.sim.i = 0; draw(); };
-$("#sPos").oninput = e => { S.sim.playing = false; $("#sPlay").textContent = "▶"; setView("stitch"); S.sim.i = +e.target.value; draw(); };
-addEventListener("resize", resize);
+$("#sJumps").onchange = draw; $("#sPlay").onclick = togglePlay; $("#sStep").onclick = () => { S.sim.playing = false; setView(simView()); if (S.gen) S.sim.i = Math.min(S.gen.stitches.length, S.sim.i + 1); draw(); };
+$("#sReset").onclick = () => { S.sim.playing = false; $("#sPlay").textContent = "▶"; setView(simView()); S.sim.i = 0; draw(); };
+$("#sPos").oninput = e => { const v = +e.target.value;   /* read first: setView() redraws and re-syncs the slider to the old position */
+  S.sim.playing = false; $("#sPlay").textContent = "▶"; setView(simView()); S.sim.i = v; draw(); };
+addEventListener("resize", () => { resize(); if (S.vmode === "3d") Viewer3D.resize(); });
 
 (async function init() {
   try { S.font = await (await fetch("/api/font")).json(); } catch (e) {}

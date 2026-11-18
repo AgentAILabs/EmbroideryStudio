@@ -28,11 +28,19 @@ Millimetres, y down, origin at the hoop centre. Common object fields: `id, type,
 `guide: true` or `hidden: true` objects are not stitched. Stitch order = object order.
 
 ## Engine modules (`engine/stitchcraft_engine`)
-`design.py` design → stitches (+ stats, order notes, machine profile) · `stitches.py` generators (running, satin, tatami, contour, cross, split) ·
+`preview.py` preview + compact thumbnails · `design.py` design → stitches (+ stats, order notes, machine profile) · `stitches.py` generators (running, satin, tatami, contour, cross, split) ·
 `geometry.py` (inset, smooth) · `outline.py` satin-from-outline · `templates.py` · `raster.py` · `svg_input.py` · `font.py` ·
 `builder.py` objects → stitch commands (jumps, trims, colour changes) · `validate.py` quality rules · `dst.py` Tajima DST writer + independent reader · `preview.py`.
 
 Data flow: `generate(design)` → `Pattern` (stitch list, versioned JSON contract `schema_version 1.0`) → `run_checks` → `write_dst` → read back and compared (round-trip) before any file is offered.
+
+## Web (`web/`)
+`app.js` editor (canvas) · `viewer3d.js` zero-dependency WebGL thread viewer (loaded before `app.js`): each stitch is a ribbon with cylinder shading and a Kajiya-Kay sheen, later stitches higher; orbit/pan/zoom; progress follows the simulation slider.
+The Library panel is a modal fed by `/api/library`. Front-end mistakes the Python tests cannot see are pinned by static tests (`FrontEndRegressionGuards`) and two browser scripts: `tools/e2e_ui.js` and `tools/e2e_library_3d.js` (reads real WebGL pixels).
+
+## Library (`designs/library/`)
+`tools/make_library.py` draws every design from code and refuses to write one that has any engine warning or note, more than 4 colours, or fails the DST round trip.
+Engine behaviours added while drawing it: fill rows shorter than the minimum stitch are skipped and sub-0.3 mm stitches pruned; dense smoothed vertices are thinned in running stitches; self-crossing fill/appliqué outlines are flagged; colours are validated.
 
 ## Server (`server/`)
 `app.py` HTTP + static files, limits (25 MB body, 3000 objects, 400k points, 5 MB SVG, PNG/JPEG sniffing, DOCTYPE rejected) · `sheet.py` production sheet + export package.
@@ -44,6 +52,7 @@ Data flow: `generate(design)` → `Pattern` (stitch list, versioned JSON contrac
 | POST /api/import/svg · /raster · /dst | imports |
 | POST /api/tools/column-from-outline | shape → two rails, or 400 with the reason |
 | GET /api/templates · POST /api/template | template catalogue / instantiate |
+| GET /api/library · GET /api/library/<id>/thumb.svg · /dst · /esproj | motif library (only ids listed in `designs/library/index.json`) |
 | GET /api/font · /api/health | glyphs / liveness |
 
 Errors are JSON 4xx with `{"error": ...}`; unexpected failures are 500 with no internals.

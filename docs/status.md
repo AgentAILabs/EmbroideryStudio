@@ -77,7 +77,13 @@ save/reopen, SVG + PNG import, versions) with zero page errors / HTTP 5xx.
 | Hoop split, stitch-level editing, gradient/stipple/motif fills | separate large features, not on the MVP gate |
 | Accounts, cloud library, Tauri shell | hosted/desktop product phase |
 
-## Trims (this round)
+## Library + 3D (this round)
+✅ 12 original motifs (`designs/library`), each with zero warnings/notes, ≤ 4 colours, DST round trip, thumbnail; Library panel; WebGL 3D viewer verified by reading real pixels in headless Chromium (SwiftShader).
+Found and fixed along the way: tatami joined row segments 0.156 mm apart under pull compensation (now pruned); dense smoothed vertices became hundreds of tiny stitches (now thinned);
+self-crossing outlines passed every stitch check (now flagged); colour strings were not validated (now are); the Step button always jumped to the end and the slider re-read its own overwritten value; an invisible canvas ate editor clicks (`[hidden]`).
+🧪 None of the library designs has been stitched on a machine. ⏸ Not done: importing other people's finished designs/photos (deliberately - not a source this project converts).
+
+## Trims (previous round)
 Before: no lock stitches, no trim before a colour change or the end, and a satin column after its underlay often trimmed inside itself.
 Now: tie-off → trim → jump → tie-in at every thread cut, configurable (lock length, trim at colour change/end, trim jumps, trim distance, smart direction),
 appliqué passes staggered, runs started at the nearer end when that avoids a trim (test pack: 138 → 112 trims, never worse on any design). Pinned by exact-sequence

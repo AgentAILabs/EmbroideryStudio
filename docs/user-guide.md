@@ -68,6 +68,15 @@ The production sheet lists the lock length, how many lock stitches were added, a
 * **PDF**: not supported yet – export as SVG.
 * **View DST**: opens an existing `.dst` read-only for inspection and simulation.
 
+## Library and the 3D view
+**Library** (top bar) opens a gallery of 12 original bridal motifs - lotus, mandala, marigold, paisley, vine and temple borders, kalash, jhumka, scrolls, rings & heart, BRIDE frame, peacock arch.
+Each card shows a thumbnail, size, stitches, colours and estimated time. *Open* loads it into the editor (so you can resize, recolour, change the machine profile), *3D* opens it and shows the 3D view, *DST* downloads the file directly. Search and category chips filter the list.
+The designs are drawn from scratch for this project (see `designs/library/README.md`); they are starting motifs, not finished garment layouts, and are not yet stitch-tested.
+
+**3D** (next to Design / Stitches) shows the real stitches as thread: lit, with a sheen along the thread direction, on a woven fabric plane, with later stitches sitting above earlier ones so layering reads correctly.
+Drag to orbit, right-drag or Shift-drag to pan, wheel to zoom, double-click to reset. The simulation slider, Step, Play and Reset work in 3D too, so you can watch the design build up; *Fabric* changes the fabric colour (it does not affect the stitches).
+3D needs WebGL (every current browser; a locked-down remote desktop may not offer it - the Stitches view always works). It is a visual aid: relief height and thread thickness are illustrative, not a prediction of how thread will behave on your fabric.
+
 ## Templates
 Borders (stitched): petal, scallop, zigzag satin, dot row – length/size configurable.
 Neckline guides (not stitched): round, boat, V, square, back-U, sized in **inches**. These are generic proportions to draw against, not tailoring standards.
@@ -78,7 +87,9 @@ Neckline guides (not stitched): round, boat, V, square, back-U, sized in **inche
 | Design does not fit hoop | smaller design or bigger hoop (error: blocks export) |
 | Stitch too long (> 12.1 mm) | DST record limit (error). Shorten stitch length / enable auto-split |
 | Stitch long (> max stitch) | may snag thread |
-| Very short stitch (< 0.3 mm) | increase spacing, simplify tiny shapes |
+| Very short stitch (< 0.3 mm) | increase spacing, simplify tiny shapes (fills now drop sub-minimum rows themselves) |
+| Outline crosses itself | the fill/appliqué outline has a bow-tie: redraw it as a simple shape |
+| Colour replaced by black | a colour must be `#rgb` or `#rrggbb` |
 | Needle penetrations too dense | raise row spacing / lower density |
 | Stitched before the fill it overlaps | move the outline/lettering after the fill |
 | Satin too narrow (< 1 mm) / loose (> 7 mm) | use running stitch / enable auto-split or use a fill |

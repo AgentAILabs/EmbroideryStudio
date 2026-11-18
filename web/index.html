@@ -10,6 +10,7 @@
     <button id="bOpen" title="Open project (.esproj)">Open</button>
     <button id="bSave" title="Save project (Ctrl+S)">Save</button>
     <button id="bImport" title="Import SVG / PNG / JPG">Import art</button>
+    <button id="bLib" title="Browse the bridal motif library">Library</button>
   </div>
   <div class="grp">
     <button id="bUndo" title="Undo (Ctrl+Z)">↶</button><button id="bRedo" title="Redo (Ctrl+Y)">↷</button>
@@ -17,6 +18,7 @@
   <div class="grp seg" id="viewSeg">
     <button data-view="design" class="on" title="Artwork / object outlines">Design</button>
     <button data-view="stitch" title="Real stitch data from the engine">Stitches</button>
+    <button data-view="3d" title="3D thread view: orbit, zoom, watch it build up">3D</button>
   </div>
   <div class="grp seg" id="modeSeg">
     <button data-mode="beginner" class="on" title="Presets and plain-language help">Beginner</button>
@@ -52,6 +54,10 @@
 
 <main id="stage">
   <canvas id="cv"></canvas>
+  <canvas id="gl" hidden></canvas>
+  <div id="v3bar" hidden><span>Drag: orbit · right-drag/Shift: pan · wheel: zoom · double-click: reset</span>
+    <label>Fabric <select id="v3fab"><option value="#0d4a30">Blouse green</option><option value="#f2ead8">Ivory</option><option value="#6b0f2a">Maroon</option><option value="#1b2a4a">Navy</option><option value="#161616">Black</option></select></label>
+    <button id="v3reset">Reset view</button></div>
   <div id="hint"></div>
   <div id="sim">
     <button id="sPlay" title="Play / pause (P)">▶</button>
@@ -72,5 +78,10 @@
   <section><h3>Colour sequence</h3><div id="seq"></div></section>
   <section><h3>Checks</h3><div id="stats"></div><ul id="issues"></ul></section>
 </aside>
+<div id="lib" hidden role="dialog" aria-label="Motif library"><div class="libbox">
+  <div class="libhead"><b>Bridal motif library</b><input id="libq" type="search" placeholder="Search…" aria-label="Search the library"><span id="libcats"></span><button id="libx" aria-label="Close">✕</button></div>
+  <div id="libgrid"></div>
+  <div class="libfoot">Original designs, drawn for this project. Not stitched on a machine yet - test on scrap first.</div></div></div>
+<script src="viewer3d.js"></script>
 <script src="app.js"></script>
 </body></html>

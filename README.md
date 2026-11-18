@@ -5,6 +5,7 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 **Zero third-party runtime dependencies** (Pillow + NumPy only for optional image import).
 
 ## Designs
+`designs/library/` – 12 original bridal motifs (lotus, mandala, marigold, paisley, borders, kalash, jhumka, scrolls, rings, BRIDE frame, peacock) with DST, project and thumbnail each; browse them in the app's **Library**.
 `designs/peacock_arch/` – hand-digitized peacock-in-arch blouse panel (DST + project + sheet + stitch-out guide). Regenerate with `python3 tools/make_peacock_panel.py`. `designs/peacock_sleeve/` has the scaled sleeve-end pair (A + true mirror B).
 
 ## Docs
@@ -29,6 +30,7 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 | Checks | Hoop fit, long/short/duplicate stitches, density, DST limits; export is **blocked on errors** |
 | Output | **Tajima DST** (round-trip verified on every export), project `.esproj`, **production sheet** (colour order, stitch count, size, est. time, preview) |
 | Sizing & transforms | Set exact width/height in mm (proportional or free), free rotation, flip, 90° rotate, scale %, convert stitch type (fill ↔ satin ↔ run), optimise colour order |
+| Library + 3D | 12 original bridal motifs with thumbnails (open / 3D / DST download) and a WebGL **3D thread viewer** (orbit, zoom, build-up with the simulation slider) |
 | Fill patterns | Tatami (rows), **contour** (concentric rings, falls back to tatami for holes/complex shapes) and **cross-stitch** grid |
 | Satin-from-outline | Convert an elongated shape (petal, leaf, curved stroke, L) into a two-rail column; refuses blobs/branches/curls with the reason |
 | Embellishments & guides | Bead / stone / sequin placeholders (not stitched, listed on the production sheet), non-stitched guide objects, neckline guides in inches, petal/scallop/zigzag/dot border templates |

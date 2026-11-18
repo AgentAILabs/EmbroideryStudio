@@ -30,6 +30,14 @@ def peacock_sleeve_mirrored():
     return d
 
 
+def library_samples():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("lib_mod", ROOT / "tools" / "make_library.py")
+    m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+    want = ("lotus_bloom", "paisley_pair", "jhumka_bell", "temple_border")           # fills, columns, satin, short runs, placeholders
+    return {f"lib_{b[0]}": b[4] for b in m.build_all() if b[0] in want}
+
+
 def designs():
     sq = [[0, 0], [20, 0], [20, 20], [0, 20]]
     return {
@@ -45,6 +53,7 @@ def designs():
             {"id": "d", "type": "applique", "color": "#0a0", "rings": [[[60, 50], [90, 50], [90, 80], [60, 80]]]}]},
         "peacock_sleeve_mirrored": peacock_sleeve_mirrored(),    # scaled + mirrored production variant
         "peacock_panel": peacock(),                       # the real production design: ~70 objects, 3 colours, locks and trims
+        **library_samples(),
         "far_jump": {"name": "far", "hoop": {"w": 200, "h": 200}, "objects": [
             {"id": "a", "type": "run", "color": "#f00", "points": [[0, 0], [10, 0]]},
             {"id": "b", "type": "run", "color": "#00f", "points": [[90, 90], [100, 90]]}]},

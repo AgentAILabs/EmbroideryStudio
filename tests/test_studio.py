@@ -1398,3 +1398,35 @@ class LibraryEndpointTests(unittest.TestCase):
             (Path(t) / "index.json").write_text(json.dumps({"designs": [{"id": "../etc"}, {"id": "ok_1"}, {"id": "A b"}, 5, {"id": 7}]}))
             with mock.patch.object(server, "LIB", Path(t)):
                 self.assertEqual([e["id"] for e in json.loads(self.get("/api/library")[1])["designs"]], ["ok_1"])
+
+
+class FrontEndRegressionGuards(unittest.TestCase):
+    """Static guards for front-end mistakes the Python tests cannot see (each one actually happened)."""
+    web = Path(__file__).resolve().parent.parent / "web"
+    def test_hidden_attribute_cannot_be_defeated_by_author_css(self):
+        css = (self.web / "style.css").read_text()
+        self.assertIn("[hidden]{display:none !important}", css)       # '#gl{display:block}' once overrode [hidden] and an invisible canvas ate every editor click
+    def test_global_const_is_not_looked_up_on_window(self):
+        js = (self.web / "app.js").read_text()
+        self.assertNotIn("window.Viewer3D", js)                        # a top-level const is not a window property: the check always failed
+        self.assertIn('typeof Viewer3D === "undefined"', js)
+    def test_simulation_controls_never_force_the_2d_view(self):
+        js = (self.web / "app.js").read_text()
+        for handler in ('$("#sStep").onclick', '$("#sReset").onclick', '$("#sPos").oninput'):
+            line = next(l for l in js.split("\n") if handler in l); self.assertNotIn('setView("stitch")', line, handler)
+        self.assertIn("setView(simView())", js)
+    def test_slider_value_is_read_before_setview_redraws_it(self):
+        js = (self.web / "app.js").read_text()
+        i = js.index('$("#sPos").oninput'); body = js[i:i + 400]
+        self.assertLess(body.index("const v = +e.target.value"), body.index("setView(")) 
+    def test_entering_stitch_or_3d_view_only_jumps_to_the_end_from_the_design_view(self):
+        js = (self.web / "app.js").read_text()
+        self.assertIn('was === "design"', js)
+    def test_library_and_3d_elements_exist(self):
+        page = (self.web / "index.html").read_text()
+        for el in ('id="gl"', 'id="v3bar"', 'id="v3fab"', 'id="v3reset"', 'id="lib"', 'id="libgrid"', 'id="libq"', 'id="libcats"', 'id="libx"', 'id="bLib"', 'data-view="3d"', '<script src="viewer3d.js">'):
+            self.assertIn(el, page, el)
+        self.assertLess(page.index("viewer3d.js"), page.index("app.js"))             # the viewer must load first
+    def test_viewer_has_no_external_dependencies(self):
+        v = (self.web / "viewer3d.js").read_text()
+        for bad in ("http://", "https://", "import ", "require("): self.assertNotIn(bad, v, bad)
