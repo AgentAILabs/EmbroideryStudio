@@ -154,7 +154,15 @@ def read_dst(data: bytes) -> DstFile:
             k, v = line.decode("ascii", "replace").split(":", 1)
             header[k.strip()] = v.strip()
     body = data[HEADER_SIZE:]
-    if len(body) % 3:
+    # Real files (Wilcom, Pulse, Tajima DGML ...) put a lone 0x1A end-of-file byte after the END record. Accept that, but a
+    # record area that is cut off before END is still an error.
+    end_at = next((i for i in range(0, len(body) - 2, 3) if decode_record(body[i:i + 3])[2] == "end"), None)
+    if end_at is not None:
+        extra = body[end_at + 3:]
+        if extra.strip(b"\x1a\x00"):
+            raise DstError("unexpected data after the END record")
+        body = body[:end_at + 3]
+    elif len(body) % 3:
         raise DstError("record area is not a multiple of 3 bytes")
     recs, pos, x, y, cc, ended = [], [], 0, 0, 0, False
     for i in range(0, len(body), 3):

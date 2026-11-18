@@ -28,8 +28,8 @@ def _simplify(pts: Sequence[Point], tol: float) -> List[Point]:
     return _simplify(pts[:idx + 1], tol)[:-1] + _simplify(pts[idx:], tol)
 
 
-MIN_VERTEX_GAP = 0.3     # mm; vertices closer than this (smoothed curves) are thinned so they cannot become sub-0.3 mm stitches
-CURVE_TOL = 0.08         # mm deviation allowed when thinning
+MIN_VERTEX_GAP = 0.6     # mm; vertices closer than this (smoothed curves, round-shape inset rings) are thinned so no stitch is 0.3-0.6 mm long
+CURVE_TOL = 0.1          # mm deviation allowed when thinning
 
 
 def running_stitch(points: Sequence[Point], stitch_len: float = 2.5, closed: bool = False) -> List[Point]:
@@ -98,7 +98,7 @@ def satin_from_rails(left: Sequence[Point], right: Sequence[Point], spacing: flo
         raise DigitizingError("satin spacing must be > 0")
     n = max(1, round(max(polyline_length(left), polyline_length(right)) / spacing))
     lp, rp = resample_n(left, n), resample_n(right, n)
-    base = [lp[k] if k % 2 == 0 else rp[k] for k in range(n + 1)]
+    base = _prune_short([lp[k] if k % 2 == 0 else rp[k] for k in range(n + 1)], 0.3)      # tapering tips: drop sub-0.3 mm stitches
     if max_len <= 0:
         return base
     out = [base[0]]
@@ -142,6 +142,16 @@ def _prune_short(run: Sequence[Point], min_len: float) -> List[Point]:
     return out
 
 
+END_MIN = 0.7       # shortest end stitch of a tatami row (mm); measured production files have < 1 % stitches under 0.5 mm
+
+
+def underlay_path(points: Sequence[Point], tol: float = 0.1) -> List[Point]:
+    """Densely sampled rails/midlines (every 0.5 mm) -> a path with few vertices, so underlay running stitches are ~stitch_len long
+    instead of one needle penetration every 0.5 mm. Deviation from the original line is at most `tol` mm."""
+    pts = [tuple(p) for p in points]
+    return _simplify(pts, tol) if len(pts) > 2 else pts
+
+
 # ---------------------------------------------------------------- tatami / fill
 def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spacing: float = 0.4,
                 stitch_len: float = 3.5, stagger: int = 3, min_stitch: float = 0.3,
@@ -174,11 +184,12 @@ def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spaci
         phase = (j % max(stagger, 1)) / max(stagger, 1) * stitch_len
         row = []
         for xa, xb in intervals:
-            k = math.ceil((xa + min_stitch - phase) / stitch_len)
+            end_min = max(min_stitch, END_MIN)       # no 0.3-0.5 mm stubs at the row ends: the end stitch absorbs them
+            k = math.ceil((xa + end_min - phase) / stitch_len)
             grid = []
             while True:
                 x = phase + k * stitch_len
-                if x >= xb - min_stitch:
+                if x >= xb - end_min:
                     break
                 grid.append((x, y))
                 k += 1

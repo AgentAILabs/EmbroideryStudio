@@ -1,10 +1,11 @@
-EmbroideryStudio export package · 2026-11-18T15:22:29
+EmbroideryStudio export package · 2026-11-18T17:46:50
 design: peacock_sleeve_B_mirrored
-stitches: 2486  colour changes: 2
+stitches: 2261  colour changes: 2
 trim jumps: 3
-DST records: 2678
-DST sha256: 8343094fa844b0c3b2f06b86efb5a82c25c5e3a2a753c366e32186b26d4df757
+DST records: 2453
+DST sha256: 29f2ad1094c9846723ccf8ebac34394e1806e1bf23f4dc139021c61c3bdc56e1
 
+peacock_sleeve_B_mirrored.exp: Melco EXP of the same stitches; trims are written as 3 zero-move jumps (no agreed trim opcode in EXP). Read back by pyembroidery in CI; not machine-tested.
 NOT machine-tested. Stitch a sample on matching fabric and stabiliser before production use.
 
 CHECKS

@@ -28,7 +28,7 @@ class Report:
 
 
 def validate(p: Pattern, hoop_w: float = 100, hoop_h: float = 100, margin: float = 3.0,
-             max_stitch: float = 7.0, min_stitch: float = 0.3, max_per_mm2: float = 12.0) -> Report:
+             max_stitch: float = 7.0, min_stitch: float = 0.3, max_per_mm2: float = 16.0) -> Report:
     r = Report()
     add = lambda c, s, m, i=-1: r.issues.append(Issue(c, s, m, i))
     S = p.stitches

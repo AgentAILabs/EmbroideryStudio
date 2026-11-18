@@ -8,10 +8,10 @@
    "description": "Layered lotus with leaves and a water line.",
    "width_mm": 90.14,
    "height_mm": 50.98,
-   "stitches": 6382,
+   "stitches": 6179,
    "colours": 4,
    "trims": 39,
-   "est_minutes": 14.0,
+   "est_minutes": 13.7,
    "threads": [
     "#2e9e44",
     "#e85d9a",
@@ -19,7 +19,7 @@
     "#d4af37"
    ],
    "embellishments": {},
-   "sha256": "fddeae4f320276b1fe56aee007d909f454cc2cd3fbdb70b82716a314a3f70a68"
+   "sha256": "9ff396660b3b3291991d1a505a8a52479632c220ce19cb6afff3098d7ae67264"
   },
   {
    "id": "mandala_rosette",
@@ -28,17 +28,17 @@
    "description": "Three rings of petals and a centre stone, circled by a running outline.",
    "width_mm": 83.0,
    "height_mm": 83.0,
-   "stitches": 2162,
+   "stitches": 2157,
    "colours": 3,
    "trims": 42,
-   "est_minutes": 8.0,
+   "est_minutes": 7.9,
    "threads": [
     "#7a0c2e",
     "#c8102e",
     "#d4af37"
    ],
    "embellishments": {},
-   "sha256": "3f71bbdb99cee3b9eeb102519be43c94f7d7ade3f2751e9484f8dfe899930333"
+   "sha256": "705ce5a950f3c882c73b1516f821e01c85d47925881cd1a307219bc9ca4ad1d5"
   },
   {
    "id": "marigold_flower",
@@ -47,7 +47,7 @@
    "description": "Ruffled three-layer marigold - garland and haldi favourite.",
    "width_mm": 58.1,
    "height_mm": 59.0,
-   "stitches": 1819,
+   "stitches": 1818,
    "colours": 3,
    "trims": 42,
    "est_minutes": 7.5,
@@ -57,7 +57,7 @@
     "#2e9e44"
    ],
    "embellishments": {},
-   "sha256": "235069a648a16a12eb5adc4bf8723c2f580853e6b8a27e0021ed463f64094868"
+   "sha256": "4a3a943b8e3ec0437c16699c5ecb0f3bd6618ad8170ece21646194fa8f06e9d0"
   },
   {
    "id": "paisley_pair",
@@ -66,17 +66,17 @@
    "description": "Two mirrored mango/paisley motifs with small flowers.",
    "width_mm": 99.98,
    "height_mm": 44.39,
-   "stitches": 2960,
+   "stitches": 2874,
    "colours": 3,
    "trims": 16,
-   "est_minutes": 6.5,
+   "est_minutes": 6.4,
    "threads": [
     "#c8102e",
     "#d4af37",
     "#7a0c2e"
    ],
    "embellishments": {},
-   "sha256": "c6e8a386de7819f253f842b1a0369df821fa6c0b369f4fe5b2a1401d670215f4"
+   "sha256": "d877d820fdb5f30a2e14d8a460a9177418ae039c9a9b0f07da64ec063c3e67a1"
   },
   {
    "id": "floral_vine_border",
@@ -95,7 +95,7 @@
     "#d4af37"
    ],
    "embellishments": {},
-   "sha256": "039ca53d2412344cdf9685b44614c7d3dfbc2cfb1e257b6b4cfc5b94a5e5e59f"
+   "sha256": "8a37d4e07f15468106d3ffddab650e5219e0b0855da4206ca3ae4ab976e60ae3"
   },
   {
    "id": "temple_border",
@@ -104,17 +104,17 @@
    "description": "Kanchi-style triangle border with gold tips and scalloped hem, 110 mm long.",
    "width_mm": 110.77,
    "height_mm": 20.67,
-   "stitches": 2092,
+   "stitches": 2016,
    "colours": 3,
    "trims": 35,
-   "est_minutes": 7.2,
+   "est_minutes": 7.0,
    "threads": [
     "#7a0c2e",
     "#c8102e",
     "#d4af37"
    ],
    "embellishments": {},
-   "sha256": "01c62ffda9ba739f41f268e690b00ad81d0234831340a139de433e8271c9b1dc"
+   "sha256": "2bf9364979352dbb514bf5a7ca59cccdca66d846253399a733eb8a9ed7c4eb85"
   },
   {
    "id": "kalash",
@@ -123,17 +123,17 @@
    "description": "Pot with mango leaves and coconut.",
    "width_mm": 57.08,
    "height_mm": 75.52,
-   "stitches": 3334,
+   "stitches": 3264,
    "colours": 3,
    "trims": 20,
-   "est_minutes": 7.4,
+   "est_minutes": 7.3,
    "threads": [
     "#2e9e44",
     "#c8102e",
     "#d4af37"
    ],
    "embellishments": {},
-   "sha256": "7eb0a40b33a75bcb2a79c0bdec2de75e4dca15c1559a65f929cf430f833dd51b"
+   "sha256": "85ee723ac6c2f4f499aa2a195a02d691c0e8bd53056e984aa7aeb87cd43d1245"
   },
   {
    "id": "jhumka_bell",
@@ -142,10 +142,10 @@
    "description": "Bridal earring motif: stud, dome, bell and drops (pearl positions listed for hand work).",
    "width_mm": 44.0,
    "height_mm": 75.35,
-   "stitches": 2164,
+   "stitches": 2110,
    "colours": 2,
    "trims": 25,
-   "est_minutes": 5.9,
+   "est_minutes": 5.8,
    "threads": [
     "#c8102e",
     "#d4af37"
@@ -153,7 +153,7 @@
    "embellishments": {
     "bead": 9
    },
-   "sha256": "99ad82a9de789109594f60f856f6ebc005f16e65a80daa09771ddd2f5cb01480"
+   "sha256": "8588fe7e66a672984ed50591762191ac8fef41e3f9f69c33a441011a6f4de82a"
   },
   {
    "id": "scroll_pair",
@@ -162,16 +162,16 @@
    "description": "Mirrored spiral scrolls with leaves (mehndi-style).",
    "width_mm": 97.74,
    "height_mm": 49.25,
-   "stitches": 2114,
+   "stitches": 1508,
    "colours": 2,
    "trims": 12,
-   "est_minutes": 4.6,
+   "est_minutes": 3.7,
    "threads": [
     "#2e9e44",
     "#d4af37"
    ],
    "embellishments": {},
-   "sha256": "99cdcafa4e718eb275464523edee2009d65ae39293b893a687c286fba6a2feae"
+   "sha256": "a91a4cc54e3a0fb82b76250d1a6364ba2af620af65eeba17985b091286e8c0d4"
   },
   {
    "id": "rings_and_heart",
@@ -180,16 +180,16 @@
    "description": "Interlocked wedding rings under a heart.",
    "width_mm": 48.39,
    "height_mm": 53.02,
-   "stitches": 1067,
+   "stitches": 1034,
    "colours": 2,
    "trims": 6,
-   "est_minutes": 2.5,
+   "est_minutes": 2.4,
    "threads": [
     "#c8102e",
     "#d4af37"
    ],
    "embellishments": {},
-   "sha256": "dd4e84acea0010d56f523716868a6742fa4af2ea38431ec108285b15d762af54"
+   "sha256": "b5a4bea39bdfe89c367c717ff13079ce83464342c6a49f4caa2fdb2d51541166"
   },
   {
    "id": "bride_frame",
@@ -198,10 +198,10 @@
    "description": "Oval gold frame with lettering and corner leaves + flowers.",
    "width_mm": 116.94,
    "height_mm": 42.4,
-   "stitches": 1876,
+   "stitches": 1670,
    "colours": 4,
    "trims": 24,
-   "est_minutes": 6.1,
+   "est_minutes": 5.8,
    "threads": [
     "#2e9e44",
     "#c8102e",
@@ -209,7 +209,7 @@
     "#d4af37"
    ],
    "embellishments": {},
-   "sha256": "6beef99eb0adadb7e5b4dd046c356ee7f6cc0a77c85fe1d05fc15c4fee5244d1"
+   "sha256": "15283fd15c38e5f83d3762df06be660e9cdb3263fa1bd1a72dbdaa2650cbbe3c"
   },
   {
    "id": "peacock_arch",
@@ -218,10 +218,10 @@
    "description": "The hand-digitized peacock-in-arch blouse panel (same as designs/peacock_arch).",
    "width_mm": 95.65,
    "height_mm": 144.02,
-   "stitches": 4234,
+   "stitches": 4073,
    "colours": 3,
    "trims": 44,
-   "est_minutes": 11.1,
+   "est_minutes": 10.9,
    "threads": [
     "#6fbf3b",
     "#c8102e",
@@ -232,7 +232,7 @@
     "stone": 2,
     "sequin": 7
    },
-   "sha256": "e5ef747a6e08dce9c0353ad370d36aaa570da49da43ef523a82972e097b24f45"
+   "sha256": "4e4137efffc78eab353f9d17c0dc38c3848595582c086e0518d00319b3c820a6"
   }
  ]
 }

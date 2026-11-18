@@ -1,0 +1,12 @@
+EmbroideryStudio export package · 2026-11-18T17:46:50
+design: peacock_arch_panel_fine120
+stitches: 6567  colour changes: 2
+trim jumps: 3
+DST records: 6841
+DST sha256: 43b53adb843a7c1b93419a6c6cabc14c89aa0bd5ee50d7ec26d909aab3648422
+
+peacock_arch_panel_fine120.exp: Melco EXP of the same stitches; trims are written as 3 zero-move jumps (no agreed trim opcode in EXP). Read back by pyembroidery in CI; not machine-tested.
+NOT machine-tested. Stitch a sample on matching fabric and stabiliser before production use.
+
+CHECKS
+No problems found

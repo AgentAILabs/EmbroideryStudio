@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir pillow numpy && useradd --create-home --uid 10001
 COPY engine ./engine
 COPY server ./server
 COPY web ./web
+COPY designs ./designs
 USER studio
 EXPOSE 8765
 HEALTHCHECK --interval=30s --timeout=3s CMD python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8765/api/health')"
