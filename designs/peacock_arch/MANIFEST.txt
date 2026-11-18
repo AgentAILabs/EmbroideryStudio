@@ -1,0 +1,11 @@
+EmbroideryStudio export package · 2026-11-18T15:05:15
+design: peacock_arch_panel
+stitches: 4234  colour changes: 2
+trim jumps: 3
+DST records: 4494
+DST sha256: 368c90c4ad38da1bc5e140cc25675e66244bb9361443c9c999764d3f7d0dcdae
+
+NOT machine-tested. Stitch a sample on matching fabric and stabiliser before production use.
+
+CHECKS
+No problems found

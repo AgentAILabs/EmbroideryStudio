@@ -1015,3 +1015,51 @@ class SmartDirectionTests(unittest.TestCase):
             self.assertEqual(sum(invented.values()), 0, name)                                                    # no needle point is ever invented
             self.assertLessEqual(sum(dropped.values()), s_off["jumps"], name)                                    # only the duplicate stitch where the needle already was
         self.assertLess(total_on, total_off)
+
+
+class PeacockPanelDesignTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        root = Path(__file__).resolve().parent.parent
+        spec = importlib.util.spec_from_file_location("peacock_t", root / "tools" / "make_peacock_panel.py")
+        cls.mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(cls.mod); cls.root = root
+        cls.d = cls.mod.build(); cls.p, cls.notes, cls.st = generate(cls.d); cls.rep = run_checks(cls.d, cls.p)
+    def test_clean_checks_no_warnings_no_notes(self):
+        self.assertTrue(self.rep.ok); self.assertEqual([(i.code, i.message) for i in self.rep.issues], []); self.assertEqual(self.notes, [])
+    def test_three_colours_in_the_intended_order(self):
+        self.assertEqual(self.st["color_changes"], 2)
+        self.assertEqual([s["hex"] for s in self.st["color_sequence"]], [self.mod.LIME, self.mod.RED, self.mod.GOLD])      # fills, then outlines last
+    def test_fits_the_hoop_with_margin_and_is_a_sensible_production_size(self):
+        h = self.d["hoop"]; self.assertLessEqual(self.st["width_mm"], h["w"] - 2 * h["margin"]); self.assertLessEqual(self.st["height_mm"], h["h"] - 2 * h["margin"])
+        self.assertTrue(90 < self.st["width_mm"] < 100 and 140 < self.st["height_mm"] < 148, (self.st["width_mm"], self.st["height_mm"]))
+        self.assertTrue(3000 < self.st["stitches"] < 6000)
+    def test_deterministic(self):
+        a, b = self.mod.build(), self.mod.build(); self.assertEqual(json.dumps(a, sort_keys=True), json.dumps(b, sort_keys=True))
+        self.assertEqual(write_dst(generate(a)[0]).sha256, write_dst(generate(b)[0]).sha256)
+    def test_embellishments_are_listed_but_never_stitched(self):
+        emb = [o for o in self.d["objects"] if o["type"] == "embellishment"]; self.assertTrue(emb and sum(len(o["points"]) for o in emb) > 15)
+        without = dict(self.d, objects=[o for o in self.d["objects"] if o["type"] != "embellishment"])
+        self.assertEqual(server.api_dst(self.d)[0].sha256, server.api_dst(without)[0].sha256)
+        h = server.sheet.sheet_html(self.d); self.assertIn("Embellishments", h); self.assertIn("Pearl: peacock eye", h)
+    def test_arch_is_mirror_symmetric(self):
+        arch = next(o for o in self.d["objects"] if o.get("name") == "Outer arch")["points"]
+        self.assertEqual(len(arch) % 2, 1)
+        for (x1, y1), (x2, y2) in zip(arch, arch[::-1]): self.assertAlmostEqual(x1, -x2, places=6); self.assertAlmostEqual(y1, y2, places=6)
+    def test_no_undersized_details(self):
+        from stitchcraft_engine.geometry import polygon_area
+        for o in self.d["objects"]:
+            if o["type"] == "fill": self.assertGreaterEqual(polygon_area(o["rings"][0]), 8, o["name"])            # tiny fills need a different stitch type
+            if o["type"] == "satin": self.assertGreaterEqual(o["params"]["width"], 1.0, o["name"])
+    def test_dst_round_trip_and_extents_inside_the_hoop(self):
+        res, err = server.api_dst(self.d); self.assertIsNone(err)
+        back = read_dst(res.data); self.assertTrue(back.ends_properly); self.assertEqual(back.color_changes, 2)
+        xs = [x for x, y in back.positions]; ys = [y for x, y in back.positions]
+        self.assertLessEqual((max(xs) - min(xs)) / 10, 130 - 12); self.assertLessEqual((max(ys) - min(ys)) / 10, 180 - 12)     # 0.1 mm units
+    def test_committed_design_files_match_a_fresh_build(self):
+        import tempfile, subprocess
+        with tempfile.TemporaryDirectory() as t:
+            r = subprocess.run([sys.executable, str(self.root / "tools" / "make_peacock_panel.py"), t], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            for name in ("peacock_arch_panel.dst", "peacock_arch_panel.esproj"):
+                self.assertEqual((Path(t) / name).read_bytes(), (self.root / "designs" / "peacock_arch" / name).read_bytes(), name + " in the repo is stale: rerun tools/make_peacock_panel.py")

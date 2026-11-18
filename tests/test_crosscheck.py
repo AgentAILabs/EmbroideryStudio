@@ -15,6 +15,13 @@ from stitchcraft_engine.design import generate                      # noqa: E402
 from stitchcraft_engine.dst import write_dst, read_dst              # noqa: E402
 
 
+def peacock():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("peacock_mod", ROOT / "tools" / "make_peacock_panel.py")
+    m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+    return m.build()
+
+
 def designs():
     sq = [[0, 0], [20, 0], [20, 20], [0, 20]]
     return {
@@ -28,6 +35,7 @@ def designs():
             {"id": "b", "type": "fill", "color": "#f00", "rings": [[[50, 0], [70, 0], [70, 20], [50, 20]]]},
             {"id": "c", "type": "satin", "color": "#00f", "points": [[0, 60], [40, 70]], "params": {"width": 3}},
             {"id": "d", "type": "applique", "color": "#0a0", "rings": [[[60, 50], [90, 50], [90, 80], [60, 80]]]}]},
+        "peacock_panel": peacock(),                       # the real production design: ~70 objects, 3 colours, locks and trims
         "far_jump": {"name": "far", "hoop": {"w": 200, "h": 200}, "objects": [
             {"id": "a", "type": "run", "color": "#f00", "points": [[0, 0], [10, 0]]},
             {"id": "b", "type": "run", "color": "#00f", "points": [[90, 90], [100, 90]]}]},

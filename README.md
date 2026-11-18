@@ -4,6 +4,9 @@ A web-based embroidery digitizing studio in the spirit of Wilcom EmbroideryStudi
 Built on the StitchCraft engine from your zip (pure Python, 26 original tests kept), now with an editor UI.
 **Zero third-party runtime dependencies** (Pillow + NumPy only for optional image import).
 
+## Designs
+`designs/peacock_arch/` – hand-digitized peacock-in-arch blouse panel (DST + project + sheet + stitch-out guide). Regenerate with `python3 tools/make_peacock_panel.py`.
+
 ## Docs
 [User guide](docs/user-guide.md) · [Architecture](docs/architecture.md) · [Status audit](docs/status.md) · [Roadmap](docs/roadmap.md) · [Stitch-out test](docs/testing/README.md)
 
