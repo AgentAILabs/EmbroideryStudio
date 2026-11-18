@@ -415,6 +415,11 @@ async function exportPackage() {
   if (!r.ok) { const j = await r.json().catch(() => ({})); alert("Package blocked:\n" + ((j.issues || []).filter(i => i.severity === "error").map(i => "• " + i.message).join("\n") || j.error || r.statusText)); return; }
   download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + "-package.zip", await r.arrayBuffer(), "application/zip");
 }
+async function exportExp() {
+  const r = await fetch("/api/export/exp", {method: "POST", body: JSON.stringify(S.doc)});
+  if (!r.ok) { const j = await r.json().catch(() => ({})); alert("Export blocked:\n" + ((j.issues || []).filter(i => i.severity === "error").map(i => "• " + i.message).join("\n") || j.error || r.statusText)); return; }
+  download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + ".exp", await r.arrayBuffer(), "application/octet-stream");
+}
 async function exportSvg() { if (!S.doc.objects.length) return; const r = await fetch("/api/export/svg", {method: "POST", body: JSON.stringify(S.doc)}); if (!r.ok) { alert("Preview failed"); return; } download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + ".preview.svg", await r.text(), "image/svg+xml"); }
 async function viewDst(file) {
   try { const buf = new Uint8Array(await file.arrayBuffer()); let bin = ""; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
@@ -614,7 +619,7 @@ $("#libq").oninput = e => { libQ = e.target.value; renderLibrary(); };
 $("#libcats").onclick = e => { if (e.target.dataset.cat) { libCat = e.target.dataset.cat; renderLibrary(); } };
 $("#libgrid").onclick = e => { const b = e.target.closest("button[data-act]"); if (b) openFromLibrary(b.dataset.id, b.dataset.act === "3d"); };
 $("#v3fab").onchange = e => Viewer3D.setFabric(e.target.value); $("#v3reset").onclick = () => Viewer3D.reset();
-$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => $("#fileDst").click(); $("#fileDst").onchange = e => { const f = e.target.files[0]; if (f) viewDst(f); e.target.value = ""; };
+$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bExp").onclick = exportExp; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => $("#fileDst").click(); $("#fileDst").onchange = e => { const f = e.target.files[0]; if (f) viewDst(f); e.target.value = ""; };
 $("#bNew").onclick = () => { if (!S.doc.objects.length || confirm("Discard the current design?")) loadDoc(newDoc()); };
 $("#bOpen").onclick = () => $("#fileOpen").click(); $("#bImport").onclick = () => $("#fileImport").click();
 $("#fileOpen").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); if (!j.doc || !Array.isArray(j.doc.objects)) throw new Error("not an EmbroideryStudio project"); loadDoc(j.doc); } catch (err) { alert("Could not open: " + err.message); } e.target.value = ""; };

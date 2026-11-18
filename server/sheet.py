@@ -4,6 +4,7 @@ from datetime import datetime
 
 from stitchcraft_engine.design import generate, run_checks, machine
 from stitchcraft_engine.dst import write_dst, read_dst
+from stitchcraft_engine.exp import write_exp
 from stitchcraft_engine.preview import preview_svg
 
 E = lambda v: html.escape(str(v), quote=True)
@@ -80,11 +81,13 @@ def package(design: dict):
         f"{n}.preview.svg": preview_svg(pattern, float(h.get("w", 0)), float(h.get("h", 0))).encode(),
         f"{n}.production-sheet.html": sheet_html(design, pattern, notes, st, rep.issues).encode(),
         f"{n}.stitchcraft.json": json.dumps(pattern.to_dict()).encode(),
+        f"{n}.exp": write_exp(pattern, trim_jumps=m["trim_jumps"]),
     }
     checks = "\n".join([f"{i.severity.upper()} {i.code}: {i.message}" for i in rep.issues] + [f"NOTE {x}" for x in notes]) or "No problems found"
     manifest = "\n".join([f"EmbroideryStudio export package · {datetime.now().isoformat(timespec='seconds')}",
                           f"design: {design.get('name', 'design')}", f"stitches: {st['stitches']}  colour changes: {st['color_changes']}",
                           f"trim jumps: {m['trim_jumps']}", f"DST records: {res.record_count}", f"DST sha256: {res.sha256}", "",
+                          f"{n}.exp: Melco EXP of the same stitches; trims are written as {m['trim_jumps']} zero-move jumps (no agreed trim opcode in EXP). Read back by pyembroidery in CI; not machine-tested.",
                           DISCLAIMER, "", "CHECKS", checks, ""])
     files["MANIFEST.txt"] = manifest.encode()
     buf = io.BytesIO()

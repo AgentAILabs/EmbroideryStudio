@@ -69,7 +69,7 @@ save/reopen, SVG + PNG import, versions) with zero page errors / HTTP 5xx.
 ## Roadmap items deliberately not built (with reason)
 | Item | Why |
 |---|---|
-| PES / JEF / EXP writers | cannot be validated without a reference reader or machine; a wrong file is worse than none. The CI cross-check is the first step |
+| PES / JEF writers | thread colours are indices into vendor palettes (65 / 78 colours) I cannot reproduce; wrong colours are worse than no file. **EXP is done** (no palette; CI-validated) |
 | PDF import | needs a PDF vector parser (nothing may be installed here) |
 | TrueType + Telugu/Devanagari lettering | needs font files and Indic shaping rules |
 | Thread brand charts | licensed colour data |

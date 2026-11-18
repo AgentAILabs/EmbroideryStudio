@@ -1478,3 +1478,44 @@ class ExpWriterTests(unittest.TestCase):
         with self.assertRaises(ExpError): read_exp(bytes([0x80, 0x7f, 0x00, 0x00]))
         with self.assertRaises(ExpError): read_exp(bytes([0x80, 0x02, 0x00, 0x00]))                    # 0x80 0x02 is not a command we write or accept
         with self.assertRaises(ExpError): read_exp(bytes([0x05]))
+
+
+class ExpExportTests(unittest.TestCase):
+    D = lambda self: doc({"id": "a", "type": "fill", "color": "#c8102e", "rings": [SQ]}, {"id": "b", "type": "fill", "color": "#0000ff", "rings": [[[40, 0], [60, 0], [60, 20], [40, 20]]]})
+    def test_api_exp_matches_the_pattern_and_honours_the_machine_trim_jumps(self):
+        from stitchcraft_engine.exp import read_exp
+        for n in (2, 3, 5):
+            d = self.D(); d["machine"] = {"trim_jumps": n}
+            data, err = server.api_exp(d); self.assertIsNone(err)
+            recs = read_exp(data); st = generate(d)[2]
+            self.assertEqual(sum(1 for r in recs if r[0] == "stitch"), st["stitches"]); self.assertEqual(sum(1 for r in recs if r[0] == "color_change"), st["color_changes"])
+            self.assertEqual(sum(1 for r in recs if r == ("jump", 0, 0)), n * st["trims"])
+    def test_blocked_on_errors_like_the_dst(self):
+        data, err = server.api_exp(doc({"id": "a", "type": "fill", "color": "#f00", "rings": [[[0, 0], [300, 0], [300, 10], [0, 10]]]}))
+        self.assertIsNone(data); self.assertEqual(err["error"], "Export blocked")
+    def test_exp_stitches_equal_the_dst_stitches(self):
+        d = self.D(); dst_f = read_dst(server.api_dst(d)[0].data); exp = __import__("stitchcraft_engine.exp", fromlist=["read_exp"]).read_exp(server.api_exp(d)[0])
+        dst_moves = [(dx, dy) for dx, dy, c in dst_f.records if c == "stitch"]
+        exp_moves = [(dx, dy) for k, dx, dy in exp if k == "stitch"]
+        self.assertEqual(len(dst_moves), len(exp_moves))
+        # DST is +Y up like EXP here: the per-stitch deltas must agree exactly
+        self.assertEqual(dst_moves, exp_moves)
+    def test_package_contains_the_exp_and_says_what_it_is(self):
+        import zipfile
+        data, err = server.sheet.package(self.D()); self.assertIsNone(err)
+        z = zipfile.ZipFile(io.BytesIO(data)); name = next(n for n in z.namelist() if n.endswith(".exp"))
+        self.assertEqual(z.read(name), server.api_exp(self.D())[0])
+        m = z.read("MANIFEST.txt").decode(); self.assertIn("Melco EXP", m); self.assertIn("zero-move jumps", m); self.assertIn("not machine-tested", m)
+    def test_http_endpoint_and_ui_button(self):
+        import threading, urllib.request, urllib.error
+        from http.server import ThreadingHTTPServer
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), server.H); threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            base = f"http://127.0.0.1:{srv.server_address[1]}/api/export/exp"
+            with urllib.request.urlopen(urllib.request.Request(base, data=json.dumps(dict(self.D(), name="My Design")).encode(), method="POST")) as r:
+                self.assertIn('filename="My_Design.exp"', r.headers["Content-Disposition"]); self.assertGreater(len(r.read()), 500)
+            bad = doc({"id": "a", "type": "fill", "color": "#f00", "rings": [[[0, 0], [300, 0], [300, 10], [0, 10]]]})
+            with self.assertRaises(urllib.error.HTTPError) as cm: urllib.request.urlopen(urllib.request.Request(base, data=json.dumps(bad).encode(), method="POST"))
+            self.assertEqual(cm.exception.code, 422)
+        finally: srv.shutdown(); srv.server_close()
+        web = Path(__file__).resolve().parent.parent / "web"; self.assertIn('id="bExp"', (web / "index.html").read_text()); self.assertIn("exportExp", (web / "app.js").read_text())

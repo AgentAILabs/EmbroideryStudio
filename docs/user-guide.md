@@ -94,6 +94,10 @@ Neckline guides (not stitched): round, boat, V, square, back-U, sized in **inche
 | Stitched before the fill it overlaps | move the outline/lettering after the fill |
 | Satin too narrow (< 1 mm) / loose (> 7 mm) | use running stitch / enable auto-split or use a fill |
 
+## Output formats
+**DST** (Tajima - what most machines including Ricoma read) is the main output. **EXP** (Melco) is also available: same stitches, centred, no palette. EXP has no agreed trim command, so trims are written as the same N zero-move jumps as in the DST (*Trim jumps*) - confirm on your machine. Both are read back by an independent reader (pyembroidery) in CI; neither has been machine-tested by the authors.
+**Not offered:** JEF and PES store thread colours as indices into 78/65-colour vendor palettes that this project cannot reproduce accurately, so those files would carry wrong colours.
+
 ## Files
 `.esproj` = project (JSON). Autosave lives in the browser; *Save version…* keeps named snapshots in the browser (not in the file) – use Save to keep a file.
 Keyboard: V F S C R T A E tools · Ctrl+Z / Ctrl+Y undo/redo · Ctrl+S save · Ctrl+D duplicate · Delete · Esc · Enter · P play · 0 fit · wheel zoom · Space+drag or right-drag pan.

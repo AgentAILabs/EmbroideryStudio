@@ -1,6 +1,7 @@
 """EmbroideryStudio API + static host (stdlib only).  python3 server/app.py [port]
 POST /api/generate        design JSON -> stitches, stats, issues
 POST /api/export/dst      design JSON -> .dst  (blocked on validation errors)
+POST /api/export/exp      design JSON -> Melco EXP (trims as zero-move jumps)
 POST /api/export/package  design JSON -> zip (dst, project, preview, sheet, manifest)
 POST /api/export/sheet    design JSON -> production sheet HTML
 POST /api/export/svg      design JSON -> preview SVG
@@ -21,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "engine"))
 from stitchcraft_engine.design import generate, run_checks, FABRICS, machine, empty_stats            # noqa: E402
 from stitchcraft_engine.dst import write_dst, read_dst                          # noqa: E402
+from stitchcraft_engine.exp import write_exp                                    # noqa: E402
 from stitchcraft_engine.model import Cmd                                        # noqa: E402
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
 from stitchcraft_engine.raster import digitize_raster, RasterUnavailable        # noqa: E402
@@ -135,6 +137,16 @@ def api_view_dst(d):
             "color_changes": f.color_changes, "ends_properly": f.ends_properly}
 
 
+def api_exp(d):
+    """Melco EXP of the design, blocked on the same validation errors as the DST. Returns (bytes, None) or (None, error)."""
+    check_design(d)
+    pattern, notes, st = generate(d)
+    rep = run_checks(d, pattern)
+    if not rep.ok:
+        return None, {"error": "Export blocked", "issues": issues(rep)}
+    return write_exp(pattern, trim_jumps=machine(d)["trim_jumps"]), None
+
+
 def api_svg(d):
     from stitchcraft_engine.pipeline import digitize_svg  # noqa: F401  (ensures module import works)
     txt = d["svg"]
@@ -228,6 +240,11 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, column_from_outline([(float(a), float(b)) for a, b in ring]))
             if path == "/api/template":
                 return self._send(200, {"objects": templates.build(d.get("id", ""), d.get("params") or {}, d.get("color", "#c8102e"))})
+            if path == "/api/export/exp":
+                data, err = api_exp(d)
+                if err:
+                    return self._send(422, err)
+                return self._send(200, data, "application/octet-stream", {"Content-Disposition": f'attachment; filename="{sheet._safe(d.get("name"))}.exp"'})
             if path == "/api/export/package":
                 check_design(d)
                 data, err = sheet.package(d)

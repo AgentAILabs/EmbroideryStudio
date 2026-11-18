@@ -30,7 +30,7 @@ Millimetres, y down, origin at the hoop centre. Common object fields: `id, type,
 ## Engine modules (`engine/stitchcraft_engine`)
 `preview.py` preview + compact thumbnails · `design.py` design → stitches (+ stats, order notes, machine profile) · `stitches.py` generators (running, satin, tatami, contour, cross, split) ·
 `geometry.py` (inset, smooth) · `outline.py` satin-from-outline · `templates.py` · `raster.py` · `svg_input.py` · `font.py` ·
-`builder.py` objects → stitch commands (jumps, trims, colour changes) · `validate.py` quality rules · `dst.py` Tajima DST writer + independent reader · `preview.py`.
+`builder.py` objects → stitch commands (jumps, trims, colour changes) · `validate.py` quality rules · `dst.py` Tajima DST writer + independent reader · `exp.py` Melco EXP writer · `preview.py`.
 
 Data flow: `generate(design)` → `Pattern` (stitch list, versioned JSON contract `schema_version 1.0`) → `run_checks` → `write_dst` → read back and compared (round-trip) before any file is offered.
 
@@ -48,7 +48,7 @@ Engine behaviours added while drawing it: fill rows shorter than the minimum sti
 | Endpoint | Purpose |
 |---|---|
 | POST /api/generate | design → stitches, stats, issues, notes |
-| POST /api/export/dst · /package · /sheet · /svg | exports (blocked on validation errors) |
+| POST /api/export/dst · /exp · /package · /sheet · /svg | exports (blocked on validation errors) |
 | POST /api/import/svg · /raster · /dst | imports |
 | POST /api/tools/column-from-outline | shape → two rails, or 400 with the reason |
 | GET /api/templates · POST /api/template | template catalogue / instantiate |
