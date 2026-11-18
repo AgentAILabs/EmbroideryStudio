@@ -101,3 +101,17 @@ the code's tables) and by `tests/test_crosscheck.py` in CI. What is still unprov
 * Satin-from-outline gives one column per shape; strongly curved shapes may show slightly uneven stitch angle at tight bends (tested: S-curve, banana, L within 6° mean).
 * Contour fill falls back to tatami (with a note) for shapes with holes or that it cannot inset to the centre.
 * Versions and autosave live in the browser only.
+
+
+## DST quality round (analysis of 20 commercial files)
+| Item | State | Evidence |
+|---|---|---|
+| Real-world DST reading (EOF 0x1A) | ✅ | `tests/test_dst_quality.py` TolerantReaderTests; 20/20 files read |
+| Column underlay 0.5 mm stitches | ✅ fixed | scroll_pair 2,114 → 1,508 stitches, short stitches 28.7 % → 1.3 % |
+| Tatami end stubs, satin-tip micro stitches | ✅ fixed | stub test, taper test |
+| Lock stitch 1.0 mm default | ✅ | matches production files; clamps unchanged |
+| Thread weight presets 40 wt / 60 wt / 120/2 | ✅ | spacing 0.40 / 0.30 / 0.22 mm measured on generated output |
+| Six-stage verifier + API + UI Quality check | ✅ | tests + e2e; all library designs without FAIL |
+| Header overflow (Export DST clipped) | ✅ fixed | e2e checks visibility at 1500 and 1100 px |
+| v1 peacock kept byte-identical | ✅ | `designs/peacock_arch/v1_tested`, hash pinned in tests |
+| Stitch-out of v2 / fine_120 | ⏳ not done | needs the machine |

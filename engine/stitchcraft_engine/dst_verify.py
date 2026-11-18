@@ -102,8 +102,8 @@ def verify(data: bytes, hoop=(100.0, 100.0), thread_k: float = 1.0, needles: int
         with tempfile.NamedTemporaryFile(suffix=".dst", delete=False) as t:
             t.write(data); path = t.name
         try:
-            pat = pe.read_dst(path)
-            n_pe = sum(1 for s in pat.stitches if (s[2] & 0xFF) == pe.STITCH)
+            pat = pe.read(path)
+            n_pe = sum(1 for s in pat.stitches if (s[2] & pe.COMMAND_MASK) == pe.STITCH)
             n_us = sum(1 for _, _, k in f.records if k == "stitch")
             c.append(("PASS" if abs(n_pe - n_us) <= 1 else "FAIL", "independent decoder (pyembroidery) agrees on stitch count", f"pyembroidery={n_pe} ours={n_us}"))
         finally:
