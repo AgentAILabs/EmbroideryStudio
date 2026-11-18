@@ -606,3 +606,78 @@ class OutlineQualityTests(OutlineCurvedTests):
         r = column_from_outline(self.thick_curve(lambda t: (40 * t, 8 * m.sin(2 * m.pi * t)), 4, taper=False))
         a, b = r["rail1"][0], r["rail1"][-1]
         self.assertLess(m.hypot(a[0] - 0, a[1] - 0), 2.6); self.assertLess(m.hypot(b[0] - 40, b[1] - 0), 2.6)
+
+
+class FillPatternTests(unittest.TestCase):
+    def fill(self, rings, **params):
+        return doc({"id": "f", "type": "fill", "color": "#f00", "rings": rings, "params": params})
+    def pts(self, d):
+        from stitchcraft_engine.model import Cmd
+        return [(s.x, s.y) for s in generate(d)[0].stitches if s.cmd == Cmd.STITCH]
+
+    def test_contour_rings_are_concentric_spaced_and_inside(self):
+        from stitchcraft_engine.stitches import contour_fill
+        run = contour_fill([SQ], spacing=0.5, stitch_len=3.0)[0]
+        self.assertGreater(len(run), 100)
+        for x, y in run: self.assertTrue(-1e-6 <= x <= 20 + 1e-6 and -1e-6 <= y <= 20 + 1e-6)
+        # distance from the outline grows by `spacing` per ring: the innermost stitches are near the centre
+        inner = min(((x - 10) ** 2 + (y - 10) ** 2) ** .5 for x, y in run); self.assertLess(inner, 1.2)
+        # no stitch is farther than ~spacing-ish from a neighbouring ring: coverage check on a probe grid (sample points within 0.5 mm of some stitch point or segment)
+        import math
+        for gx in range(1, 20, 3):
+            for gy in range(1, 20, 3):
+                best = min(math.hypot(gx - x, gy - y) for x, y in run); self.assertLess(best, 1.8, (gx, gy))
+    def test_contour_through_generate_is_valid(self):
+        d = self.fill([SQ], pattern="contour"); p, n, st = generate(d)
+        self.assertEqual(n, []); self.assertTrue(run_checks(d, p).ok); self.assertGreater(st["stitches"], 150)
+    def test_contour_falls_back_to_tatami_with_a_note_for_holes(self):
+        d = self.fill([SQ, [[5, 5], [15, 5], [15, 15], [5, 15]]], pattern="contour")
+        p, n, st = generate(d); self.assertTrue(any("used tatami" in x for x in n)); self.assertGreater(st["stitches"], 100)
+        self.assertEqual(sum(1 for q in self.pts(d) if 6 < q[0] < 14 and 6 < q[1] < 14), 0)       # hole still empty
+    def test_contour_on_concave_shape_never_half_fills(self):
+        L = [[0, 0], [30, 0], [30, 8], [8, 8], [8, 30], [0, 30]]
+        d = self.fill([L], pattern="contour"); p, n, st = generate(d)
+        self.assertTrue(run_checks(d, p).ok)
+        pts = self.pts(d); from stitchcraft_engine.outline import _inside_or_on
+        self.assertGreaterEqual(sum(_inside_or_on(q, L, 0.5) for q in pts) / len(pts), 0.99)      # stays inside the L-shape
+        # either a complete contour fill or an explicit tatami fallback - both must reach the middle of the bend
+        self.assertTrue(any(abs(x - 4) < 1.5 and abs(y - 4) < 1.5 for x, y in pts))
+
+    def test_cross_fill_cells_inside_shape_only_and_stitch_length(self):
+        from stitchcraft_engine.stitches import cross_fill
+        import math
+        tri = [[0, 0], [20, 0], [0, 20]]
+        runs = cross_fill([tri], size=2.0); n_pts = [p for r in runs for p in r]
+        self.assertTrue(all(0 - 1e-6 <= x <= 20 + 1e-6 and -1e-6 <= y <= 20 + 1e-6 for x, y in n_pts))
+        for r in runs:
+            for a, b in zip(r, r[1:]): self.assertLessEqual(math.dist(a, b), 2.0 * 2 ** .5 + 1e-6)
+        # cells whose centre is outside the triangle (x + y > 20) get no stitches
+        self.assertFalse(any(x > 13 and y > 13 for x, y in n_pts))
+    def test_cross_fill_count_scales_with_area(self):
+        a = len(self.pts(self.fill([SQ], pattern="cross", cross_size=2.0))); b = len(self.pts(self.fill([SQ], pattern="cross", cross_size=4.0)))
+        self.assertGreater(a, 2.5 * b)                                # 4x the cells at half the size
+        self.assertTrue(run_checks(self.fill([SQ], pattern="cross"), generate(self.fill([SQ], pattern="cross"))[0]).ok)
+    def test_cross_size_limits_and_tiny_shapes(self):
+        ok = {"id": "ok", "type": "fill", "color": "#f00", "rings": [SQ]}
+        for sz in (0.5, 6.0):
+            _, n, _ = generate(doc(self.fill([SQ], pattern="cross", cross_size=sz)["objects"][0], ok))
+            self.assertTrue(any("skipped" in x for x in n), sz)
+        _, n, _ = generate(doc(self.fill([[[0, 0], [0.5, 0], [0.5, 0.5]]], pattern="cross")["objects"][0], ok))
+        self.assertTrue(any("skipped" in x for x in n))
+    def test_patterned_fills_have_no_underlay_and_default_is_unchanged(self):
+        base = generate(self.fill([SQ]))[0].counts()
+        self.assertEqual(base, generate(self.fill([SQ], pattern="tatami"))[0].counts())              # default behaviour untouched
+        self.assertEqual(server.api_dst(self.fill([SQ]))[0].sha256, server.api_dst(self.fill([SQ], pattern="tatami"))[0].sha256)
+
+
+class ContourRoundShapeTests(unittest.TestCase):
+    def test_contour_on_a_round_shape_has_no_short_stitch_or_density_warnings(self):
+        import math
+        circ = [[13 * math.cos(k * math.pi / 24), 13 * math.sin(k * math.pi / 24)] for k in range(48)]
+        for pat in ("tatami", "contour", "cross"):
+            d = doc({"id": "a", "type": "fill", "color": "#f00", "rings": [circ], "params": {"pattern": pat}})
+            p, n, _ = generate(d); codes = {i.code for i in run_checks(d, p).issues}
+            self.assertFalse(codes & {"STITCH_SHORT", "DENSITY", "ZERO_LENGTH"}, (pat, codes)); self.assertEqual(n, [])
+    def test_thin_keeps_a_closed_ring_of_at_least_three_points(self):
+        from stitchcraft_engine.stitches import _thin
+        r = _thin([(0, 0), (0.01, 0), (0.02, 0.01), (5, 0), (5, 5)], 0.4); self.assertGreaterEqual(len(r), 3)

@@ -2,7 +2,7 @@
 from __future__ import annotations
 import math
 from typing import List, Sequence, Tuple
-from .geometry import Point, dist, polyline_length, resample_n, rotate, point_in_polygon
+from .geometry import Point, dist, polyline_length, resample_n, rotate, point_in_polygon, inset_ring, polygon_area
 
 
 class DigitizingError(ValueError):
@@ -162,3 +162,82 @@ def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spaci
     if cur:
         runs.append(cur)
     return [[rotate(p, ang) for p in run] for run in runs]
+
+
+
+def _thin(ring: Sequence[Point], min_gap: float) -> List[Point]:
+    """Drop vertices closer than min_gap to the previous kept one (inset rings of round shapes get very dense)."""
+    out = [tuple(ring[0])]
+    for p in ring[1:]:
+        if dist(out[-1], p) >= min_gap:
+            out.append(tuple(p))
+    while len(out) > 3 and dist(out[-1], out[0]) < min_gap:
+        out.pop()
+    return out
+
+
+# ---------------------------------------------------------------- contour fill (concentric rings)
+def contour_fill(rings: Sequence[Sequence[Point]], spacing: float = 0.4, stitch_len: float = 3.0) -> List[List[Point]]:
+    """Concentric inset rings stitched as one continuous run. Raises DigitizingError when the shape has holes or is
+    too complex to inset reliably all the way to the centre - the caller then falls back to tatami (never half-fills)."""
+    if spacing <= 0 or stitch_len <= 0:
+        raise DigitizingError("spacing and stitch_len must be > 0")
+    if len(rings) != 1:
+        raise DigitizingError("contour fill needs a single outline without holes")
+    ring = [tuple(p) for p in rings[0]]
+    if len(ring) < 3:
+        raise DigitizingError("fill needs a ring with at least 3 points")
+    out: List[Point] = []
+    cur = ring
+    levels = 0
+    while cur is not None and levels < 2000:
+        thin = _thin(cur, 0.4)
+        if len(thin) >= 3:
+            out += running_stitch(thin, stitch_len, closed=True)
+        levels += 1
+        nxt = inset_ring(cur, spacing)
+        if nxt is None:
+            # stopped early? the leftover area must be tiny, otherwise the centre would be left empty
+            if polygon_area(cur) > max(6 * spacing * spacing, 2.0):
+                raise DigitizingError("shape is too complex for contour fill to reach the centre")
+            break
+        cur = nxt
+    return [out]
+
+
+# ---------------------------------------------------------------- cross-stitch fill
+def cross_fill(rings: Sequence[Sequence[Point]], size: float = 2.0) -> List[List[Point]]:
+    """Grid of X stitches (cells whose centre lies inside the shape). Per row: a pass of '/' then a return pass of '\\'."""
+    if not 1.0 <= size <= 4.9:
+        raise DigitizingError("cross size must be 1.0-4.9 mm (diagonal must stay under 7 mm)")
+    rr = [tuple(p) for r in rings for p in r]
+    if len(rr) < 3:
+        raise DigitizingError("fill needs a ring with at least 3 points")
+    xs, ys = [p[0] for p in rr], [p[1] for p in rr]
+    x0, y0 = min(xs), min(ys)
+    cols, rows = int(math.ceil((max(xs) - x0) / size)), int(math.ceil((max(ys) - y0) / size))
+    runs: List[List[Point]] = []
+    for j in range(rows):
+        top, bot = y0 + j * size, y0 + (j + 1) * size
+        chunk: List[int] = []
+        chunks: List[List[int]] = []
+        for i in range(cols):
+            if point_in_polygon((x0 + (i + 0.5) * size, (top + bot) / 2), rings):
+                chunk.append(i)
+            elif chunk:
+                chunks.append(chunk); chunk = []
+        if chunk:
+            chunks.append(chunk)
+        for ch in chunks:
+            path: List[Point] = []
+            for i in ch:                                   # forward: '/'  bottom-left -> top-right, then down the shared edge
+                xl, xr = x0 + i * size, x0 + (i + 1) * size
+                path += [(xl, bot), (xr, top), (xr, bot)]
+            for i in reversed(ch):                         # return: '\'  bottom-right -> top-left, then down the shared edge
+                xl, xr = x0 + i * size, x0 + (i + 1) * size
+                path += [(xr, bot), (xl, top), (xl, bot)]
+            clean = [path[0]] + [q for a, q in zip(path, path[1:]) if dist(a, q) > 1e-9]
+            runs.append(clean)
+    if not runs:
+        raise DigitizingError("shape is smaller than one cross; reduce the cross size")
+    return runs

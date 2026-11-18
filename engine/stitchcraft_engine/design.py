@@ -14,12 +14,12 @@ from .builder import StitchObject, build_pattern
 from .font import layout_text
 from .geometry import polygon_area, smooth, inset_ring
 from .model import Cmd, Pattern, ThreadColor
-from .stitches import (DigitizingError, satin_from_rails, center_walk_underlay, edge_walk_underlay, running_stitch,
+from .stitches import (DigitizingError, satin_from_rails, contour_fill, cross_fill, center_walk_underlay, edge_walk_underlay, running_stitch,
                        satin_stitch, tatami_fill)
 from .validate import validate
 
 DEFAULTS = {
-    "fill": {"angle": 45.0, "spacing": 0.4, "stitch_len": 3.5, "underlay": "tatami", "pull_comp": 0.2},
+    "fill": {"angle": 45.0, "spacing": 0.4, "stitch_len": 3.5, "underlay": "tatami", "pull_comp": 0.2, "pattern": "tatami", "cross_size": 2.0},
     "satin": {"width": 3.0, "spacing": 0.4, "underlay": "auto", "pull_comp": 0.2},
     "run": {"stitch_len": 2.5},
     "column": {"spacing": 0.4, "underlay": "auto", "pull_comp": 0.2},
@@ -124,6 +124,18 @@ def generate(design: dict, trim_distance: Optional[float] = None):
             th = tid(ob.get("color"))
             if typ == "fill":
                 rings = [_pts(r, ob, True) for r in ob["rings"]]
+                pattern_kind = _p(ob, "pattern")
+                runs = None
+                if pattern_kind == "contour":
+                    try:
+                        runs = contour_fill(rings, _p(ob, "spacing"), _p(ob, "stitch_len"))
+                    except DigitizingError as e:
+                        notes.append(f"{oid}: contour fill not possible ({e}); used tatami instead")
+                elif pattern_kind == "cross":
+                    runs = cross_fill(rings, float(_p(ob, "cross_size")))
+                if runs is not None:
+                    objs.append(StitchObject(oid, "fill", th, runs, []))      # patterned fills carry no underlay
+                    continue
                 runs = tatami_fill(rings, _p(ob, "angle"), _p(ob, "spacing"), _p(ob, "stitch_len"),
                                    pull_comp=_p(ob, "pull_comp") or 0.0)
                 under = []
