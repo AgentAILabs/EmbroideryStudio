@@ -114,3 +114,93 @@ class ColumnTests(unittest.TestCase):
     def test_bad_column_is_skipped(self):
         _, notes, _ = generate(doc(dict(self.PETAL, rail2=[[1, 1]]), {"id": "a", "type": "fill", "color": "#f00", "rings": [SQ]}))
         self.assertTrue(any("skipped" in n for n in notes))
+
+class MvpGapTests(unittest.TestCase):
+    def test_machine_profile_limits_and_trim_jumps(self):
+        from stitchcraft_engine.design import machine
+        m = machine({"machine": {"max_stitch": 99, "trim_jumps": 0, "trim_distance": "x"}})
+        self.assertEqual((m["max_stitch"], m["trim_jumps"], m["trim_distance"]), (12.1, 1, 3.0))
+        base = {"id": "a", "type": "run", "color": "#f00", "points": [[0, 0], [30, 0]], "params": {"stitch_len": 6}}
+        d1, d2 = doc(base), doc(base); d2["machine"] = {"max_stitch": 5}
+        p, _, _ = generate(d1)
+        self.assertFalse(any(i.code == "STITCH_LONG" for i in run_checks(d1, p).issues))
+        self.assertTrue(any(i.code == "STITCH_LONG" for i in run_checks(d2, p).issues))
+
+    def test_trim_jump_count_is_configurable(self):
+        d = doc({"id": "a", "type": "run", "color": "#f00", "points": [[0, 0], [5, 0]]},
+                {"id": "b", "type": "run", "color": "#f00", "points": [[40, 0], [45, 0]]})
+        for n in (2, 4):
+            d["machine"] = {"trim_jumps": n}
+            res, err = server.api_dst(d); self.assertIsNone(err)
+            trims = sum(1 for r in read_dst(res.data).records if r == (0, 0, "jump"))   # trim = zero-move jumps
+            self.assertEqual(trims, n)
+
+    def test_satin_width_notes(self):
+        notes = lambda w: generate(doc({"id": "s", "type": "satin", "color": "#f00", "points": [[0, 0], [20, 0]], "params": {"width": w}}))[1]
+        self.assertTrue(any("narrow" in n for n in notes(0.5)))
+        self.assertTrue(any("loose" in n for n in notes(9)))
+        self.assertEqual(notes(3), [])
+
+    def test_upload_safety(self):
+        evil = '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "aaaa">]><svg xmlns="http://www.w3.org/2000/svg"><rect width="5" height="5"/></svg>'
+        with self.assertRaises(ValueError): server.api_svg({"svg": evil})
+        with self.assertRaises(ValueError): server.api_svg({"svg": "%PDF-1.4 ..."})
+        with self.assertRaises(ValueError): server.api_raster({"data": base64.b64encode(b"%PDF-1.4").decode(), "width_mm": 50})
+        with self.assertRaises(ValueError): server.api_raster({"data": base64.b64encode(b"GIF89a....").decode(), "width_mm": 50})
+
+    def test_complexity_limits(self):
+        big = doc(*[{"id": f"o{i}", "type": "run", "color": "#f00", "points": [[0, 0], [1, 1]]} for i in range(3001)])
+        with self.assertRaises(ValueError): server.api_generate(big)
+
+    def test_low_dpi_note(self):
+        try: from PIL import Image
+        except ImportError: self.skipTest("Pillow missing")
+        im = Image.new("RGB", (40, 40), "white")
+        from PIL import ImageDraw; ImageDraw.Draw(im).rectangle((5, 5, 35, 35), fill=(200, 0, 0))
+        b = io.BytesIO(); im.save(b, "PNG")
+        r = server.api_raster({"data": base64.b64encode(b.getvalue()).decode(), "width_mm": 100, "colors": 3})
+        self.assertTrue(any("Low resolution" in n for n in r["notes"]))
+
+
+class HttpSmokeTests(unittest.TestCase):
+    """Real HTTP round trips against the stdlib server (ephemeral port)."""
+    @classmethod
+    def setUpClass(cls):
+        import threading
+        from http.server import ThreadingHTTPServer
+        cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), server.H)
+        cls.port = cls.srv.server_address[1]
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+    @classmethod
+    def tearDownClass(cls): cls.srv.shutdown(); cls.srv.server_close()
+    def req(self, path, body=None):
+        import urllib.request, urllib.error
+        r = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", data=None if body is None else json.dumps(body).encode(),
+                                   method="GET" if body is None else "POST")
+        try:
+            with urllib.request.urlopen(r) as resp: return resp.status, resp.read(), resp.headers
+        except urllib.error.HTTPError as e: return e.code, e.read(), e.headers
+    def test_static_and_health(self):
+        self.assertEqual(self.req("/")[0], 200); self.assertEqual(self.req("/app.js")[0], 200)
+        self.assertEqual(self.req("/api/health")[0], 200); self.assertIn(b"glyphs", self.req("/api/font")[1])
+    def test_path_traversal_blocked(self):
+        self.assertEqual(self.req("/../server/app.py")[0], 404); self.assertEqual(self.req("/..%2fserver/app.py")[0], 404)
+    def test_generate_and_export_over_http(self):
+        d = doc({"id": "a", "type": "fill", "color": "#f00", "rings": [SQ]})
+        c, b, _ = self.req("/api/generate", d); self.assertEqual(c, 200); self.assertGreater(len(json.loads(b)["stitches"]), 100)
+        c, b, h = self.req("/api/export/dst", d); self.assertEqual(c, 200); self.assertTrue(read_dst(b).ends_properly)
+        self.assertEqual(len(h["X-SHA256"]), 64)
+    def test_errors_are_json_4xx_not_500(self):
+        c, b, _ = self.req("/api/export/dst", doc({"id": "a", "type": "fill", "color": "#f00", "rings": [[[0, 0], [300, 0], [300, 10], [0, 10]]]}))
+        self.assertEqual(c, 422); self.assertIn("issues", json.loads(b))
+        self.assertEqual(self.req("/api/generate", {"objects": []})[0], 400)
+        self.assertEqual(self.req("/api/nope", {})[0], 404)
+
+
+class PerformanceTests(unittest.TestCase):
+    def test_100mm_design_with_many_stitches_is_fast(self):   # requirements: <= 50k stitches in < 15 s
+        import time
+        d = doc({"id": "a", "type": "fill", "color": "#f00", "rings": [[[-45, -45], [45, -45], [45, 45], [-45, 45]]],
+                 "params": {"spacing": 0.25, "stitch_len": 1.2}})
+        t = time.time(); r = server.api_generate(d); dt = time.time() - t
+        self.assertGreater(len(r["stitches"]), 20000); self.assertLess(dt, 15)

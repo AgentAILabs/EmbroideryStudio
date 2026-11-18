@@ -281,6 +281,25 @@ function transformSel(fn, textOk = true) {
 function scaleSel(pct) { const o = selObj(); if (!o) return; const f = pct / 100, b = bbox(allPts(o)), cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
   if (o.type === "text") { o.height = +(o.height * f).toFixed(2); } else mapPts(o, p => [cx + (p[0] - cx) * f, cy + (p[1] - cy) * f]);
   if (o.params && o.params.width) o.params.width = +(o.params.width * f).toFixed(2); commit(); renderAll(); }
+function rotateSel(deg) { const o = selObj(); if (!o || o.type === "text" || !deg) return; const r = deg * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r);
+  transformSel((p, cx, cy) => [cx + (p[0] - cx) * cs - (p[1] - cy) * sn, cy + (p[0] - cx) * sn + (p[1] - cy) * cs], false); }
+function nonUniform(fx, fy) { const o = selObj(); if (!o) return; const b = bbox(allPts(o)), cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
+  if (o.type === "text") { o.height = +(o.height * fy).toFixed(2); } else mapPts(o, p => [cx + (p[0] - cx) * fx, cy + (p[1] - cy) * fy]); commit(); renderAll(); }
+function convertTargets(o) { return {fill: ["run", "satin"], applique: ["fill"], satin: ["run", "fill"], run: ["satin", "fill"], column: ["fill"]}[o.type] || []; }
+function convertSel(to) {
+  const o = selObj(); if (!o) return; let n = {id: o.id, name: o.name, color: o.color, type: to};
+  const ring = o.rings ? o.rings[0] : o.rail1 ? o.rail1.concat(o.rail2.slice().reverse()) : o.points;
+  if (to === "fill") { if (ring.length < 3) { alert("A fill needs at least 3 points."); return; } n.rings = [ring.map(p => p.slice())]; }
+  else { n.points = (o.rings ? o.rings[0].concat([o.rings[0][0]]) : ring).map(p => p.slice()); if (to === "satin") n.params = {width: 2.5}; }
+  if (o.smooth) n.smooth = true; S.doc.objects[S.doc.objects.findIndex(x => x.id === o.id)] = n; commit(); renderAll();
+}
+function optimiseColours() {
+  const order = []; S.doc.objects.forEach(o => { if (!order.includes(o.color)) order.push(o.color); });
+  const sorted = order.flatMap(c => S.doc.objects.filter(o => o.color === c));
+  if (sorted.every((o, i) => o === S.doc.objects[i])) { alert("Colour order is already optimal."); return; }
+  if (!confirm("Group objects by colour to cut colour changes?\nThis changes stitching order: anything meant to sit on top of another colour may now stitch underneath. Check the Design and Stitches views afterwards (Undo restores).")) return;
+  S.doc.objects = sorted; commit(); renderAll();
+}
 function moveOrder(id, dir) { const a = S.doc.objects, i = a.findIndex(o => o.id === id), j = i + dir; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; commit(); renderAll(); }
 function centerAll() { const pts = S.doc.objects.flatMap(allPts), b = bbox(pts); if (!b) return; const cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2; S.doc.objects.forEach(o => mapPts(o, p => [p[0] - cx, p[1] - cy])); commit(); renderAll(); }
 function outline() { /* convert selected fill to a satin/run border following its first ring */
@@ -320,14 +339,28 @@ async function exportDst() {
   download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + ".dst", await r.arrayBuffer(), "application/octet-stream");
   if ((S.gen && S.gen.issues || []).some(i => i.severity === "warning")) alert("Exported with warnings (see Checks). Stitch a test sample before production use.");
 }
+function renderPreview(px) {
+  const off = document.createElement("canvas"); off.width = off.height = px; const c = off.getContext("2d"), h = S.doc.hoop;
+  const v0 = S.view;
+  Object.defineProperty(cv, "clientWidth", {value: px, configurable: true}); Object.defineProperty(cv, "clientHeight", {value: px, configurable: true});
+  try { S.view = {x: 0, y: 0, z: (px - 40) / Math.max(h.w, h.h)}; c.fillStyle = "#fff"; c.fillRect(0, 0, px, px); drawGrid(c); drawStitches(c, 1e9, false); }
+  finally { delete cv.clientWidth; delete cv.clientHeight; S.view = v0; }
+  return off;
+}
+function exportPng() {
+  if (!S.gen || !S.gen.stitches) { alert("Nothing to preview yet."); return; }
+  renderPreview(1200).toBlob(b => download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + ".preview.png", b, "image/png"));
+}
+const VKEY = "es.versions";
+function versions() { try { return JSON.parse(localStorage.getItem(VKEY) || "[]"); } catch (e) { return []; } }
+function saveVersion() { const name = prompt("Version name:", "v" + (versions().length + 1)); if (!name) return;
+  try { const v = versions(); v.push({name, time: Date.now(), doc: S.doc}); localStorage.setItem(VKEY, JSON.stringify(v.slice(-30))); } catch (e) { alert("Could not store the version (browser storage full or blocked). Use Save to download the project instead."); } renderVersions(); }
+function renderVersions() { const el = $("#vers"); if (!el) return; const all = versions(), v = all.filter(x => x.doc && x.doc.name === S.doc.name);
+  el.innerHTML = v.map(x => `<li class="note">${esc(x.name)} · ${new Date(x.time).toLocaleString()} <button data-vi="${all.indexOf(x)}" style="padding:0 6px">Restore</button></li>`).join("") || `<li class="note">No saved versions for this design name.</li>`;
+  el.onclick = e => { const i = e.target.dataset.vi; if (i === undefined) return; const x = versions()[+i]; if (x && confirm("Restore version “" + x.name + "”? (Undo returns to the current state.)")) { S.doc = JSON.parse(JSON.stringify(x.doc)); fixSel(); commit(); renderAll(); fit(); } }; }
 function productionSheet() {
   if (!S.gen || !S.gen.stats) { alert("Nothing to report yet."); return; }
-  const st = S.gen.stats, off = document.createElement("canvas"); off.width = 600; off.height = 600; const c = off.getContext("2d");
-  const save = {v: {...S.view}, cw: Object.getOwnPropertyDescriptor(cv, "clientWidth")};
-  const h = S.doc.hoop, v0 = S.view; const z = 560 / Math.max(h.w, h.h);
-  const real = {w: cv.clientWidth, h: cv.clientHeight}; Object.defineProperty(cv, "clientWidth", {value: 600, configurable: true}); Object.defineProperty(cv, "clientHeight", {value: 600, configurable: true});
-  S.view = {x: 0, y: 0, z}; c.fillStyle = "#fff"; c.fillRect(0, 0, 600, 600); drawGrid(c); drawStitches(c, 1e9, false);
-  const img = off.toDataURL("image/png"); delete cv.clientWidth; delete cv.clientHeight; S.view = v0;
+  const st = S.gen.stats, h = S.doc.hoop, img = renderPreview(600).toDataURL("image/png");
   const rows = st.color_sequence.map((s, i) => `<tr><td>${i + 1}</td><td><span style="display:inline-block;width:16px;height:16px;background:${s.hex};border:1px solid #000"></span> ${s.hex}</td><td>${s.stitches}</td></tr>`).join("");
   const emb = S.doc.objects.filter(o => o.type === "applique").length;
   const html = `<!doctype html><title>Production sheet – ${esc(S.doc.name)}</title><style>body{font:14px system-ui;margin:24px;max-width:820px}table{border-collapse:collapse}td,th{border:1px solid #999;padding:4px 10px;text-align:left}h1{margin:0}.m{color:#555}</style>
@@ -375,6 +408,10 @@ function renderProps() {
   if (o.type === "text") h += `<div class="row"><label>Text</label><input type="text" data-k="text" data-d=1 value="${esc(o.text)}"></div>` + field("Height mm", "height", o, {direct: 1, step: .5, min: 3}) + field("Letter spacing", "spacing", o, {step: .1, min: .5}) + field("Stroke width mm", "width", o, {step: .25, min: 1, tip: "Satin column width of each stroke"}) + `<div class="note">Built-in single-line satin font (A–Z, 0–9, - . !). Minimum practical height ≈ 5 mm.</div>`;
   if (o.type === "applique") h += field("Cover width mm", "width", o, {step: .25, min: 1.5}) + `<div class="note">Stitches: placement line → tack-down → satin cover. The machine pauses at the colour change so you can lay fabric.</div>`;
   h += `<div class="btns"><button data-op="dup">Duplicate</button><button data-op="fh">Flip ↔</button><button data-op="fv">Flip ↕</button><button data-op="r90">Rotate 90°</button>${o.rings ? `<button data-op="outline">Add border</button>` : ""}<button data-op="del">Delete</button></div>`;
+  const bb = bbox(allPts(o)); const bw = bb ? +(bb[2] - bb[0]).toFixed(2) : 0, bh = bb ? +(bb[3] - bb[1]).toFixed(2) : 0;
+  h += `<div class="row"><label>Width mm</label><input type="number" id="szW" value="${bw}" step="0.5" min="1"></div><div class="row"><label>Height mm</label><input type="number" id="szH" value="${bh}" step="0.5" min="1"></div><div class="row"><label>Keep proportions</label><input type="checkbox" id="szLock" checked></div>`;
+  if (o.type !== "text") h += `<div class="row"><label>Rotate °</label><span style="display:flex;gap:4px"><input type="number" id="rotDeg" value="15" step="5" style="width:50%"><button data-op="rot" style="padding:3px 6px">Apply</button></span></div>`;
+  const conv = convertTargets(o); if (conv.length) h += `<div class="row"><label>Convert to</label><select id="convSel"><option value="">stitch type…</option>${conv.map(t => `<option>${t}</option>`).join("")}</select></div>`;
   h += `<div class="row"><label>Scale %</label><input type="number" id="scalePct" value="100" step="5"></div><div class="btns"><button data-op="scale">Apply scale</button></div>`;
   h += `<div class="row"><label>Repeat ×</label><input type="number" id="repN" value="5" min="2" max="200"></div><div class="row"><label>Offset X,Y mm</label><span style="display:flex;gap:4px"><input type="number" id="repX" value="12" step="1" style="width:50%"><input type="number" id="repY" value="0" step="1" style="width:50%"></span></div><div class="btns"><button data-op="repeat">Repeat (border / row)</button></div>`;
   el.innerHTML = h; swatches($("#osw"), o.color, c => { o.color = c; commit(); renderAll(); });
@@ -383,7 +420,13 @@ function renderProps() {
       if (inp.dataset.d) o[k] = v; else { o.params = o.params || {}; o.params[k] = v; } draw(); if (k !== "name") regenSoft(); };
     inp.addEventListener("input", apply); inp.addEventListener("change", () => { apply(); commit(); renderObjs(); });
   });
+  const sz = which => () => { const w = parseFloat($("#szW").value), hh = parseFloat($("#szH").value); if (!(w > 0) || !(hh > 0)) return;
+    const ob = selObj(), b2 = ob && bbox(allPts(ob)); if (!b2) return; const cw = b2[2] - b2[0], ch = b2[3] - b2[1];   // measure NOW so a repeated event is a no-op
+    const f = which === "w" ? w / cw : hh / ch; if ($("#szLock").checked) { if (Math.abs(f - 1) > 1e-3) scaleSel(f * 100); } else if (Math.abs(w / cw - 1) > 1e-3 || Math.abs(hh / ch - 1) > 1e-3) nonUniform(w / cw, hh / ch); };
+  $("#szW").onchange = sz("w"); $("#szH").onchange = sz("h");
+  if ($("#convSel")) $("#convSel").onchange = e => { if (e.target.value) convertSel(e.target.value); };
   el.querySelectorAll("[data-op]").forEach(b => b.onclick = () => ({
+    rot: () => rotateSel(parseFloat($("#rotDeg").value) || 0),
     dup: () => duplicate(3, 3), del: deleteSel, outline, scale: () => scaleSel(parseFloat($("#scalePct").value) || 100),
     fh: () => transformSel((p, cx) => [2 * cx - p[0], p[1]], false), fv: () => transformSel((p, cx, cy) => [p[0], 2 * cy - p[1]], false),
     r90: () => transformSel((p, cx, cy) => [cx - (p[1] - cy), cy + (p[0] - cx)], false),
@@ -400,13 +443,28 @@ function renderObjs() {
     S.sel = id; renderAll(); };
 }
 function renderDesign() {
-  const d = S.doc, el = $("#designProps"); if (el.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
-  el.innerHTML = `<div class="row"><label>Hoop</label><select id="hoopSel">${Object.keys(HOOPS).map(k => `<option ${(Math.abs(HOOPS[k][0] - d.hoop.w) < .2 && Math.abs(HOOPS[k][1] - d.hoop.h) < .2) ? "selected" : ""}>${k}</option>`).join("")}<option ${Object.values(HOOPS).some(h => Math.abs(h[0] - d.hoop.w) < .2 && Math.abs(h[1] - d.hoop.h) < .2) ? "" : "selected"}>Custom</option></select></div>
+  const d = S.doc, el = $("#designProps");
+  const html = `<div class="row"><label>Hoop</label><select id="hoopSel">${Object.keys(HOOPS).map(k => `<option ${(Math.abs(HOOPS[k][0] - d.hoop.w) < .2 && Math.abs(HOOPS[k][1] - d.hoop.h) < .2) ? "selected" : ""}>${k}</option>`).join("")}<option ${Object.values(HOOPS).some(h => Math.abs(h[0] - d.hoop.w) < .2 && Math.abs(h[1] - d.hoop.h) < .2) ? "" : "selected"}>Custom</option></select></div>
   <div class="row"><label>Hoop W × H mm</label><span style="display:flex;gap:4px"><input type="number" id="hw" value="${d.hoop.w}" style="width:50%"><input type="number" id="hh" value="${d.hoop.h}" style="width:50%"></span></div>
   <div class="row"><label>Safe margin mm</label><input type="number" id="hm" value="${d.hoop.margin}" step=".5" min="0"></div>
   <div class="row"><label>Fabric preset</label><select id="fab">${Object.keys(FABRICS).map(k => `<option ${k === d.fabric ? "selected" : ""}>${k}</option>`).join("")}</select></div>
   <div class="note">Fabric values are unverified starting points; they apply to new objects. <button id="fabApply" style="padding:1px 6px">Apply to all</button></div>
-  <div class="btns"><button id="bCenter">Centre design</button></div>`;
+  <div class="row"><label>Max stitch mm</label><input type="number" id="mMax" value="${(d.machine || {}).max_stitch ?? 7}" step=".5" min="1" max="12.1"></div>
+  <div class="row"><label title="Jumps longer than this get a trim">Trim above mm</label><input type="number" id="mTrim" value="${(d.machine || {}).trim_distance ?? 3}" step=".5" min=".5"></div>
+  <div class="row"><label title="DST has no trim command; machines differ. Confirm on yours.">Trim jumps</label><input type="number" id="mJ" value="${(d.machine || {}).trim_jumps ?? 3}" step="1" min="1" max="6"></div>
+  <div class="btns"><button id="bCenter">Centre design</button><button id="bOpt" title="Group objects by thread colour">Optimise colours</button><button id="bVer">Save version…</button></div><ul id="vers" style="list-style:none;margin:0;padding:0"></ul>`;
+  const sig = html.replace(/ value="[^"]*"/g, "").replace(/ selected/g, "");
+  if (el.dataset.sig === sig) {   // same structure: sync values in place so a click in progress is never lost to a rebuild
+    const sync = (id, v) => { const x = $("#" + id); if (x && document.activeElement !== x) x.value = v; };
+    sync("hw", d.hoop.w); sync("hh", d.hoop.h); sync("hm", d.hoop.margin); sync("fab", d.fabric);
+    sync("mMax", (d.machine || {}).max_stitch ?? 7); sync("mTrim", (d.machine || {}).trim_distance ?? 3); sync("mJ", (d.machine || {}).trim_jumps ?? 3);
+    const hs = $("#hoopSel"); if (hs && document.activeElement !== hs) { const k = Object.keys(HOOPS).find(k => Math.abs(HOOPS[k][0] - d.hoop.w) < .2 && Math.abs(HOOPS[k][1] - d.hoop.h) < .2); hs.value = k || "Custom"; }
+    renderVersions(); return;
+  }
+  el.dataset.sig = sig; el.innerHTML = html;
+  const mset = (k, el) => el.onchange = () => { d.machine = d.machine || {}; const v = parseFloat(el.value); if (!isNaN(v)) d.machine[k] = v; commit(); renderAll(); };
+  mset("max_stitch", $("#mMax")); mset("trim_distance", $("#mTrim")); mset("trim_jumps", $("#mJ"));
+  $("#bOpt").onclick = optimiseColours; $("#bVer").onclick = saveVersion; renderVersions();
   const setH = (w, h) => { d.hoop.w = w; d.hoop.h = h; commit(); fit(); renderAll(); };
   $("#hoopSel").onchange = e => { const v = HOOPS[e.target.value]; if (v) setH(v[0], v[1]); };
   $("#hw").onchange = () => setH(+$("#hw").value || 100, d.hoop.h); $("#hh").onchange = () => setH(d.hoop.w, +$("#hh").value || 100);
@@ -448,7 +506,7 @@ function setView(v) { S.vmode = v; document.querySelectorAll("#viewSeg button").
 document.querySelectorAll("#tools [data-tool]").forEach(b => b.onclick = () => setTool(b.dataset.tool));
 document.querySelectorAll("#viewSeg button").forEach(b => b.onclick = () => setView(b.dataset.view));
 document.querySelectorAll("#modeSeg button").forEach(b => b.onclick = () => { S.mode = b.dataset.mode; document.querySelectorAll("#modeSeg button").forEach(x => x.classList.toggle("on", x === b)); renderProps(); });
-$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bSvg").onclick = exportSvg; $("#bViewDst").onclick = () => $("#fileDst").click(); $("#fileDst").onchange = e => { const f = e.target.files[0]; if (f) viewDst(f); e.target.value = ""; };
+$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => $("#fileDst").click(); $("#fileDst").onchange = e => { const f = e.target.files[0]; if (f) viewDst(f); e.target.value = ""; };
 $("#bNew").onclick = () => { if (!S.doc.objects.length || confirm("Discard the current design?")) loadDoc(newDoc()); };
 $("#bOpen").onclick = () => $("#fileOpen").click(); $("#bImport").onclick = () => $("#fileImport").click();
 $("#fileOpen").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); if (!j.doc || !Array.isArray(j.doc.objects)) throw new Error("not an EmbroideryStudio project"); loadDoc(j.doc); } catch (err) { alert("Could not open: " + err.message); } e.target.value = ""; };

@@ -82,8 +82,24 @@ def _column(oid, th, r1, r2, spacing, pull, underlay, notes):
     return StitchObject(oid, "satin", th, [satin_from_rails(a, b, spacing)], under)
 
 
-def generate(design: dict, trim_distance: float = 3.0):
+MACHINE_DEFAULTS = {"max_stitch": 7.0, "min_stitch": 0.2, "trim_distance": 3.0, "trim_jumps": 3}
+
+
+def machine(design: dict) -> dict:
+    m = dict(MACHINE_DEFAULTS)
+    for k, v in (design.get("machine") or {}).items():
+        if k in m and isinstance(v, (int, float)) and not isinstance(v, bool):
+            m[k] = v
+    m["max_stitch"] = min(max(m["max_stitch"], 1.0), 12.1)
+    m["trim_distance"] = max(m["trim_distance"], 0.5)
+    m["trim_jumps"] = int(min(max(m["trim_jumps"], 1), 6))
+    return m
+
+
+def generate(design: dict, trim_distance: Optional[float] = None):
     """Returns (pattern, notes, stats). Raises ValueError when nothing can be generated."""
+    if trim_distance is None:
+        trim_distance = machine(design)["trim_distance"]
     threads: List[ThreadColor] = []
 
     def tid(hexc: str) -> int:
@@ -120,6 +136,11 @@ def generate(design: dict, trim_distance: float = 3.0):
                         under += tatami_fill(rings, _p(ob, "angle") + 90, 2.0, 3.0)
                 objs.append(StitchObject(oid, "fill", th, runs, under))
             elif typ == "satin":
+                w = _p(ob, "width")
+                if w < 1.0:
+                    notes.append(f"{oid}: satin {w:g} mm is too narrow (< 1 mm); use a running stitch")
+                elif w > 7.0:
+                    notes.append(f"{oid}: satin {w:g} mm is loose (> 7 mm); split it into narrower columns or use a fill")
                 objs.append(_satin_objs(oid, th, _pts(ob["points"], ob, bool(ob.get("closed"))), _p(ob, "width"), _p(ob, "spacing"),
                                         _p(ob, "pull_comp") or 0.0, _p(ob, "underlay")))
             elif typ == "column":
@@ -184,4 +205,6 @@ def stats(p: Pattern, design: Optional[dict] = None) -> dict:
 
 def run_checks(design: dict, pattern: Pattern):
     hoop = design.get("hoop", {})
-    return validate(pattern, float(hoop.get("w", 100)), float(hoop.get("h", 100)), float(hoop.get("margin", 3)))
+    m = machine(design)
+    return validate(pattern, float(hoop.get("w", 100)), float(hoop.get("h", 100)), float(hoop.get("margin", 3)),
+                    max_stitch=m["max_stitch"], min_stitch=m["min_stitch"])

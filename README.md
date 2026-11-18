@@ -22,12 +22,19 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 | Hoops | 100×100, 130×180, 4×4 in, 5×7 in, 200×300, 240×150, custom; safe-margin guide |
 | Checks | Hoop fit, long/short/duplicate stitches, density, DST limits; export is **blocked on errors** |
 | Output | **Tajima DST** (round-trip verified on every export), project `.esproj`, **production sheet** (colour order, stitch count, size, est. time, preview) |
+| Sizing & transforms | Set exact width/height in mm (proportional or free), free rotation, flip, 90° rotate, scale %, convert stitch type (fill ↔ satin ↔ run), optimise colour order |
+| Machine profile | Max stitch, trim distance, trim-jump count (DST has no trim code, so confirm on your machine) |
+| Safety | SVG DOCTYPE/entity rejected, PNG/JPEG type sniffing, size/pixel/complexity limits, low-DPI warning, PDF rejected with a clear message |
+| Exports | DST, project, preview **SVG + PNG**, production sheet, saved **versions** (browser) |
 | Workflow | Undo/redo, autosave, Beginner / Pro modes, keyboard shortcuts (V F S R T A, Ctrl+Z/Y/S/D, arrows, P, 0) |
 
 ## Not done yet (honest)
 - Not machine-tested: stitch `samples` on a test fabric before production (matrix in `docs/requirements-finalized.md` §F).
 - Lettering is a simple stroke font, no TrueType fonts, no Telugu/Hindi yet.
-- Only DST export (PES/JEF/EXP planned; pyembroidery cross-check needs network).
+- PDF import is not supported (export as SVG). Only DST export (PES/JEF/EXP planned; pyembroidery cross-check needs network).
 - Edge-inset underlay is a pure-Python miter inset: it falls back (with a note) on shapes too small or complex. No skeleton satin-from-outline; curves are Catmull-Rom smoothing, not Bezier nodes.
 - No accounts / cloud; projects are local files + browser autosave.
 See `docs/roadmap.md`.
+
+## Tests
+`python3 -m unittest discover -s engine/tests` (27) and `python3 -m unittest discover -s tests` (26: engine features, HTTP round trips, safety limits, performance). CI runs both on every push.

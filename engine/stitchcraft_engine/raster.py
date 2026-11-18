@@ -69,10 +69,17 @@ def digitize_raster(data: bytes, width_mm: float, max_colors: int = 6, min_area_
     except ImportError as e:  # pragma: no cover
         raise RasterUnavailable("raster import needs numpy and Pillow") from e
     Image.MAX_IMAGE_PIXELS = MAX_PIXELS
+    if not (data[:8] == b"\x89PNG\r\n\x1a\n" or data[:3] == b"\xff\xd8\xff"):
+        raise ValueError("unsupported image type: only PNG and JPEG are accepted")
+    if width_mm <= 0 or width_mm > 1000:
+        raise ValueError("width_mm must be between 0 and 1000")
     im = Image.open(io.BytesIO(data))
     if im.width * im.height > MAX_PIXELS:
         raise ValueError("image has too many pixels")
     notes = []
+    dpi = im.width / (width_mm / 25.4)
+    if dpi < 100:
+        notes.append(f"Low resolution: about {dpi:.0f} DPI at {width_mm:g} mm wide. Edges will be jagged; use a larger image.")
     if im.mode in ("RGBA", "LA", "P"):
         im = im.convert("RGBA")
         bg = Image.new("RGBA", im.size, (255, 255, 255, 255))

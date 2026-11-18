@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "engine"))
-from stitchcraft_engine.design import generate, run_checks, FABRICS            # noqa: E402
+from stitchcraft_engine.design import generate, run_checks, FABRICS, machine            # noqa: E402
 from stitchcraft_engine.dst import write_dst, read_dst                          # noqa: E402
 from stitchcraft_engine.model import Cmd                                        # noqa: E402
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
@@ -33,7 +33,24 @@ def issues(rep):
     return [{"code": i.code, "severity": i.severity, "message": i.message, "index": i.index} for i in rep.issues]
 
 
+MAX_OBJECTS, MAX_POINTS, MAX_SVG = 3000, 400_000, 5 * 1024 * 1024
+
+
+def check_design(d):
+    objs = d.get("objects", [])
+    if not isinstance(objs, list) or len(objs) > MAX_OBJECTS:
+        raise ValueError(f"too many objects (limit {MAX_OBJECTS})")
+    pts = 0
+    for o in objs:
+        for k in ("points", "rail1", "rail2"):
+            pts += len(o.get(k, []))
+        pts += sum(len(r) for r in o.get("rings", []))
+    if pts > MAX_POINTS:
+        raise ValueError(f"design too complex (limit {MAX_POINTS} points)")
+
+
 def api_generate(d):
+    check_design(d)
     pattern, notes, st = generate(d)
     rep = run_checks(d, pattern)
     return {"stitches": compact(pattern), "threads": [t.hex for t in pattern.threads], "stats": st,
@@ -41,11 +58,12 @@ def api_generate(d):
 
 
 def api_dst(d):
+    check_design(d)
     pattern, notes, st = generate(d)
     rep = run_checks(d, pattern)
     if not rep.ok:
         return None, {"error": "Export blocked", "issues": issues(rep)}
-    res = write_dst(pattern)
+    res = write_dst(pattern, trim_jumps=machine(d)["trim_jumps"])
     back = read_dst(res.data)
     if not back.ends_properly or back.color_changes != int(back.header["CO"]):
         return None, {"error": "DST round-trip check failed"}
@@ -80,7 +98,14 @@ def api_view_dst(d):
 
 def api_svg(d):
     from stitchcraft_engine.pipeline import digitize_svg  # noqa: F401  (ensures module import works)
-    doc = parse_svg(d["svg"])
+    txt = d["svg"]
+    if not isinstance(txt, str) or len(txt) > MAX_SVG:
+        raise ValueError("SVG too large (limit 5 MB)")
+    if "<!ENTITY" in txt or "<!DOCTYPE" in txt.upper():
+        raise ValueError("SVG with DOCTYPE/ENTITY declarations is rejected for safety; re-save it as plain SVG")
+    if txt.lstrip()[:4] == "%PDF":
+        raise ValueError("PDF import is not supported yet; export the artwork as SVG")
+    doc = parse_svg(txt)
     objs = []
     for sh in doc.shapes:
         if sh.fill and sh.closed:
@@ -96,7 +121,10 @@ def api_svg(d):
 
 
 def api_raster(d):
-    objs, notes, size = digitize_raster(base64.b64decode(d["data"]), float(d.get("width_mm", 80)), int(d.get("colors", 6)))
+    raw = base64.b64decode(d["data"])
+    if raw[:4] == b"%PDF":
+        raise ValueError("PDF import is not supported yet; export the artwork as SVG or PNG")
+    objs, notes, size = digitize_raster(raw, float(d.get("width_mm", 80)), int(d.get("colors", 6)))
     return {"objects": objs, "notes": notes, "width_mm": size[0], "height_mm": size[1]}
 
 
