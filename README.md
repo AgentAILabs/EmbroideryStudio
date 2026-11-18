@@ -46,4 +46,4 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 `python3 tools/make_testpack.py` writes 11 ready-to-stitch designs (flower, lettering 5/8/12 mm, logo, border, 4-colour, satin widths, 30x30 fill, appliqué, fill patterns) to `testpack/` with a printable results sheet. Procedure: `docs/testing/README.md`.
 
 ## Tests
-`python3 -m unittest discover -s engine/tests` (27) and `python3 -m unittest discover -s tests` (94: engine features, HTTP round trips, geometry quality, safety limits, performance, docs/front-end guards). CI runs both on every push. `tools/e2e_ui.js` drives the whole UI in a browser (needs Playwright; run it before releases).
+Run everything with `./tools/run_tests.sh` (engine suite + studio suite: engine features, HTTP round trips, geometry quality, safety limits, performance, docs/front-end guards). CI runs exactly that script on every push. `tools/e2e_ui.js` drives the whole UI in a browser (needs Playwright; run it before releases).

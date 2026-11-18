@@ -1,7 +1,7 @@
 # Project status (audited against code + tests)
 Legend: ✅ done & tested · 🟡 partial · ⏸ deferred (reason given) · 🧪 needs a physical machine / external input · 🔬 written but only runs in CI
 
-Verification at this commit: engine tests 27, studio tests 94 (1 skipped locally: the pyembroidery cross-check, which runs in CI),
+Verification: `./tools/run_tests.sh` (engine + studio suites; the pyembroidery cross-check and the image-import tests skip themselves where the optional libraries are missing),
 plus `tools/e2e_ui.js` – 24 end-to-end browser steps (draw every tool, templates, convert, patterns, undo/redo, simulation, every export,
 save/reopen, SVG + PNG import, versions) with zero page errors / HTTP 5xx.
 

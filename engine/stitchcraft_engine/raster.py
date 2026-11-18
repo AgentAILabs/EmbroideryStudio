@@ -64,16 +64,17 @@ def _loops(mask) -> List[List[Tuple[int, int]]]:
 
 def digitize_raster(data: bytes, width_mm: float, max_colors: int = 6, min_area_mm2: float = 4.0,
                     simplify_mm: float = 0.25):
-    try:
-        import numpy as np
-        from PIL import Image
-    except ImportError as e:  # pragma: no cover
-        raise RasterUnavailable("raster import needs numpy and Pillow") from e
-    Image.MAX_IMAGE_PIXELS = MAX_PIXELS
+    # Pure-Python validation first, so a bad file is always reported as such - even where the optional libraries are absent.
     if not (data[:8] == b"\x89PNG\r\n\x1a\n" or data[:3] == b"\xff\xd8\xff"):
         raise ValueError("unsupported image type: only PNG and JPEG are accepted")
     if width_mm <= 0 or width_mm > 1000:
         raise ValueError("width_mm must be between 0 and 1000")
+    try:
+        import numpy as np
+        from PIL import Image
+    except ImportError as e:
+        raise RasterUnavailable("image import needs the optional Pillow and NumPy packages (SVG import and everything else work without them)") from e
+    Image.MAX_IMAGE_PIXELS = MAX_PIXELS
     im = Image.open(io.BytesIO(data))
     if im.width * im.height > MAX_PIXELS:
         raise ValueError("image has too many pixels")

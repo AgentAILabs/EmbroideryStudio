@@ -7,6 +7,17 @@ from stitchcraft_engine.dst import write_dst, read_dst
 from stitchcraft_engine.font import layout_text, GLYPHS
 import app as server
 
+def _have_imaging():
+    try:
+        import numpy                          # noqa: F401
+        from PIL import Image, ImageDraw      # noqa: F401
+        Image.new("RGB", (1, 1))
+        return True
+    except Exception:                         # ImportError, or a broken binary install (e.g. PIL without _imaging)
+        return False
+HAVE_IMG = _have_imaging()
+needs_imaging = unittest.skipUnless(HAVE_IMG, "optional Pillow + NumPy not usable on this interpreter")
+
 SQ = [[0, 0], [20, 0], [20, 20], [0, 20]]
 def doc(*objs): return {"name": "t", "hoop": {"w": 100, "h": 100, "margin": 3}, "objects": list(objs)}
 
@@ -47,10 +58,9 @@ class StudioTests(unittest.TestCase):
         svg = '<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="40mm" viewBox="0 0 40 40"><rect x="5" y="5" width="30" height="30" fill="#ff0000"/></svg>'
         r = server.api_svg({"svg": svg}); self.assertEqual(r["objects"][0]["type"], "fill")
 
+    @needs_imaging
     def test_raster_import(self):
-        try:
-            from PIL import Image, ImageDraw
-        except ImportError: self.skipTest("Pillow missing")
+        from PIL import Image, ImageDraw
         im = Image.new("RGB", (100, 100), "white"); ImageDraw.Draw(im).ellipse((10, 10, 90, 90), fill=(200, 0, 0))
         b = io.BytesIO(); im.save(b, "PNG")
         r = server.api_raster({"data": base64.b64encode(b.getvalue()).decode(), "width_mm": 50, "colors": 4})
@@ -154,9 +164,9 @@ class MvpGapTests(unittest.TestCase):
         big = doc(*[{"id": f"o{i}", "type": "run", "color": "#f00", "points": [[0, 0], [1, 1]]} for i in range(3001)])
         with self.assertRaises(ValueError): server.api_generate(big)
 
+    @needs_imaging
     def test_low_dpi_note(self):
-        try: from PIL import Image
-        except ImportError: self.skipTest("Pillow missing")
+        from PIL import Image
         im = Image.new("RGB", (40, 40), "white")
         from PIL import ImageDraw; ImageDraw.Draw(im).rectangle((5, 5, 35, 35), fill=(200, 0, 0))
         b = io.BytesIO(); im.save(b, "PNG")
@@ -256,6 +266,7 @@ class TestPackTests(unittest.TestCase):
             self.assertIn("Thread breaks", (Path(t) / "RESULTS.html").read_text())
 
 
+@needs_imaging
 class Step2Tests(unittest.TestCase):
     def _png(self, draw, size=(160, 160), bg="white"):
         from PIL import Image, ImageDraw
@@ -750,3 +761,47 @@ class RevisitedColourTests(unittest.TestCase):
         two = Pattern("t", [Stitch(0, 0, Cmd.STITCH, 0), Stitch(5, 0, Cmd.STITCH, 0), Stitch(5, 0, Cmd.COLOR_CHANGE, 1), Stitch(9, 0, Cmd.STITCH, 1),
                             Stitch(9, 0, Cmd.END, 1)], [ThreadColor("a", "#000"), ThreadColor("b", "#fff")])
         self.assertTrue(validate(two).ok)
+
+
+class CiParityTests(unittest.TestCase):
+    """CI must run the same commands developers run (it once ran the engine tests from the wrong directory and failed on every push)."""
+    def test_ci_calls_the_single_test_script_and_it_runs_both_suites_from_the_right_place(self):
+        root = Path(__file__).resolve().parent.parent
+        ci = (root / ".github" / "workflows" / "ci.yml").read_text(); sh = (root / "tools" / "run_tests.sh").read_text()
+        self.assertIn("./tools/run_tests.sh", ci); self.assertNotIn("discover -s engine/tests", ci)
+        self.assertIn("cd engine && python3 -m unittest discover -s tests", sh); self.assertIn("python3 -m unittest discover -s tests", sh)
+        self.assertTrue(((root / "tools" / "run_tests.sh").stat().st_mode & 0o111) != 0, "run_tests.sh must be executable")
+
+
+class OptionalImagingTests(unittest.TestCase):
+    """Image import is optional: everything else must work without Pillow/NumPy, and the failure must be a clear 400."""
+    PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    def test_bad_files_are_rejected_as_bad_files_even_without_the_libraries(self):
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"numpy": None, "PIL": None}):                 # simulate "not installed"
+            for raw, why in ((b"GIF89a....", "unsupported image type"), (b"%PDF-1.4", "PDF import")):
+                with self.assertRaisesRegex(ValueError, why): server.api_raster({"data": base64.b64encode(raw).decode(), "width_mm": 50})
+            with self.assertRaisesRegex(ValueError, "width_mm"): server.api_raster({"data": base64.b64encode(self.PNG).decode(), "width_mm": 0})
+    def test_missing_libraries_give_a_clear_error_not_a_crash(self):
+        from unittest import mock
+        from stitchcraft_engine.raster import RasterUnavailable
+        with mock.patch.dict(sys.modules, {"numpy": None, "PIL": None}):
+            with self.assertRaisesRegex(RasterUnavailable, "optional Pillow and NumPy"): server.api_raster({"data": base64.b64encode(self.PNG).decode(), "width_mm": 50})
+    def test_http_returns_400_json_when_libraries_are_missing(self):
+        import threading, urllib.request, urllib.error
+        from unittest import mock
+        from http.server import ThreadingHTTPServer
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), server.H); threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            r = urllib.request.Request(f"http://127.0.0.1:{srv.server_address[1]}/api/import/raster", method="POST",
+                                       data=json.dumps({"data": base64.b64encode(self.PNG).decode(), "width_mm": 50}).encode())
+            with mock.patch.dict(sys.modules, {"numpy": None, "PIL": None}):
+                with self.assertRaises(urllib.error.HTTPError) as cm: urllib.request.urlopen(r)
+            self.assertEqual(cm.exception.code, 400); self.assertIn("optional Pillow and NumPy", json.loads(cm.exception.read())["error"])
+        finally: srv.shutdown(); srv.server_close()
+    def test_everything_except_image_import_works_without_the_libraries(self):
+        from unittest import mock
+        d = doc({"id": "a", "type": "fill", "color": "#f00", "rings": [SQ]}, {"id": "t", "type": "text", "text": "OK", "height": 8, "x": 0, "y": 30, "color": "#00f"})
+        with mock.patch.dict(sys.modules, {"numpy": None, "PIL": None}):
+            self.assertIsNone(server.api_dst(d)[1]); self.assertIsNotNone(server.sheet.package(d)[0])
+            self.assertEqual(server.api_svg({"svg": '<svg xmlns="http://www.w3.org/2000/svg" width="20mm" height="20mm" viewBox="0 0 20 20"><rect width="10" height="10" fill="#f00"/></svg>'})["objects"][0]["type"], "fill")
