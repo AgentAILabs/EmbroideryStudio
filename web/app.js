@@ -130,7 +130,7 @@ function drawObjects(c) {
       c.lineWidth = Math.max(1.5, (o.type === "satin" ? P(o, "width") : .5) * S.view.z); c.stroke();
     } else if (o.type === "column") {
       const ring = shown(o, o.rail1, false).concat(shown(o, o.rail2, false).slice().reverse()); c.beginPath(); pathOf(c, ring, true); c.fillStyle = o.color + "cc"; c.fill(); c.strokeStyle = "#0006"; c.lineWidth = 1; c.stroke();
-      c.strokeStyle = "#fff8"; c.beginPath(); const a = shown(o, o.rail1, false), b = shown(o, o.rail2, false).slice().reverse(); for (let i = 0; i < a.length; i += 1) { const q = toScreen(a[i]), r = toScreen(b[Math.min(b.length - 1, Math.round(i * (b.length - 1) / Math.max(1, a.length - 1)))]); c.moveTo(q[0], q[1]); c.lineTo(r[0], r[1]); } c.stroke();
+      c.strokeStyle = "#fff8"; c.beginPath(); const a = shown(o, o.rail1, false), b = shown(o, o.rail2, false); for (let i = 0; i < a.length; i += 1) { const q = toScreen(a[i]), r = toScreen(b[Math.min(b.length - 1, Math.round(i * (b.length - 1) / Math.max(1, a.length - 1)))]);   /* same direction: rails both run A -> B */ c.moveTo(q[0], q[1]); c.lineTo(r[0], r[1]); } c.stroke();
     } else if (o.type === "text") {
       c.strokeStyle = o.color; c.lineWidth = Math.max(1.5, (P(o, "width") || Math.min(o.height * .16, 4)) * S.view.z);
       for (const st of textStrokes(o)) { c.beginPath(); pathOf(c, st, false); c.stroke(); }
@@ -319,9 +319,16 @@ function rotateSel(deg) { const o = selObj(); if (!o || o.type === "text" || !de
   transformSel((p, cx, cy) => [cx + (p[0] - cx) * cs - (p[1] - cy) * sn, cy + (p[0] - cx) * sn + (p[1] - cy) * cs], false); }
 function nonUniform(fx, fy) { const o = selObj(); if (!o) return; const b = bbox(allPts(o)), cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
   if (o.type === "text") { o.height = +(o.height * fy).toFixed(2); } else mapPts(o, p => [cx + (p[0] - cx) * fx, cy + (p[1] - cy) * fy]); commit(); renderAll(); }
-function convertTargets(o) { return {fill: ["run", "satin"], applique: ["fill"], satin: ["run", "fill"], run: ["satin", "fill"], column: ["fill"]}[o.type] || []; }
-function convertSel(to) {
-  const o = selObj(); if (!o) return; let n = {id: o.id, name: o.name, color: o.color, type: to};
+function convertTargets(o) { return {fill: ["run", "satin", "column (auto rails)"], applique: ["fill", "column (auto rails)"], satin: ["run", "fill"], run: ["satin", "fill"], column: ["fill"]}[o.type] || []; }
+async function convertSel(to) {
+  const o = selObj(); if (!o) return;
+  if (to.startsWith("column")) {
+    try { const r = await post("/api/tools/column-from-outline", {ring: o.rings[0]});
+      const n = {id: o.id, name: o.name, color: o.color, type: "column", rail1: r.rail1, rail2: r.rail2}; S.doc.objects[S.doc.objects.findIndex(x => x.id === o.id)] = n; commit(); renderAll();
+      if (r.width_mm > 7) alert(`Converted. The column averages ${r.width_mm} mm wide; long stitches are split automatically (Pro: Auto-split).`);
+    } catch (e) { alert("Cannot make a satin column from this shape:\n" + e.message); renderProps(); }
+    return;
+  } let n = {id: o.id, name: o.name, color: o.color, type: to};
   const ring = o.rings ? o.rings[0] : o.rail1 ? o.rail1.concat(o.rail2.slice().reverse()) : o.points;
   if (to === "fill") { if (ring.length < 3) { alert("A fill needs at least 3 points."); return; } n.rings = [ring.map(p => p.slice())]; }
   else { n.points = (o.rings ? o.rings[0].concat([o.rings[0][0]]) : ring).map(p => p.slice()); if (to === "satin") n.params = {width: 2.5}; }

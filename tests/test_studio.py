@@ -459,3 +459,150 @@ class TemplateTests(unittest.TestCase):
             r = urllib.request.Request(base + "/api/template", data=json.dumps({"id": "neck_v", "params": {}}).encode(), method="POST")
             self.assertTrue(json.loads(urllib.request.urlopen(r).read())["objects"][0]["guide"])
         finally: srv.shutdown(); srv.server_close()
+
+
+class OutlineColumnTests(unittest.TestCase):
+    import math as _m
+    def ellipse(self, a=15, b=4, n=60, rot=0.0, off=(0, 0)):
+        m = self._m; c, s = m.cos(rot), m.sin(rot)
+        return [(off[0] + a * m.cos(t * 2 * m.pi / n) * c - b * m.sin(t * 2 * m.pi / n) * s,
+                 off[1] + a * m.cos(t * 2 * m.pi / n) * s + b * m.sin(t * 2 * m.pi / n) * c) for t in range(n)]
+    def test_ellipse_rails_lie_on_the_outline_and_share_tips(self):
+        from stitchcraft_engine.outline import column_from_outline
+        r = column_from_outline(self.ellipse()); self.assertEqual(r["rail1"][0], r["rail2"][0]); self.assertEqual(r["rail1"][-1], r["rail2"][-1])
+        for x, y in r["rail1"] + r["rail2"]: self.assertAlmostEqual((x / 15) ** 2 + (y / 4) ** 2, 1.0, delta=0.06)
+        self.assertAlmostEqual(r["length_mm"], 30, delta=.5); self.assertAlmostEqual(r["aspect"], 3.75, delta=.2)
+    def test_result_is_orientation_start_and_rotation_independent(self):
+        from stitchcraft_engine.outline import column_from_outline
+        base = self.ellipse(); ref = column_from_outline(base)
+        for ring in (base[::-1], base[17:] + base[:17], self.ellipse(rot=self._m.pi / 3, off=(40, -20))):
+            r = column_from_outline(ring)
+            self.assertAlmostEqual(r["length_mm"], ref["length_mm"], delta=.6); self.assertAlmostEqual(r["width_mm"], ref["width_mm"], delta=.4)
+    def test_generated_satin_stays_inside_source_shape_and_covers_it(self):
+        from stitchcraft_engine.outline import column_from_outline
+        ring = self.ellipse(); r = column_from_outline(ring)
+        d = doc({"id": "c", "type": "column", "color": "#f00", "rail1": r["rail1"], "rail2": r["rail2"], "params": {"pull_comp": 0, "underlay": "none"}})
+        p, _, st = generate(d); self.assertTrue(run_checks(d, p).ok)
+        bb = p.bbox(); self.assertAlmostEqual(bb[2] - bb[0], 30, delta=.6); self.assertAlmostEqual(bb[3] - bb[1], 8, delta=.6)
+        from stitchcraft_engine.model import Cmd
+        from stitchcraft_engine.geometry import point_in_ring
+        inside = sum(1 for s in p.stitches if s.cmd == Cmd.STITCH and point_in_ring((s.x, s.y), ring))
+        total = sum(1 for s in p.stitches if s.cmd == Cmd.STITCH); self.assertGreater(inside / total, 0.97)
+    def test_rectangle_stitches_run_across_the_strip(self):
+        from stitchcraft_engine.outline import column_from_outline
+        r = column_from_outline([(0, 0), (30, 0), (30, 6), (0, 6)])
+        d = doc({"id": "c", "type": "column", "color": "#f00", "rail1": r["rail1"], "rail2": r["rail2"], "params": {"pull_comp": 0, "underlay": "none"}})
+        from stitchcraft_engine.model import Cmd
+        pts = [(s.x, s.y) for s in generate(d)[0].stitches if s.cmd == Cmd.STITCH]
+        mids = [(a, b) for a, b in zip(pts, pts[1:]) if 4 < a[0] < 26]            # away from the end caps
+        across = sum(1 for a, b in mids if abs(b[1] - a[1]) > abs(b[0] - a[0]) * 3)
+        self.assertGreater(across / len(mids), 0.9)                                # stitches are ~perpendicular to the strip
+    def test_blobs_branches_and_junk_are_refused_with_reasons(self):
+        from stitchcraft_engine.outline import column_from_outline
+        m = self._m
+        bad = {"circle": [(10 * m.cos(t * m.pi / 20), 10 * m.sin(t * m.pi / 20)) for t in range(40)], "square": [(0, 0), (10, 0), (10, 10), (0, 10)],
+               "two points": [(0, 0), (5, 5)], "tiny": [(0, 0), (0.5, 0), (0.5, 0.5)],
+               "T shape": [(0, 0), (30, 0), (30, 5), (18, 5), (18, 30), (12, 30), (12, 5), (0, 5)]}
+        for name, ring in bad.items():
+            with self.assertRaises(ValueError, msg=name): column_from_outline(ring)
+        with self.assertRaisesRegex(ValueError, "not elongated"): column_from_outline(bad["circle"])
+    def test_curled_c_shape_is_refused_or_valid_never_garbage(self):
+        from stitchcraft_engine.outline import column_from_outline
+        m = self._m
+        outer = [(20 * m.cos(a), 20 * m.sin(a)) for a in [m.radians(30 + k * 5) for k in range(61)]]
+        inner = [(15 * m.cos(a), 15 * m.sin(a)) for a in [m.radians(330 - k * 5) for k in range(61)]]
+        try:
+            r = column_from_outline(outer + inner)
+            d = doc({"id": "c", "type": "column", "color": "#f00", "rail1": r["rail1"], "rail2": r["rail2"]}); p, _, _ = generate(d)
+            self.assertLess(p.bbox()[2] - p.bbox()[0], 45)                         # if accepted, stays within the C's extent
+        except ValueError: pass
+    def test_endpoint(self):
+        import threading, urllib.request, urllib.error
+        from http.server import ThreadingHTTPServer
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), server.H); threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            base = f"http://127.0.0.1:{srv.server_address[1]}/api/tools/column-from-outline"
+            ok = urllib.request.urlopen(urllib.request.Request(base, data=json.dumps({"ring": self.ellipse()}).encode(), method="POST"))
+            self.assertIn("rail1", json.loads(ok.read()))
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                urllib.request.urlopen(urllib.request.Request(base, data=json.dumps({"ring": [[0, 0], [10, 0], [10, 10], [0, 10]]}).encode(), method="POST"))
+            self.assertEqual(cm.exception.code, 400); self.assertIn("not elongated", json.loads(cm.exception.read())["error"])
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                urllib.request.urlopen(urllib.request.Request(base, data=json.dumps({"ring": "x"}).encode(), method="POST"))
+            self.assertEqual(cm.exception.code, 400)
+        finally: srv.shutdown(); srv.server_close()
+
+
+class OutlineCurvedTests(unittest.TestCase):
+    import math as _m
+    @staticmethod
+    def near_or_in(q, ring, tol=0.15):
+        from stitchcraft_engine.geometry import point_in_ring, dist
+        if point_in_ring(q, ring): return True
+        for i in range(len(ring)):
+            a, b = ring[i], ring[(i + 1) % len(ring)]; dx, dy = b[0] - a[0], b[1] - a[1]; l = dx * dx + dy * dy
+            t = max(0, min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / l)) if l else 0
+            if dist(q, (a[0] + t * dx, a[1] + t * dy)) <= tol: return True
+        return False
+    def thick_curve(self, f, w, n=40, taper=True):
+        m = self._m; L, R = [], []
+        for i in range(n + 1):
+            t = i / n; x, y = f(t); x2, y2 = f(min(1, t + 1e-3)); x1, y1 = f(max(0, t - 1e-3)); tx, ty = x2 - x1, y2 - y1; l = m.hypot(tx, ty); nx, ny = -ty / l, tx / l
+            ww = w * (0.35 + 0.65 * m.sin(m.pi * t)) if taper else w
+            L.append((x + nx * ww / 2, y + ny * ww / 2)); R.append((x - nx * ww / 2, y - ny * ww / 2))
+        return L + R[::-1]
+    def stitched(self, ring):
+        from stitchcraft_engine.outline import column_from_outline
+        from stitchcraft_engine.model import Cmd
+        r = column_from_outline(ring)
+        d = doc({"id": "c", "type": "column", "color": "#f00", "rail1": r["rail1"], "rail2": r["rail2"], "params": {"pull_comp": 0, "underlay": "none"}})
+        d["hoop"] = {"w": 200, "h": 200, "margin": 3}; p, _, _ = generate(d)
+        return [(s.x, s.y) for s in p.stitches if s.cmd == Cmd.STITCH], p
+    def test_curved_strokes_become_columns_that_stay_inside(self):
+        m = self._m
+        shapes = {"banana": self.thick_curve(lambda t: (30 * m.cos(m.pi * (.15 + .7 * t)), 30 * m.sin(m.pi * (.15 + .7 * t))), 6),
+                  "S": self.thick_curve(lambda t: (40 * t, 8 * m.sin(2 * m.pi * t)), 5),
+                  "leaf": self.thick_curve(lambda t: (30 * t, 3 * m.sin(m.pi * t)), 9),
+                  "L": [(0, 0), (30, 0), (30, 5), (5, 5), (5, 30), (0, 30)]}
+        for name, ring in shapes.items():
+            pts, p = self.stitched(ring)
+            self.assertGreater(len(pts), 50, name)
+            self.assertGreaterEqual(sum(self.near_or_in(q, ring) for q in pts) / len(pts), 0.98, name)
+    def test_branching_and_curled_shapes_are_refused(self):
+        from stitchcraft_engine.outline import column_from_outline
+        m = self._m
+        for name, ring in {"T": [(0, 0), (30, 0), (30, 5), (18, 5), (18, 30), (12, 30), (12, 5), (0, 5)],
+                           "Y": [(0, 0), (6, 0), (15, 12), (24, 0), (30, 0), (18, 18), (18, 40), (12, 40), (12, 18)],
+                           "C270": self.thick_curve(lambda t: (20 * m.cos(m.pi * (.1 + 1.5 * t)), 20 * m.sin(m.pi * (.1 + 1.5 * t))), 5, taper=False)}.items():
+            with self.assertRaises(ValueError, msg=name): column_from_outline(ring)
+    def test_crossing_stitch_lines_are_detected(self):
+        from stitchcraft_engine.outline import _cross
+        self.assertTrue(_cross((0, 0), (10, 10), (0, 10), (10, 0)))
+        self.assertFalse(_cross((0, 0), (10, 0), (0, 5), (10, 5)))
+        self.assertFalse(_cross((0, 0), (5, 5), (5, 5), (10, 0)))              # touching at an endpoint is not a crossing
+
+
+class OutlineQualityTests(OutlineCurvedTests):
+    """Quality, not just validity: column width must match the real stroke width and stitches must be ~perpendicular."""
+    def slant(self, r):
+        m = self._m; r1, r2 = r["rail1"], r["rail2"]; mid = [((a[0] + b[0]) / 2, (a[1] + b[1]) / 2) for a, b in zip(r1, r2)]; out = []
+        for i in range(2, len(mid) - 2):
+            tx, ty = mid[i + 1][0] - mid[i - 1][0], mid[i + 1][1] - mid[i - 1][1]; sx, sy = r2[i][0] - r1[i][0], r2[i][1] - r1[i][1]
+            out.append(m.degrees(m.asin(min(1, abs(tx * sx + ty * sy) / (m.hypot(tx, ty) * m.hypot(sx, sy) + 1e-9)))))
+        return sum(out) / len(out)
+    def test_constant_width_strokes_recover_their_width_and_stay_perpendicular(self):
+        from stitchcraft_engine.outline import column_from_outline
+        m = self._m
+        cases = [("S", self.thick_curve(lambda t: (40 * t, 8 * m.sin(2 * m.pi * t)), 4, taper=False), 4.0),
+                 ("banana", self.thick_curve(lambda t: (30 * m.cos(m.pi * (.15 + .7 * t)), 30 * m.sin(m.pi * (.15 + .7 * t))), 6, taper=False), 6.0),
+                 ("L", [(0, 0), (30, 0), (30, 5), (5, 5), (5, 30), (0, 30)], 5.0)]
+        for name, ring, truth in cases:
+            r = column_from_outline(ring)
+            self.assertAlmostEqual(r["width_mm"], truth, delta=truth * 0.12, msg=name)
+            self.assertLess(self.slant(r), 6.0, name)
+    def test_diagonal_end_caps_do_not_pick_a_corner(self):
+        from stitchcraft_engine.outline import column_from_outline
+        m = self._m                                              # S-curve ends are diagonal; both rails must still start at the cap middle
+        r = column_from_outline(self.thick_curve(lambda t: (40 * t, 8 * m.sin(2 * m.pi * t)), 4, taper=False))
+        a, b = r["rail1"][0], r["rail1"][-1]
+        self.assertLess(m.hypot(a[0] - 0, a[1] - 0), 2.6); self.assertLess(m.hypot(b[0] - 40, b[1] - 0), 2.6)

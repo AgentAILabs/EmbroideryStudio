@@ -8,6 +8,7 @@ POST /api/import/dst      {data(base64)} -> stitches (view only)
 POST /api/import/svg      {svg, width_mm?} -> objects
 POST /api/import/raster   {data(base64), width_mm, colors} -> objects
 GET  /api/templates       template catalogue
+POST /api/tools/column-from-outline  {ring} -> {rail1, rail2, ...} or 400 with the reason
 POST /api/template        {id, params, color} -> objects
 GET  /api/health"""
 import base64, json, os, sys, hashlib
@@ -22,6 +23,7 @@ from stitchcraft_engine.model import Cmd                                        
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
 from stitchcraft_engine.raster import digitize_raster, RasterUnavailable        # noqa: E402
 from stitchcraft_engine import templates                                        # noqa: E402
+from stitchcraft_engine.outline import column_from_outline                      # noqa: E402
 import sheet                                                                   # noqa: E402
 
 WEB = ROOT / "web"
@@ -185,6 +187,11 @@ class H(BaseHTTPRequestHandler):
                 name = sheet._safe(d.get("name"))
                 return self._send(200, res.data, "application/octet-stream",
                                   {"Content-Disposition": f'attachment; filename="{name}.dst"', "X-SHA256": res.sha256})
+            if path == "/api/tools/column-from-outline":
+                ring = d.get("ring")
+                if not isinstance(ring, list) or len(ring) > 5000:
+                    raise ValueError("ring must be a list of [x, y] points (max 5000)")
+                return self._send(200, column_from_outline([(float(a), float(b)) for a, b in ring]))
             if path == "/api/template":
                 return self._send(200, {"objects": templates.build(d.get("id", ""), d.get("params") or {}, d.get("color", "#c8102e"))})
             if path == "/api/export/package":
