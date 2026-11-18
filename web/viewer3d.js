@@ -111,7 +111,7 @@ void main(){float w=0.5+0.5*sin(vP.x*13.0)*sin(vP.y*13.0);float g=0.5+0.5*sin(vP
   function reset() {
     const w = bbox[2] - bbox[0], h = bbox[3] - bbox[1];
     cam.tx = (bbox[0] + bbox[2]) / 2; cam.ty = (bbox[1] + bbox[3]) / 2; cam.tz = 0; cam.yaw = 0; cam.pitch = 62 * Math.PI / 180;
-    cam.dist = Math.max(60, Math.max(w, h) * 1.45 / Math.tan(0.35)); schedule();
+    cam.dist = Math.max(60, Math.max(w, h) * 0.95 / Math.tan(0.35)); schedule();
   }
   function setProgress(n) { if (!gl) return; shown = segEnd[Math.max(0, Math.min(n, segEnd.length - 1))] || 0; schedule(); }
   function setFabric(h) { fabricRGB = hex(h); schedule(); }
