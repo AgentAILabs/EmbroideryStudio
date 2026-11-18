@@ -1,7 +1,7 @@
 # EmbroideryStudio roadmap (vs Wilcom feature set)
 Done (v0.3): see README table + smooth (Catmull-Rom) curve mode + sample project in samples/.
 ## Next (highest value first)
-1. **Physical stitch-out** of the test matrix; tune fabric presets from results.
+1. **Physical stitch-out** of the test pack (`testpack/`, procedure in `docs/testing/`) — pack is built; running it on a machine is the remaining step; tune fabric presets from results.
 2. Bezier/curve nodes + convert-to-curve; Shapely offsets for robust inset (edge underlay v1 is done in pure Python) and true pull-comp.
 3. Satin-from-outline (skeleton rails) so any thick shape becomes a satin column (manual two-rail Column tool is done); corner handling. (Auto-split of long satin stitches is done.)
 4. More formats: PES, JEF, EXP (cross-check with pyembroidery/Ink-Stitch in CI).

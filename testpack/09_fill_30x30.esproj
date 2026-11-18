@@ -1,0 +1,64 @@
+{
+ "app": "EmbroideryStudio",
+ "version": 1,
+ "doc": {
+  "name": "09_fill_30x30",
+  "hoop": {
+   "w": 100,
+   "h": 100,
+   "margin": 3
+  },
+  "fabric": "cotton",
+  "objects": [
+   {
+    "id": "f1",
+    "type": "fill",
+    "color": "#c8102e",
+    "rings": [
+     [
+      [
+       -15,
+       -15
+      ],
+      [
+       15,
+       -15
+      ],
+      [
+       15,
+       15
+      ],
+      [
+       -15,
+       15
+      ]
+     ]
+    ]
+   },
+   {
+    "id": "f2",
+    "type": "run",
+    "color": "#000000",
+    "closed": true,
+    "points": [
+     [
+      -15,
+      -15
+     ],
+     [
+      15,
+      -15
+     ],
+     [
+      15,
+      15
+     ],
+     [
+      -15,
+      15
+     ]
+    ]
+   }
+  ]
+ }
+}

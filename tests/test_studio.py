@@ -239,3 +239,18 @@ class SatinSplitTests(unittest.TestCase):
         d = doc({"id": "c", "type": "column", "color": "#f00", "rail1": [[0, 0], [20, 0]], "rail2": [[0, 16], [20, 16]],
                  "params": {"underlay": "none", "pull_comp": 0}})
         res, err = server.api_dst(d); self.assertIsNone(err); self.assertTrue(read_dst(res.data).ends_properly)
+
+
+class TestPackTests(unittest.TestCase):
+    def test_testpack_builds_valid_designs(self):
+        import importlib.util, tempfile, csv
+        spec = importlib.util.spec_from_file_location("mk", Path(__file__).resolve().parent.parent / "tools" / "make_testpack.py")
+        mk = importlib.util.module_from_spec(spec); spec.loader.exec_module(mk)
+        with tempfile.TemporaryDirectory() as t:
+            rows, problems = mk.build(Path(t))
+            self.assertEqual(problems, []); self.assertEqual(len(rows), 10)
+            for r in rows:
+                self.assertTrue(read_dst((Path(t) / r["file"]).read_bytes()).ends_properly)
+                self.assertTrue((Path(t) / (r["design"] + ".esproj")).exists())
+            self.assertEqual(len(list(csv.DictReader(open(Path(t) / "RESULTS.csv")))), 10)
+            self.assertIn("Thread breaks", (Path(t) / "RESULTS.html").read_text())
