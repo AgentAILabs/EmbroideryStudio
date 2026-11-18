@@ -101,5 +101,36 @@ class PyembroideryCrossCheck(unittest.TestCase):
             print(f"[crosscheck] {name}: ok; first stitch ours={our_xy[0]} theirs={their_xy[0]}")
 
 
+@unittest.skipIf(pyembroidery is None, "pyembroidery not installed (CI installs it)")
+class PyembroideryExpCrossCheck(unittest.TestCase):
+    """Our EXP writer read back by pyembroidery. A mismatch is a bug in exp.py (or in this test's reading of the library) - the
+    message prints enough to tell which."""
+    def test_exp_stitches_colour_changes_and_trims_match(self):
+        from stitchcraft_engine.exp import write_exp
+        for name, d in designs().items():
+            pat, _, st = generate(d); data = write_exp(pat)
+            with tempfile.TemporaryDirectory() as t:
+                f = Path(t) / "x.exp"; f.write_bytes(data); theirs = pyembroidery.read(str(f))
+            self.assertIsNotNone(theirs, name)
+            C = pyembroidery.COMMAND_MASK
+            their_xy = [(int(x), int(y)) for x, y, cmd in theirs.stitches if (cmd & C) == pyembroidery.STITCH]
+            self.assertEqual(len(their_xy), st["stitches"], f"{name}: stitch count {len(their_xy)} vs {st['stitches']}")
+            ours = [(s.x, s.y) for s in pat.stitches if s.cmd.value == "stitch"]
+            bb = pat.bbox(); ox, oy = (bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2
+            our_xy = [(round((x - ox) * 10), round(-(y - oy) * 10)) for x, y in ours]          # centred, 0.1 mm, y up (as written)
+            td = [(b[0] - a[0], b[1] - a[1]) for a, b in zip(their_xy, their_xy[1:])]
+            od = [(b[0] - a[0], b[1] - a[1]) for a, b in zip(our_xy, our_xy[1:])]
+            flipped = [(dx, -dy) for dx, dy in td]
+            if td != od and flipped != od:
+                bad = next((i for i, (u, v) in enumerate(zip(od, td)) if u != v), -1)
+                self.fail(f"{name}: EXP stitch deltas differ at {bad}\n  ours  : {od[max(0, bad - 2):bad + 4]}\n  theirs: {td[max(0, bad - 2):bad + 4]}"
+                          f"\n  first abs ours {our_xy[:3]} theirs {their_xy[:3]}")
+            cc = sum(1 for _, _, cmd in theirs.stitches if (cmd & C) == pyembroidery.COLOR_CHANGE)
+            tr = sum(1 for _, _, cmd in theirs.stitches if (cmd & C) == pyembroidery.TRIM)
+            print(f"[crosscheck-exp] {name}: stitches ok; colour changes ours={st['color_changes']} theirs={cc}; trims ours={st['trims']} theirs={tr}; y {'flipped' if td != od else 'same'}")
+            self.assertEqual(cc, st["color_changes"], name)
+            self.assertEqual(tr, st["trims"], name)
+
+
 if __name__ == "__main__":
     unittest.main()

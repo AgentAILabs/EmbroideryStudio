@@ -1430,3 +1430,48 @@ class FrontEndRegressionGuards(unittest.TestCase):
     def test_viewer_has_no_external_dependencies(self):
         v = (self.web / "viewer3d.js").read_text()
         for bad in ("http://", "https://", "import ", "require("): self.assertNotIn(bad, v, bad)
+
+
+class ExpWriterTests(unittest.TestCase):
+    def test_hand_written_byte_vectors(self):
+        from stitchcraft_engine.exp import write_exp
+        from stitchcraft_engine.model import Pattern, Stitch, ThreadColor, Cmd
+        T = [ThreadColor("a", "#000"), ThreadColor("b", "#fff")]
+        def enc(stitches):
+            return write_exp(Pattern("t", stitches, T), center=False)
+        # first move is relative to (0,0); +Y is up, so engine y-down is negated
+        self.assertEqual(enc([Stitch(0, 0, Cmd.JUMP), Stitch(1.0, 0.0), Stitch(1.0, 0.0, Cmd.END)]), bytes([0x80, 0x04, 0x00, 0x00, 0x0A, 0x00]))
+        self.assertEqual(enc([Stitch(0, 0), Stitch(0, 1.0), Stitch(0, 1.0, Cmd.END)]), bytes([0x00, 0x00, 0x00, 0xF6]))       # y-down 1 mm = -10 -> 0xF6
+        self.assertEqual(enc([Stitch(0, 0), Stitch(-2.0, 0), Stitch(-2.0, 0, Cmd.END)]), bytes([0x00, 0x00, 0xEC, 0x00]))      # -20 -> 0xEC
+        self.assertEqual(enc([Stitch(0, 0), Stitch(0, 0, Cmd.TRIM, 0), Stitch(0, 0, Cmd.COLOR_CHANGE, 1), Stitch(0, 0, Cmd.END)]),
+                         bytes([0x00, 0x00, 0x80, 0x02, 0x00, 0x00, 0x80, 0x01, 0x00, 0x00]))
+    def test_never_writes_the_escape_byte_as_a_move_and_splits_long_moves(self):
+        from stitchcraft_engine.exp import write_exp, read_exp
+        d = doc({"id": "a", "type": "run", "color": "#f00", "points": [[0, 0], [60, 0]], "params": {"stitch_len": 40}},
+                {"id": "b", "type": "run", "color": "#f00", "points": [[-60, 30], [60, 30]]})
+        data = write_exp(generate(d)[0]); recs = read_exp(data)
+        for kind, dx, dy in recs:
+            self.assertTrue(-127 <= dx <= 127 and -127 <= dy <= 127)
+        self.assertEqual(len(data), sum(4 if k != "stitch" else 2 for k, _, _ in recs))                 # re-parsing consumes exactly the bytes written
+    def test_round_trip_positions_equal_the_pattern_and_counts_match(self):
+        from stitchcraft_engine.exp import write_exp, read_exp
+        d = doc({"id": "a", "type": "fill", "color": "#c8102e", "rings": [SQ]}, {"id": "b", "type": "satin", "color": "#0000ff", "points": [[0, 40], [30, 45]], "params": {"width": 3}})
+        p, _, st = generate(d); recs = read_exp(write_exp(p))
+        self.assertEqual(sum(1 for r in recs if r[0] == "stitch"), st["stitches"]); self.assertEqual(sum(1 for r in recs if r[0] == "color_change"), st["color_changes"])
+        self.assertEqual(sum(1 for r in recs if r[0] == "trim"), st["trims"])
+        # accumulate moves: stitch positions must equal the pattern's (centred, 0.1 mm, y up)
+        x = y = 0; pts = []
+        for k, dx, dy in recs:
+            if k in ("stitch", "jump"): x += dx; y += dy
+            if k == "stitch": pts.append((x, y))
+        bb = p.bbox(); ox, oy = (bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2
+        want = [(round((s.x - ox) * 10), round(-(s.y - oy) * 10)) for s in p.stitches if s.cmd.value == "stitch"]
+        self.assertEqual(len(pts), len(want))
+        self.assertTrue(all(abs(a[0] - b[0]) <= 1 and abs(a[1] - b[1]) <= 1 for a, b in zip(pts, want)))
+    def test_empty_and_bad_input(self):
+        from stitchcraft_engine.exp import write_exp, read_exp, ExpError
+        from stitchcraft_engine.model import Pattern
+        with self.assertRaises(ExpError): write_exp(Pattern("e", [], []))
+        with self.assertRaises(ExpError): read_exp(bytes([0x80, 0x04, 0x00]))
+        with self.assertRaises(ExpError): read_exp(bytes([0x80, 0x7f, 0x00, 0x00]))
+        with self.assertRaises(ExpError): read_exp(bytes([0x05]))
