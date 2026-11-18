@@ -118,6 +118,11 @@ class PyembroideryExpCrossCheck(unittest.TestCase):
             tc = Counter(names.get(cmd & C, hex(cmd & C)) for _, _, cmd in theirs.stitches)
             first = next((i for i, (_, _, cmd) in enumerate(theirs.stitches) if (cmd & C) not in (pyembroidery.STITCH,)), None)
             print(f"[crosscheck-exp] {name}: wrote {len(data)} bytes; ours stitches={st['stitches']} jumps={st['jumps']} trims={st['trims']} colour={st['color_changes']} | theirs {dict(tc)}")
+            seq_theirs = [(i, names.get(cmd & C, hex(cmd & C)), int(x), int(y)) for i, (x, y, cmd) in enumerate(theirs.stitches) if (cmd & C) != pyembroidery.STITCH]
+            from stitchcraft_engine.exp import read_exp
+            seq_ours = [(i, k, dx, dy) for i, (k, dx, dy) in enumerate(read_exp(data)) if k != "stitch"]
+            print(f"[crosscheck-exp]   NON-STITCH ours  (record#, kind, dx, dy): {seq_ours[:8]}")
+            print(f"[crosscheck-exp]   NON-STITCH theirs(cmd#, kind, x, y)    : {seq_theirs[:8]}")
             if first is not None:
                 print(f"[crosscheck-exp]   theirs around first non-stitch: {[(int(x), int(y), names.get(cmd & C, hex(cmd & C))) for x, y, cmd in theirs.stitches[max(0, first - 2):first + 4]]}")
                 print(f"[crosscheck-exp]   our bytes at the start: {data[:12].hex(' ')}")
