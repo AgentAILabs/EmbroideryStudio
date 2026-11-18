@@ -124,3 +124,17 @@ the code's tables) and by `tests/test_crosscheck.py` in CI. What is still unprov
 | Auto-correction with log (fit, centre, specks, hairlines, duplicates, density relief) | ✅ | AutofixTests |
 | Failing placement is reported, never shipped | ✅ | PackageTests |
 | Which sleeve gets which file | user decision | documented; confirm on the garment |
+
+## Digitizing standard (spec sections 1-13) - see `docs/digitizing-standard.md`
+| Item | State | Evidence |
+|---|---|---|
+| Fabric + category profiles (density, underlay ladder, pull comp, run length) | ✅ | `tests/test_digitizing_standard.py` ProfileTests |
+| Zig-zag and edge+zig-zag underlay | ✅ | UnderlayTests |
+| Stitch shortening on curves | ✅ | ShorteningTests |
+| Region-ordered fills | ✅ default on | RegionFillTests; ring 93 → 20 trims; bench trims -72 %; all delivered DSTs byte-identical |
+| Dependency-aware sequence optimisation | ✅ | SequenceTests |
+| 15-item checklist + server-side export gate | ✅ | ChecklistTests, e2e |
+| Auto digitize wizard (6 steps) | ✅ | e2e step |
+| Colour sequence CSV, machine test record | ✅ | ChecklistTests, sheet |
+| Push (horizontal/vertical) comp, overlap cutting, decorative zig-zag tool | ❌ | roadmap |
+| Stitch-out approval | ⏳ | needs the machine |

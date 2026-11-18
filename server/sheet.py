@@ -60,6 +60,13 @@ h1{{margin:0}}.m{{color:#555}}.sw{{display:inline-block;width:16px;height:16px;b
 {('<p><b>Appliqué:</b> ' + str(len(appl)) + ' patch(es). At each placement → tack-down colour change, lay the fabric; trim after tack-down.</p>') if appl else ''}
 {emb_html}
 <h3>Checks</h3><ul>{''.join(msgs) or '<li>No problems found</li>'}</ul>
+<h3>Machine test record (fill in at the machine)</h3>
+<table><tr><th>Date</th><td style="width:160px"></td><th>Machine / head</th><td style="width:200px">Ricoma</td></tr>
+<tr><th>Needle</th><td></td><th>Thread brand / weight</th><td>{E(design.get('thread') or '40wt')}</td></tr>
+<tr><th>Fabric</th><td>{E((design.get('profile') or dict()).get('fabric') or design.get('fabric', ''))}</td><th>Stabiliser</th><td>{E(design.get('stabiliser') or 'cut-away')}</td></tr></table>
+<table><tr><th>Observation</th><th>OK</th><th>Problem - where / what</th></tr>
+{''.join(f'<tr><td>{x}</td><td style="width:40px"></td><td style="width:380px"></td></tr>' for x in ('Size and position match', 'Thread breaks', 'Puckering', 'Skipped stitches', 'Registration (outlines meet fills)', 'Coverage (fabric shows through)', 'Trims clean, no loose tails'))}
+<tr><th>Approved for production</th><td></td><td>signature:</td></tr></table>
 <div style="clear:both"></div><p class="m">{E(DISCLAIMER)}</p></body></html>"""
 
 

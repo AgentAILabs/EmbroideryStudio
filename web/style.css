@@ -89,3 +89,18 @@ dialog#dlgSet .hint{font-size:12px;color:var(--mute);margin:0 0 8px}
 #setRows .pl small{color:var(--mute)}
 dialog#dlgSet .row2{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 #setOut{margin-top:8px;white-space:pre-wrap}
+
+/* auto-digitize wizard + checklist */
+button.accent{border-color:var(--acc);color:var(--acc);font-weight:600}
+dialog#dlgWizard{border:1px solid var(--line);border-radius:12px;padding:16px 18px;width:min(760px,95vw);max-height:92vh;overflow:auto;background:var(--panel);color:var(--ink)}
+dialog#dlgWizard label{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:6px 0}
+dialog#dlgWizard label input[type=text],dialog#dlgWizard label input[type=number],dialog#dlgWizard select{padding:4px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);min-width:180px}
+#wzSteps{display:flex;gap:4px;list-style:none;padding:0;margin:4px 0 14px;counter-reset:s;flex-wrap:wrap}
+#wzSteps li{flex:1;min-width:90px;text-align:center;padding:6px 4px;border-radius:6px;background:var(--bg);color:var(--mute);font-size:12px;cursor:pointer;counter-increment:s}
+#wzSteps li::before{content:counter(s) ". "}#wzSteps li.on{background:var(--acc);color:#fff}#wzSteps li.done{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ink)}
+.wzlog{white-space:pre-wrap;font:12px/1.4 ui-monospace,monospace;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;max-height:220px;overflow:auto}
+.wzprev{border:1px solid var(--line);border-radius:8px;background:#fff;text-align:center;padding:6px}.wzprev img{max-width:100%;max-height:52vh}
+dialog#dlgWizard .row2{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}.err{color:var(--err);min-height:1em}.hint{font-size:12px;color:var(--mute)}
+.cl{margin-bottom:10px}.clhead{display:flex;align-items:center;gap:10px;margin-bottom:6px}.bar{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--line)}.bar i{display:block;height:100%;background:var(--ok)}
+.cli .chip{align-self:start;justify-self:start;white-space:nowrap;text-align:center;min-width:40px}.cli{display:grid;grid-template-columns:52px 1fr;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:12.5px}.cli small{color:var(--mute)}.chip.NA{background:var(--mute)}
+.tst{display:flex!important;justify-content:flex-start!important;gap:8px;align-items:flex-start!important;font-size:13px}

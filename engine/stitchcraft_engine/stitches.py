@@ -52,7 +52,7 @@ def running_stitch(points: Sequence[Point], stitch_len: float = 2.5, closed: boo
             continue
         n = max(1, math.ceil(d / stitch_len - 1e-9))
         out += [(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n) for k in range(1, n + 1)]
-    return out
+    return _prune_short(out, 0.35)          # a corner vertex right next to another (inset rings) would make a sub-0.3 mm stitch
 
 
 # ---------------------------------------------------------------- satin
@@ -166,7 +166,7 @@ def edge_walk_underlay(path: Sequence[Point], width: float, inset: float = 0.4, 
     return running_stitch(left, stitch_len) + running_stitch(right[::-1], stitch_len)[1:]
 
 
-def _prune_short(run: Sequence[Point], min_len: float) -> List[Point]:
+def _prune_short(run: Sequence[Point], min_len: float) -> List[Point]:  # noqa: E302
     """Drop points that would create a stitch shorter than min_len (the final point is always kept). Runs that already have
     no such stitch come back unchanged."""
     run = [tuple(p) for p in run]

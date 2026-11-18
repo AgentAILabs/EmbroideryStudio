@@ -1,4 +1,4 @@
-EmbroideryStudio export package · 2026-11-18T17:46:49
+EmbroideryStudio export package · 2026-11-18T18:23:42
 design: peacock_sleeve_A
 stitches: 2252  colour changes: 2
 trim jumps: 3

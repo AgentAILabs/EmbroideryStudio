@@ -106,8 +106,9 @@ def evaluate(design: dict) -> dict:
     items.append(_item(7, "No excessive overlapping stitches", "WARN" if ov > 0.30 else "PASS",
                        f"{ov * 100:.0f}% of the filled area is covered by more than one fill object" + (" - consider cutting the lower layer" if ov > 0.30 else "")))
     # 8 short stitches
-    items.append(_item(8, "No excessively short stitches", "WARN" if ana["pct_short_clustered"] >= 3.0 else "PASS",
-                       f"{ana['pct_short_clustered']}% in clusters of 2+ stitches < 0.5 mm ({ana['pct_short_lt0.5']}% incl. lone row turns and locks)"))
+    tiny = sum(1 for i in rep.issues if i.code == "STITCH_SHORT")
+    items.append(_item(8, "No excessively short stitches", "WARN" if ana["pct_short_clustered"] >= 3.0 or tiny else "PASS",
+                       f"{tiny} stitch(es) under {m['min_stitch']:g} mm; {ana['pct_short_clustered']}% in clusters of 2+ stitches < 0.5 mm ({ana['pct_short_lt0.5']}% incl. lone row turns and locks)"))
     # 9 long stitches split
     longest = 0.0; last = None
     for s in pattern.stitches:
