@@ -67,6 +67,14 @@ The production sheet lists the lock length, how many lock stitches were added, a
 * **Quality check** (top bar): exports the design in memory and runs six stages (container, encoding, machine limits, stitch quality, thread path, simulation). PASS / WARN / FAIL with the evidence for each line. If you opened a .dst through *More ▾ → Open DST to inspect*, the check runs on that file instead - any DST from any source.
 * Details of what is checked and why: `docs/dst-analysis.md`.
 
+## Placement sets: left / right / neck from one design
+1. Import or draw the design (artwork → *Import art*, or open one from the Library).
+2. Click **Placement set**. Tick the positions you need - left, right, neck, back neck, front, back, sleeve left/right, centre. Optionally give a width in mm per position (the design is scaled proportionally, 0.2×-3×).
+3. Say which side the artwork was drawn for. **Right is a true mirror image of left** (fill directions mirrored too; lettering stays readable). The other side is mirrored automatically.
+4. **Generate** → a zip with, per placement: `{name}_left.dst`, `.esproj`, preview, production sheet and a verification report; plus `MANIFEST.txt` and `placement-report.json`.
+Every placement is **auto-corrected** first (fitted and centred in the hoop, tiny specks dropped, hairline columns turned into running stitch, duplicate points removed, spacing relief if needles would cluster) and every change is listed in the manifest. A placement that fails verification is **not shipped**; it is reported instead.
+Which file goes on which sleeve: compare the machine preview with your garment before stitching; naming follows the side the artwork was drawn for.
+
 ## Importing artwork
 * **SVG**: fills → fills, strokes → satin (1–7 mm) or running. Unsupported path commands (arcs, S/T) and transforms are rejected/flagged instead of silently distorted. Files with DOCTYPE/entity declarations are rejected.
 * **PNG/JPG** (flat colour, ≤ 8 colours): an **Import** dialog asks for the real width in mm, the number of thread colours and a quality (Draft / Standard / High). The image is denoised, reduced to a thread palette (near-duplicate shades merged), edges are traced at sub-pixel accuracy and smoothed, and **every separate shape becomes its own editable object**: large areas → fill (angle follows the shape), narrow bands (< 5.5 mm) → satin column, hairlines (< 1 mm) → running stitch. Holes stay empty; specks and antialiasing fringes are dropped. Afterwards a summary tells you what happened (objects, colours merged, resolution in dpi, photo detected). Use **High** to keep small details, **Draft** for a quick look. Photos and gradients are flagged and still digitize badly - use a flat-colour image or SVG.

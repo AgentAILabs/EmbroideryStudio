@@ -115,3 +115,12 @@ the code's tables) and by `tests/test_crosscheck.py` in CI. What is still unprov
 | Header overflow (Export DST clipped) | ✅ fixed | e2e checks visibility at 1500 and 1100 px |
 | v1 peacock kept byte-identical | ✅ | `designs/peacock_arch/v1_tested`, hash pinned in tests |
 | Stitch-out of v2 / fine_120 | ⏳ not done | needs the machine |
+
+## Placement sets (left / right / neck)
+| Item | State | Evidence |
+|---|---|---|
+| Generic transform: scale, true mirror (fill angles mirrored), rotate | ✅ | `tests/test_placements.py` TransformTests |
+| Named set per placement, size per file, zip + manifest + per-file verification | ✅ | PackageTests, e2e step |
+| Auto-correction with log (fit, centre, specks, hairlines, duplicates, density relief) | ✅ | AutofixTests |
+| Failing placement is reported, never shipped | ✅ | PackageTests |
+| Which sleeve gets which file | user decision | documented; confirm on the garment |

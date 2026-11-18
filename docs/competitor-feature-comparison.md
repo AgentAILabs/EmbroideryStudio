@@ -1,30 +1,53 @@
-# Competitor feature comparison (from general product knowledge - NOT freshly verified)
-Tags: MVP / P2 = Phase 2 / P3 = Phase 3. Re-verify against current vendor docs before publishing externally.
-Wilcom = EmbroideryStudio, Hatch = Hatch Embroidery, I/S = Ink/Stitch (Inkscape extension, open source).
+# EmbroideryStudio vs Wilcom EmbroideryStudio - core functionality, honest state
 
-| Feature | Wilcom | Hatch | I/S | StitchCraft tag | Implemented today |
-|---|---|---|---|---|---|
-| Design workspace | Full, customisable | Simplified | Inside Inkscape | MVP | No (UI not started) |
-| Artwork import | Raster+vector | Raster+vector | SVG | MVP (SVG, flat PNG/JPG) | SVG only (engine) |
-| Vector editing | Node editing | Node editing | Inkscape | P2 | No |
-| Auto digitizing | Yes (paid module) | Yes (AutoDigitize) | Limited (trace/fill) | MVP (rule-based), P3 (smart) | SVG rules only |
-| Manual digitizing | Strong | Good | Via paths | P2 | No |
-| Running stitch | Yes | Yes | Yes | MVP | Yes |
-| Satin | Yes (auto corner/split) | Yes | Yes | MVP | Yes (basic; no corner handling) |
-| Tatami/fill | Many patterns | Many | Auto-fill | MVP | Yes (scanline, staggered) |
-| Underlay | Many types | Many | Several | MVP (centre/edge/fill) | Yes (basic) |
-| Density | Per object | Per object | Per object | MVP | Param only |
-| Stitch direction | Yes | Yes | Yes | MVP | Fill angle only |
-| Pull compensation | Yes | Yes | Yes | MVP | Satin only |
-| Thread colour mgmt | Brand charts | Brand charts | Inkscape colours | MVP basic, P2 brands | Hex only |
-| Lettering | Extensive fonts | Extensive | Yes | P2 (MVP: basic) | No |
-| Appliqué | Yes | Yes | Yes | P2 | No |
-| Transformations | Yes | Yes | Inkscape | MVP | No |
-| Stitch simulation | Yes | Yes | Yes | MVP | Preview SVG only |
-| Machine config | Many machines | Many | Basic | MVP (Tajima DST) | Validator params |
-| Hoop management | Yes | Yes | No | MVP | Bounds check only |
-| Formats | Many | Many | Many | MVP DST, P2 PES/JEF/EXP | DST |
-| Production info | Yes | Yes | Basic | MVP basic | Counts only |
-| Design library | Yes | Yes | No | P2 | No |
-| Export / print | Yes | Yes | Limited | MVP | DST+JSON+SVG |
-| Beginner UX | Steep | Friendlier | Steep | MVP differentiator | Not started |
+Wilcom column = general product knowledge of the Wilcom EmbroideryStudio e-series (not freshly verified against current vendor documentation - re-check before quoting externally).
+EmbroideryStudio column = what exists in this repository **today**, with the test or file that proves it. ✅ done and tested · ◐ partly · ❌ not built.
+Nothing here is machine-proven except what `docs/status.md` says was stitched. Wilcom is a mature commercial product with decades of stitch-engine tuning; this is a young open codebase and the table says where it falls short.
+
+## Core digitizing and stitch engine
+| Capability | Wilcom | EmbroideryStudio | Evidence / gap |
+|---|---|---|---|
+| Tatami fill, angle, density, pull comp, underlay | many fill types, per-object | ◐ tatami + contour + cross, angle/spacing/pull/underlay (tatami, edge) | `stitches.py`; no stitch-effect library (gradient, stipple, carving, motif fills) |
+| Satin (centre-line + two-rail column), underlay, auto-split of long stitches | yes, corner handling, auto-spacing | ◐ satin + two-rail column, centre/edge underlay, split, taper clean-up | no automatic corner/join handling, no variable-width satin tool |
+| Running stitch, outline | yes, many run types (bean, motif run) | ◐ plain run, closed run | no bean / triple run, no motif run |
+| Appliqué | automatic placement/tack/cover | ◐ placement → tack → satin cover, staggered starts | tested; no auto-offset of fabric patch |
+| Lettering | many fonts, TrueType, on-path, auto-size | ◐ one built-in satin font, A-Z 0-9 | no TrueType, no Indic/Arabic shaping, no text on path |
+| Thread-weight / density presets | per fabric and thread | ✅ 40 wt / 60 wt / 120/2 spacing presets, fabric presets | `design.THREADS`; values derived from measuring 20 commercial files, not stitch-tested |
+| Auto trims, tie-in/tie-off, colour-change handling | yes | ✅ lock stitches (1.0 mm), trim trains, trim at colour change/end, smart start direction | trim test pack exists; **machine results pending** |
+| Pull-compensation / push-pull per object | yes | ◐ pull_comp (width / row length) | no push-pull on direction |
+| Stitch editing (move individual needle points) | yes | ❌ | roadmap |
+| Node (Bezier) editing | yes | ◐ polyline points + smoothing | no Bezier handles |
+
+## Artwork, digitizing aids
+| Capability | Wilcom | EmbroideryStudio | Evidence / gap |
+|---|---|---|---|
+| Vector import | many | ◐ SVG | `svg_input.py` (unsupported SVG features are reported); no AI/EPS/PDF/CDR |
+| Raster auto-digitize | AutoDigitize / Magic Wand | ◐ flat-colour PNG/JPG → palette → per-shape fill / column / run, quality presets, report | benchmark: mean IoU 0.95 on test art; photos are flagged, not digitized |
+| Image enhance before tracing | image clean-up tools | ✅ 2× upscale + sharpen for blurry / small images | `raster.enhance_image`, measured gain |
+| Hoop / frame management, safe area | machine-specific hoops | ◐ hoop presets + custom, safe margin | no machine-specific hoop database |
+| Design library | large | ◐ 12 original bridal motifs with thumbnails + 3D view | no catalogue of third-party designs (deliberately - licensing) |
+
+## Production output (the focus of this round)
+| Capability | Wilcom | EmbroideryStudio | Evidence / gap |
+|---|---|---|---|
+| **Same design for left / right / neck as separate named files** | mirror/duplicate + manual export per placement | ✅ **Placement set**: left, right (true mirror), neck, back neck, front, back, sleeves, centre; optional size per file; standard file names; one zip | `placements.py`, `/api/placements`, UI dialog, `tests/test_placements.py` |
+| Auto-correction before export | design checker + manual fixes | ✅ conservative auto-fix: fit/scale to hoop, centre, drop specks, hairline column → run, duplicate points, density relief loop, every change logged | `placements.autofix`, tests |
+| DST export | yes | ✅ validated by independent decoder (pyembroidery) in CI | `tests/test_crosscheck.py` |
+| Other formats (PES, JEF, EXP, ...) | many | ◐ DST, EXP | PES/JEF need vendor palettes; not built |
+| Reading third-party DST | yes | ✅ tolerant reader (real-world EOF byte), simulator view, full six-stage report | `dst_verify.py`; checked on 20 commercial files |
+| Pre-flight verification | design checker | ✅ six stages: container, encoding, machine limits, stitch quality, thread path, simulation | UI Quality check, `/api/dst/report`, CLI |
+| Production sheet / worksheet | yes | ✅ HTML sheet: colour order, stitches, time, embellishments, checks | `sheet.py` |
+| Stitch simulation | realistic + 3D | ✅ stitch player + WebGL 3D thread view | `viewer3d.js` |
+| Machine connectivity / networking | yes | ❌ | out of scope for a web app |
+| Colour charts (Madeira, Isacord ...) | licensed charts | ❌ hex colours only | licensing |
+
+## Platform
+| Capability | Wilcom | EmbroideryStudio | Note |
+|---|---|---|---|
+| Runs on | Windows desktop | browser, any OS; stdlib Python server, Docker | no install on the client |
+| Accounts, cloud sync, permissions | yes (separate products) | ❌ | roadmap |
+| Beginner / pro modes | steep learning curve | ✅ Beginner / Pro | |
+| Price | commercial licence | open code | |
+
+## Where Wilcom is clearly ahead (do not claim parity)
+Stitch-effect libraries and 30+ years of tuned auto-digitizing; lettering fonts and TrueType; machine-specific profiles and formats; node/stitch-level editing; certified colour charts; networking. The goal of this project is a **correct, verifiable DST pipeline for repeated placements (sleeve pairs, neck panels) with a simple web UI**, not feature parity.

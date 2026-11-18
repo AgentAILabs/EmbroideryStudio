@@ -95,3 +95,66 @@ def package(design: dict):
         for k, v in files.items():
             z.writestr(k, v)
     return buf.getvalue(), None
+
+
+def placement_set(design: dict, spec: list, source_side: str = "left", thread=None):
+    """One design -> a named DST per garment placement (left / right / neck ...), each auto-corrected and verified.
+    Returns (zip_bytes, report) or (None, {'error': ...}). A placement that fails verification is left out and reported - never shipped."""
+    from stitchcraft_engine import placements as P
+    from stitchcraft_engine import dst_verify
+    from stitchcraft_engine.design import THREADS
+    if thread:
+        if thread not in THREADS:
+            raise ValueError(f"unknown thread preset {thread!r}")
+        design = dict(design, thread=thread)
+    if not design.get("objects"):
+        raise ValueError("the design has no objects")
+    plans = P.plan(spec, source_side)
+    base = P.slug(design.get("name"))
+    k = THREADS[design.get("thread") or "40wt"]["k"]
+    files, rows = {}, []
+    for p in plans:
+        d, log = P.make_variant(design, p)
+        name = d["name"]
+        row = {"placement": p["id"], "label": p["label"], "file": f"{name}.dst", "mirror": p["mirror"], "rotate": p["rotate"], "log": log}
+        try:
+            pattern, notes, st = generate(d)
+        except ValueError as e:
+            row.update(status="skipped", reason=str(e)); rows.append(row); continue
+        rep = run_checks(d, pattern)
+        if not rep.ok:
+            row.update(status="blocked", reason="; ".join(i.message for i in rep.errors)[:300]); rows.append(row); continue
+        m = machine(d)
+        res = write_dst(pattern, trim_jumps=m["trim_jumps"])
+        h = d.get("hoop", {})
+        ver = dst_verify.verify(res.data, (float(h.get("w", 100)), float(h.get("h", 100))), k, 15, f"{name}.dst")
+        if ver["grade"] == "FAIL":
+            row.update(status="blocked", reason="verification FAIL: " + "; ".join(c["what"] for s in ver["stages"] for c in s["checks"] if c["level"] == "FAIL")[:300])
+            rows.append(row); continue
+        files[f"{name}.dst"] = res.data
+        files[f"{name}.esproj"] = json.dumps({"app": "EmbroideryStudio", "version": 1, "doc": d}, indent=1).encode()
+        files[f"{name}.preview.svg"] = preview_svg(pattern, float(h.get("w", 0)), float(h.get("h", 0))).encode()
+        files[f"{name}.production-sheet.html"] = sheet_html(d, pattern, notes, st, rep.issues).encode()
+        files[f"{name}.verification.json"] = json.dumps(ver, indent=1).encode()
+        row.update(status="ok", grade=ver["grade"], stitches=st["stitches"], colours=st["color_changes"] + 1, trims=st["trims"],
+                   size_mm=[st["width_mm"], st["height_mm"]], minutes=st["est_minutes"], sha256=res.sha256, notes=list(notes)[:20])
+        rows.append(row)
+    if not files:
+        return None, {"error": "No placement passed verification", "placements": rows}
+    lines = [f"EmbroideryStudio placement set - {base} - {datetime.now().isoformat(timespec='seconds')}",
+             f"source artwork drawn for the {source_side} side; thread preset {design.get('thread') or '40wt'}", ""]
+    for r in rows:
+        if r["status"] == "ok":
+            lines.append(f"{r['file']:44} {r['grade']:5} {r['stitches']:>6} st  {r['colours']} col  {r['size_mm'][0]}x{r['size_mm'][1]} mm  ~{r['minutes']} min   sha256 {r['sha256'][:12]}")
+        else:
+            lines.append(f"{r['file']:44} {r['status'].upper()}: {r.get('reason', '')}")
+        for l in r["log"]:
+            lines.append(f"      - {l}")
+    lines += ["", DISCLAIMER, "'left' / 'right' follow the side the artwork was drawn for; mirrored files are true mirror images (not rotated copies)."]
+    files["MANIFEST.txt"] = "\n".join(lines).encode()
+    files["placement-report.json"] = json.dumps({"design": base, "source_side": source_side, "placements": rows}, indent=1).encode()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for k2, v in files.items():
+            z.writestr(k2, v)
+    return buf.getvalue(), {"base": base, "placements": rows}
