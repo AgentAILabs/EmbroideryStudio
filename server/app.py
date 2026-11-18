@@ -25,7 +25,7 @@ from stitchcraft_engine.dst import write_dst, read_dst                          
 from stitchcraft_engine.exp import write_exp                                    # noqa: E402
 from stitchcraft_engine.model import Cmd                                        # noqa: E402
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
-from stitchcraft_engine.raster import digitize_raster, RasterUnavailable        # noqa: E402
+from stitchcraft_engine.raster import digitize_image, RasterUnavailable        # noqa: E402
 from stitchcraft_engine import templates                                        # noqa: E402
 from stitchcraft_engine.outline import column_from_outline                      # noqa: E402
 import sheet                                                                   # noqa: E402
@@ -175,8 +175,8 @@ def api_raster(d):
     raw = base64.b64decode(d["data"])
     if raw[:4] == b"%PDF":
         raise ValueError("PDF import is not supported yet; export the artwork as SVG or PNG")
-    objs, notes, size = digitize_raster(raw, float(d.get("width_mm", 80)), int(d.get("colors", 6)))
-    return {"objects": objs, "notes": notes, "width_mm": size[0], "height_mm": size[1]}
+    r = digitize_image(raw, float(d.get("width_mm", 80)), int(d.get("colors", 6)), str(d.get("quality", "standard")))
+    return {"objects": r["objects"], "notes": r["notes"], "width_mm": r["size_mm"][0], "height_mm": r["size_mm"][1], "report": r["report"]}
 
 
 class H(BaseHTTPRequestHandler):

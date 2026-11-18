@@ -287,8 +287,9 @@ class Step2Tests(unittest.TestCase):
         r = self._import(self._png(lambda d: (d.ellipse((10, 10, 150, 150), fill=(0, 0, 160)), d.ellipse((50, 50, 110, 110), fill="white"))), w=80)
         d = doc(*r["objects"]); p, _, _ = generate(d)
         from stitchcraft_engine.model import Cmd
-        cx = cy = 0.0                            # imported art is centred at the origin
-        inside = [s for s in p.stitches if s.cmd == Cmd.STITCH and (s.x - cx) ** 2 + (s.y - cy) ** 2 < 8 ** 2]   # hole radius = 15 mm
+        b = p.bbox(); cx, cy = (b[0] + b[2]) / 2, (b[1] + b[3]) / 2          # centre of the ring itself
+        self.assertGreater(b[2] - b[0], 70)                                  # the ring is really there (80 mm wide)
+        inside = [s for s in p.stitches if s.cmd == Cmd.STITCH and (s.x - cx) ** 2 + (s.y - cy) ** 2 < 12 ** 2]   # hole radius = 17 mm
         self.assertEqual(inside, []); self._valid(r["objects"])
     def test_art3_two_colours_two_objects(self):
         r = self._import(self._png(lambda d: (d.rectangle((10, 10, 90, 150), fill=(200, 0, 0)), d.rectangle((100, 10, 150, 150), fill=(0, 120, 0)))))
@@ -297,8 +298,8 @@ class Step2Tests(unittest.TestCase):
     def test_art4_text_like_bars_many_regions(self):
         def bars(d):
             for i in range(6): d.rectangle((15 + i * 22, 30, 25 + i * 22, 130), fill=(20, 20, 20))
-        r = self._import(self._png(bars)); self.assertEqual(len(r["objects"]), 1)
-        self.assertEqual(len(r["objects"][0]["rings"]), 6); self._valid(r["objects"])
+        r = self._import(self._png(bars)); self.assertEqual(len(r["objects"]), 6)      # one editable object per bar
+        self.assertEqual({o["color"] for o in r["objects"]}, {r["objects"][0]["color"]}); self._valid(r["objects"])
     def test_art5_tiny_specks_are_dropped(self):
         def specks(d):
             d.ellipse((20, 20, 140, 140), fill=(200, 0, 0))
@@ -308,7 +309,33 @@ class Step2Tests(unittest.TestCase):
         def many(d):
             for i in range(12): d.rectangle((i * 13, 0, i * 13 + 12, 159), fill=(i * 20, 255 - i * 15, (i * 70) % 255))
         r = self._import(self._png(many), colors=12)
-        self.assertLessEqual(len(r["objects"]), 8)
+        self.assertLessEqual(len({o["color"] for o in r["objects"]}), 8)
+
+    # --- image quality: objective thresholds from tools/image_bench.py (ground-truth artworks, degraded variants)
+    def test_quality_benchmark_thresholds(self):
+        import sys; sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+        import image_bench as B
+        rows = B.run("standard")
+        self.assertGreaterEqual(sum(r["iou"] for r in rows) / len(rows), 0.93)
+        self.assertGreaterEqual(min(r["iou"] for r in rows), 0.70)
+        self.assertLessEqual(sum(r["trims"] for r in rows), 3000)          # legacy pipeline: 15,086
+        self.assertLessEqual(sum(r["warnings"] for r in rows), 8)           # legacy pipeline: 44
+        for r in rows:
+            want = {"logo": 4, "touching": 3, "ring": 2, "strokes": 5}.get(r["art"])
+            if want and r["input"] == "aa": self.assertEqual(r["objects"], want, r)
+    def test_import_report_and_quality_param(self):
+        png = self._png(lambda d: d.ellipse((20, 20, 140, 140), fill=(200, 0, 0)))
+        for q in ("draft", "standard", "high"):
+            r = server.api_raster({"data": base64.b64encode(png).decode(), "width_mm": 60, "colors": 4, "quality": q})
+            self.assertEqual(r["report"]["quality"], q); self.assertEqual(len(r["objects"]), 1)
+        with self.assertRaises(ValueError): server.api_raster({"data": base64.b64encode(png).decode(), "width_mm": 60, "quality": "ultra"})
+    def test_photo_is_flagged(self):
+        import random
+        from PIL import Image
+        random.seed(1); im = Image.new("RGB", (200, 200))
+        im.putdata([(x * 255 // 200, y * 255 // 200, (x * y) % 256) for y in range(200) for x in range(200)])
+        b = io.BytesIO(); im.save(b, "PNG")
+        r = self._import(b.getvalue()); self.assertTrue(r["report"].get("photographic")); self.assertTrue(any("photograph" in n for n in r["notes"]))
 
     # --- C: no stitches outside source geometry (beyond pull-comp tolerance)
     def test_fill_stays_inside_source_bounds(self):

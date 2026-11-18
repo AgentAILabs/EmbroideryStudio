@@ -64,7 +64,7 @@ The production sheet lists the lock length, how many lock stitches were added, a
 
 ## Importing artwork
 * **SVG**: fills → fills, strokes → satin (1–7 mm) or running. Unsupported path commands (arcs, S/T) and transforms are rejected/flagged instead of silently distorted. Files with DOCTYPE/entity declarations are rejected.
-* **PNG/JPG** (flat colour, ≤ 8 colours): quantised, traced, each colour becomes a fill. You set the real width in mm; low resolution is warned. Photos and gradients digitize badly.
+* **PNG/JPG** (flat colour, ≤ 8 colours): an **Import** dialog asks for the real width in mm, the number of thread colours and a quality (Draft / Standard / High). The image is denoised, reduced to a thread palette (near-duplicate shades merged), edges are traced at sub-pixel accuracy and smoothed, and **every separate shape becomes its own editable object**: large areas → fill (angle follows the shape), narrow bands (< 5.5 mm) → satin column, hairlines (< 1 mm) → running stitch. Holes stay empty; specks and antialiasing fringes are dropped. Afterwards a summary tells you what happened (objects, colours merged, resolution in dpi, photo detected). Use **High** to keep small details, **Draft** for a quick look. Photos and gradients are flagged and still digitize badly - use a flat-colour image or SVG.
 * **PDF**: not supported yet – export as SVG.
 * **View DST**: opens an existing `.dst` read-only for inspection and simulation.
 
