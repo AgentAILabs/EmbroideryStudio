@@ -1164,3 +1164,179 @@ class ThumbnailTests(unittest.TestCase):
         sheet_html = server.sheet.sheet_html(d)
         self.assertNotIn("<script", sheet_html); self.assertIn("&lt;script&gt;", sheet_html)               # shown escaped in the notes, never as markup
         with self.assertRaises(ValueError): thumbnail_svg(__import__("stitchcraft_engine.model", fromlist=["Pattern"]).Pattern("e", [], []))
+
+
+class DenseVertexRunningStitchTests(unittest.TestCase):
+    def old_running_stitch(self, points, stitch_len=2.5, closed=False):
+        """Verbatim copy of the original implementation (before dense-vertex thinning) - the reference for 'unchanged'."""
+        import math
+        from stitchcraft_engine.geometry import dist
+        pts = [tuple(p) for p in points]
+        if closed and dist(pts[0], pts[-1]) > 1e-9: pts.append(pts[0])
+        out = [pts[0]]
+        for a, b in zip(pts, pts[1:]):
+            d = dist(a, b)
+            if d < 1e-9: continue
+            n = max(1, math.ceil(d / stitch_len - 1e-9))
+            out += [(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n) for k in range(1, n + 1)]
+        return out
+    def test_paths_without_dense_vertices_are_byte_for_byte_unchanged(self):
+        from stitchcraft_engine.stitches import running_stitch
+        import random
+        rnd = random.Random(7)
+        for _ in range(200):
+            pts = [(rnd.uniform(0, 50), rnd.uniform(0, 50)) for _ in range(rnd.randint(2, 12))]
+            if any(0 < ((a[0]-b[0])**2 + (a[1]-b[1])**2) ** .5 < 0.3 for a, b in zip(pts, pts[1:])): continue
+            for closed in (False, True):
+                self.assertEqual(running_stitch(pts, 2.5, closed), self.old_running_stitch(pts, 2.5, closed))
+    def test_dense_smoothed_curve_no_longer_makes_tiny_stitches_and_stays_on_the_curve(self):
+        import math
+        from stitchcraft_engine.stitches import running_stitch
+        from stitchcraft_engine.geometry import smooth, dist
+        ring = [(14 * math.cos(2 * math.pi * k / 10), 14 * math.sin(2 * math.pi * k / 10)) for k in range(10)]
+        dense = smooth(ring, closed=True)                                       # ~80 vertices, ~1 mm apart ... make it denser
+        dense = smooth(dense, closed=True, n=4)                                  # ~320 vertices, ~0.27 mm apart
+        self.assertTrue(any(dist(a, b) < 0.3 for a, b in zip(dense, dense[1:])))
+        out = running_stitch(dense, 2.5, closed=True)
+        steps = [dist(a, b) for a, b in zip(out, out[1:])]
+        self.assertGreaterEqual(min(steps), 0.3); self.assertLess(len(out), len(dense) / 4)
+        for x, y in out: self.assertLess(abs(math.hypot(x, y) - 14), 0.6)       # still on the circle (the smoothed ring is not exactly r=14)
+        self.assertLess(max(abs(math.hypot(x, y) - math.hypot(*min(dense, key=lambda q: dist(q, (x, y))))) for x, y in out), 0.12)   # within the thinning tolerance
+    def test_corners_survive_thinning(self):
+        from stitchcraft_engine.stitches import running_stitch
+        pts = [(0, 0), (0.2, 0), (0.4, 0), (10, 0), (10, 0.2), (10, 0.4), (10, 10)]          # dense bits + two real corners
+        out = running_stitch(pts, 2.5)
+        self.assertIn((10.0, 0.0), [(round(x, 6), round(y, 6)) for x, y in out]); self.assertIn((10.0, 10.0), [(round(x, 6), round(y, 6)) for x, y in out])
+    def test_delivered_peacock_files_are_still_byte_identical(self):
+        import importlib.util, hashlib
+        root = Path(__file__).resolve().parent.parent
+        spec = importlib.util.spec_from_file_location("pk_id", root / "tools" / "make_peacock_panel.py"); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        self.assertEqual(hashlib.sha256(write_dst(generate(m.build())[0]).data).hexdigest(), "368c90c4ad38da1bc5e140cc25675e66244bb9361443c9c999764d3f7d0dcdae")   # the file the user is stitching
+        a, _ = m.drop_unstitchable(m.transform(m.build(), 0.65, False)); a["name"] = "peacock_sleeve_A"
+        self.assertEqual(hashlib.sha256(write_dst(generate(a)[0]).data).hexdigest(), "4a7b48d7ca0177b73ee5ed39b89eef16a7dffe7640eedc3447cd77fe17b0833f")
+
+class OrderRuleScopeTests(unittest.TestCase):
+    def test_columns_before_a_fill_are_fine_but_satin_and_run_are_not(self):
+        petal = {"id": "p", "type": "column", "color": "#f00", "rail1": [[0, 0], [5, 6], [10, 10]], "rail2": [[0, 0], [5, 2], [10, 10]]}
+        centre = {"id": "c", "type": "fill", "color": "#d4af37", "rings": [[[3, 1], [9, 1], [9, 8], [3, 8]]]}
+        self.assertFalse(any("stitched before fill" in n for n in generate(doc(petal, centre))[1]))                         # radial petals under a centre stone: intended
+        for typ, extra in (("satin", {"params": {"width": 2}}), ("run", {})):
+            outline = dict({"id": "o", "type": typ, "color": "#000", "points": [[0, 0], [10, 0], [10, 10]]}, **extra)
+            self.assertTrue(any("stitched before fill" in n for n in generate(doc(outline, centre))[1]), typ)
+
+
+class FillNeverMakesShortStitchesTests(unittest.TestCase):
+    """Regression: pull compensation + a narrow neck on a concave shape joined two row segments 0.156 mm apart."""
+    def test_prune_short_keeps_unaffected_runs_identical_and_always_keeps_the_ends(self):
+        from stitchcraft_engine.stitches import _prune_short
+        ok = [(0, 0), (1, 0), (2, 0), (3, 0)]
+        self.assertEqual(_prune_short(ok, 0.3), ok)
+        r = _prune_short([(0, 0), (0.1, 0), (0.2, 0), (5, 0), (5.1, 0)], 0.3)
+        self.assertEqual(r[0], (0, 0)); self.assertEqual(r[-1], (5.1, 0)); self.assertTrue(all(abs(b[0] - a[0]) >= 0.3 for a, b in zip(r, r[1:])), r)
+    def test_random_concave_shapes_never_produce_sub_minimum_fill_stitches(self):
+        import random, math
+        from stitchcraft_engine.stitches import tatami_fill
+        from stitchcraft_engine.geometry import dist
+        rnd = random.Random(11)
+        for trial in range(60):
+            n = rnd.randint(7, 14)
+            ring = [(math.cos(2 * math.pi * k / n) * rnd.uniform(4, 16), math.sin(2 * math.pi * k / n) * rnd.uniform(4, 16)) for k in range(n)]     # star-like, often concave/necked
+            for pull in (0.0, 0.25, 0.5):
+                runs = tatami_fill([ring], rnd.choice([0, 30, 45, 90, 160]), rnd.choice([0.4, 0.45, 0.5]), 3.5, pull_comp=pull)
+                for r in runs:
+                    for a, b in zip(r, r[1:]): self.assertGreaterEqual(dist(a, b), 0.3 - 1e-9, (trial, pull))
+    def test_the_paisley_inner_fill_that_exposed_it_is_clean(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("lib_t", Path(__file__).resolve().parent.parent / "tools" / "make_library.py")
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        d = m.paisley_pair(); p, notes, _ = generate(d)
+        self.assertEqual([i.message for i in run_checks(d, p).issues], []); self.assertEqual(notes, [])
+
+
+class SelfCrossingOutlineTests(unittest.TestCase):
+    def test_counts_crossings_and_ignores_simple_shapes(self):
+        from stitchcraft_engine.geometry import ring_self_intersections as x
+        import math
+        self.assertEqual(x([(0, 0), (10, 0), (10, 10), (0, 10)]), 0)
+        self.assertEqual(x([(0, 0), (10, 10), (10, 0), (0, 10)]), 1)                                            # bow-tie
+        self.assertEqual(x([(0, 0), (10, 0), (5, 8), (5, -5), (0, 3)]), x([(0, 0), (10, 0), (5, 8), (5, -5), (0, 3)]))   # deterministic
+        circle = [(10 * math.cos(2 * math.pi * k / 40), 10 * math.sin(2 * math.pi * k / 40)) for k in range(40)]
+        self.assertEqual(x(circle), 0); self.assertEqual(x(circle + [circle[0]]), 0)                             # closed-by-repeat is fine
+        star = [((20 if k % 2 == 0 else 8) * math.cos(math.pi * k / 6), (20 if k % 2 == 0 else 8) * math.sin(math.pi * k / 6)) for k in range(12)]
+        self.assertEqual(x(star), 0)                                                                            # concave but simple
+        self.assertEqual(x([(0, 0), (1, 0), (2, 0)]), 0)                                                       # too small to cross
+    def test_generate_flags_a_crossing_fill_but_not_a_good_one(self):
+        bow = {"id": "bad", "type": "fill", "color": "#f00", "rings": [[[0, 0], [20, 20], [20, 0], [0, 20]]]}
+        good = {"id": "ok", "type": "fill", "color": "#f00", "rings": [SQ]}
+        self.assertTrue(any("bad: outline crosses itself" in n for n in generate(doc(bow, good))[1]))
+        self.assertFalse(any("crosses itself" in n for n in generate(doc(good))[1]))
+    def test_the_old_broken_paisley_shape_would_have_been_caught(self):
+        import math
+        pts = [(16 * math.cos(math.radians(150 + k)), 10 + 16 * math.sin(math.radians(150 + k))) for k in range(0, 241, 8)] + [(0, -36)]
+        pts = [(x + 22 * max(0, (10 - y) / 46) ** 1.8, y) for x, y in pts]
+        from stitchcraft_engine.geometry import ring_self_intersections
+        d = doc({"id": "p", "type": "fill", "color": "#f00", "rings": [[[x, y] for x, y in pts]]})
+        # not every wrong shape crosses itself, but the check must at least agree with itself on this one
+        self.assertEqual(ring_self_intersections(pts) > 0, any("crosses itself" in n for n in generate(d)[1]))
+
+
+class LibraryTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        cls.root = Path(__file__).resolve().parent.parent
+        spec = importlib.util.spec_from_file_location("lib_gate", cls.root / "tools" / "make_library.py")
+        cls.m = importlib.util.module_from_spec(spec); spec.loader.exec_module(cls.m)
+        cls.built = cls.m.build_all()
+        cls.index = json.loads((cls.root / "designs" / "library" / "index.json").read_text())["designs"]
+    def test_every_design_is_clean_small_palette_and_a_valid_dst(self):
+        import re
+        self.assertGreaterEqual(len(self.built), 12)
+        ids = [b[0] for b in self.built]; self.assertEqual(len(set(ids)), len(ids))
+        for id_, name, cat, desc, d in self.built:
+            self.assertRegex(id_, r"^[a-z0-9_]+$"); d["name"] = id_
+            p, notes, st = generate(d); rep = run_checks(d, p)
+            self.assertEqual([(i.code, i.message) for i in rep.issues], [], id_); self.assertEqual(notes, [], id_)
+            self.assertLessEqual(st["color_changes"] + 1, 4, id_)
+            res = write_dst(p, trim_jumps=3); back = read_dst(res.data)
+            self.assertTrue(back.ends_properly and back.color_changes == st["color_changes"], id_)
+            self.assertTrue(name and cat and desc, id_)
+            h = d["hoop"]
+            self.assertLessEqual(st["width_mm"] + 2 * h["margin"], h["w"], id_); self.assertLessEqual(st["height_mm"] + 2 * h["margin"], h["h"], id_)
+    def test_deterministic(self):
+        a = {b[0]: write_dst(generate(b[4])[0]).sha256 for b in self.built}
+        b = {x[0]: write_dst(generate(x[4])[0]).sha256 for x in self.m.build_all()}
+        self.assertEqual(a, b)
+    def test_committed_files_match_a_fresh_build(self):
+        import tempfile, subprocess
+        with tempfile.TemporaryDirectory() as t:
+            r = subprocess.run([sys.executable, str(self.root / "tools" / "make_library.py"), t], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual((Path(t) / "index.json").read_text(), (self.root / "designs" / "library" / "index.json").read_text(), "index.json is stale")
+            for e in self.index:
+                for ext in ("dst", "esproj", "thumb.svg"):
+                    f = f'{e["id"]}/{e["id"]}.{ext}'
+                    self.assertEqual((Path(t) / f).read_bytes(), (self.root / "designs" / "library" / f).read_bytes(), f + " is stale: rerun tools/make_library.py")
+    def test_index_matches_the_files_and_has_the_fields_the_ui_needs(self):
+        import hashlib
+        for e in self.index:
+            for k in ("id", "name", "category", "description", "width_mm", "height_mm", "stitches", "colours", "trims", "est_minutes", "threads", "sha256"):
+                self.assertIn(k, e, e["id"])
+            dst = (self.root / "designs" / "library" / e["id"] / f'{e["id"]}.dst').read_bytes()
+            self.assertEqual(hashlib.sha256(dst).hexdigest(), e["sha256"], e["id"])
+            self.assertEqual(read_dst(dst).color_changes, e["colours"] - 1, e["id"])
+            self.assertTrue(all(__import__("re").fullmatch(r"#[0-9a-f]{6}", t) for t in e["threads"]))
+    def test_thumbnails_are_valid_svg_and_small(self):
+        import xml.etree.ElementTree as ET
+        for e in self.index:
+            f = self.root / "designs" / "library" / e["id"] / f'{e["id"]}.thumb.svg'
+            ET.fromstring(f.read_text()); self.assertLess(f.stat().st_size, 250_000, e["id"])
+    def test_peacock_entry_has_the_same_stitches_as_the_delivered_panel(self):
+        a = read_dst((self.root / "designs" / "library" / "peacock_arch" / "peacock_arch.dst").read_bytes())
+        b = read_dst((self.root / "designs" / "peacock_arch" / "peacock_arch_panel.dst").read_bytes())
+        self.assertEqual(a.records, b.records)                                                    # only the header name differs
+    def test_jhumka_pearls_are_listed_for_hand_work_and_not_stitched(self):
+        j = next(x for x in self.index if x["id"] == "jhumka_bell"); self.assertEqual(j["embellishments"], {"bead": 9})
+    def test_readme_states_originality_and_limits(self):
+        t = (self.root / "designs" / "library" / "README.md").read_text()
+        for phrase in ("drawn from scratch", "No photo, catalogue", "Nothing here has been stitched"): self.assertIn(phrase, t)

@@ -10,8 +10,32 @@ class DigitizingError(ValueError):
 
 
 # ---------------------------------------------------------------- running
+def _simplify(pts: Sequence[Point], tol: float) -> List[Point]:
+    """Douglas-Peucker: drop vertices that deviate less than tol from the chord (corners are kept)."""
+    pts = [tuple(p) for p in pts]
+    if len(pts) < 3:
+        return pts
+    (x0, y0), (x1, y1) = pts[0], pts[-1]
+    dx, dy = x1 - x0, y1 - y0
+    n = math.hypot(dx, dy)
+    best, idx = -1.0, 0
+    for i in range(1, len(pts) - 1):
+        d = abs(dy * pts[i][0] - dx * pts[i][1] + x1 * y0 - y1 * x0) / n if n > 1e-12 else dist(pts[i], pts[0])
+        if d > best:
+            best, idx = d, i
+    if best <= tol:
+        return [pts[0], pts[-1]]
+    return _simplify(pts[:idx + 1], tol)[:-1] + _simplify(pts[idx:], tol)
+
+
+MIN_VERTEX_GAP = 0.3     # mm; vertices closer than this (smoothed curves) are thinned so they cannot become sub-0.3 mm stitches
+CURVE_TOL = 0.08         # mm deviation allowed when thinning
+
+
 def running_stitch(points: Sequence[Point], stitch_len: float = 2.5, closed: bool = False) -> List[Point]:
-    """Keeps every original vertex (corners stay sharp); splits long segments evenly."""
+    """Keeps every original vertex (corners stay sharp); splits long segments evenly. Paths with very dense vertices
+    (e.g. a smoothed curve) are first simplified to within CURVE_TOL so they do not turn into hundreds of tiny stitches;
+    paths without such vertices are untouched, so existing designs keep their exact stitches."""
     if stitch_len <= 0:
         raise DigitizingError("stitch_len must be > 0")
     pts = [tuple(p) for p in points]
@@ -19,6 +43,8 @@ def running_stitch(points: Sequence[Point], stitch_len: float = 2.5, closed: boo
         raise DigitizingError("running stitch needs at least 2 points")
     if closed and dist(pts[0], pts[-1]) > 1e-9:
         pts.append(pts[0])
+    if any(1e-9 < dist(a, b) < MIN_VERTEX_GAP for a, b in zip(pts, pts[1:])):
+        pts = _simplify(pts, CURVE_TOL)
     out = [pts[0]]
     for a, b in zip(pts, pts[1:]):
         d = dist(a, b)
@@ -99,6 +125,23 @@ def edge_walk_underlay(path: Sequence[Point], width: float, inset: float = 0.4, 
     return running_stitch(left, stitch_len) + running_stitch(right[::-1], stitch_len)[1:]
 
 
+def _prune_short(run: Sequence[Point], min_len: float) -> List[Point]:
+    """Drop points that would create a stitch shorter than min_len (the final point is always kept). Runs that already have
+    no such stitch come back unchanged."""
+    run = [tuple(p) for p in run]
+    if len(run) < 3 or all(dist(a, b) >= min_len for a, b in zip(run, run[1:])):
+        return run
+    out = [run[0]]
+    for p in run[1:-1]:
+        if dist(out[-1], p) >= min_len:
+            out.append(p)
+    last = run[-1]
+    while len(out) > 1 and dist(out[-1], last) < min_len:
+        out.pop()
+    out.append(last)
+    return out
+
+
 # ---------------------------------------------------------------- tatami / fill
 def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spacing: float = 0.4,
                 stitch_len: float = 3.5, stagger: int = 3, min_stitch: float = 0.3,
@@ -126,6 +169,7 @@ def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spaci
         xs.sort()
         # pull compensation: lengthen each row along the stitch direction (half per end)
         intervals = [(xs[i] - pull_comp / 2, xs[i + 1] + pull_comp / 2) for i in range(0, len(xs) - 1, 2) if xs[i + 1] - xs[i] > 1e-6]
+        intervals = [iv for iv in intervals if iv[1] - iv[0] >= min_stitch]      # a row shorter than the minimum stitch (a pointed tip) adds nothing: neighbours cover it
         forward = j % 2 == 0
         phase = (j % max(stagger, 1)) / max(stagger, 1) * stitch_len
         row = []
@@ -161,7 +205,7 @@ def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spaci
         cur = list(seg)
     if cur:
         runs.append(cur)
-    return [[rotate(p, ang) for p in run] for run in runs]
+    return [_prune_short([rotate(p, ang) for p in run], min_stitch) for run in runs]
 
 
 

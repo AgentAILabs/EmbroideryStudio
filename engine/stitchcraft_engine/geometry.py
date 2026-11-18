@@ -143,3 +143,29 @@ def rotate_closed(path: Sequence[Point], frac: float) -> List[Point]:
             return [q for k, q in enumerate(new) if k == 0 or dist(q, new[k - 1]) > 1e-9]
         acc += seg
     return pts
+
+
+def ring_self_intersections(ring: Sequence[Point], limit: int = 3) -> int:
+    """Number of proper crossings between non-adjacent edges of a closed ring (capped at `limit`). 0 = a simple polygon."""
+    P = [tuple(p) for p in ring]
+    if len(P) > 1 and P[0] == P[-1]:
+        P = P[:-1]
+    n = len(P)
+    if n < 4:
+        return 0
+
+    def o(a, b, c):
+        return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+    found = 0
+    for i in range(n):
+        a, b = P[i], P[(i + 1) % n]
+        for j in range(i + 2, n):
+            if i == 0 and j == n - 1:
+                continue                                    # edges that share a vertex
+            c, d = P[j], P[(j + 1) % n]
+            d1, d2, d3, d4 = o(c, d, a), o(c, d, b), o(a, b, c), o(a, b, d)
+            if d1 * d2 < -1e-12 and d3 * d4 < -1e-12:
+                found += 1
+                if found >= limit:
+                    return found
+    return found

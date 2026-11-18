@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from .builder import StitchObject, build_pattern
 from .font import layout_text
-from .geometry import polygon_area, smooth, inset_ring, rotate_closed
+from .geometry import polygon_area, smooth, inset_ring, rotate_closed, ring_self_intersections
 from .model import Cmd, Pattern, ThreadColor
 from .stitches import (DigitizingError, satin_from_rails, contour_fill, cross_fill, center_walk_underlay, edge_walk_underlay, running_stitch,
                        satin_stitch, tatami_fill)
@@ -140,6 +140,9 @@ def generate(design: dict, trim_distance: Optional[float] = None):
             th = tid(ob.get("color"))
             if typ == "fill":
                 rings = [_pts(r, ob, True) for r in ob["rings"]]
+                bad = [k for k, r in enumerate(rings) if ring_self_intersections(r)]
+                if bad:
+                    notes.append(f"{oid}: outline crosses itself - the fill will overlap or leave gaps; redraw it as a simple shape")
                 pattern_kind = _p(ob, "pattern")
                 runs = None
                 if pattern_kind == "contour":
@@ -246,8 +249,8 @@ def _order_notes(design: dict) -> List[str]:
             continue
         fb = _bbox(f)
         for e in objs[:i]:
-            if e.get("type") not in ("satin", "run", "column", "text"):
-                continue
+            if e.get("type") not in ("satin", "run", "text"):      # outlines / lettering only: columns are body shapes (petals, feathers) that
+                continue                                            # are legitimately covered by a later centre / stone fill
             eb = _bbox(e)
             if fb and eb and min(fb[2], eb[2]) > max(fb[0], eb[0]) and min(fb[3], eb[3]) > max(fb[1], eb[1]):
                 out.append(f"{e['id']}: stitched before fill {f['id']} which overlaps it - the fill will cover it. Move it after the fill.")
