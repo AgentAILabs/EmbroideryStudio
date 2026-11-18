@@ -358,17 +358,30 @@ function fitObjects(objs, targetW) {
   objs.forEach(o => { mapPts(o, p => [(p[0] - cx) * f, (p[1] - cy) * f]); if (o.params && o.params.width) o.params.width = +(o.params.width * f).toFixed(2); if (o.type === "text") o.height *= f; });
   return f;
 }
+function askImport() {
+  return new Promise(resolve => {
+    const dlg = $("#dlgImport"); $("#impW").value = Math.round(S.doc.hoop.w * .7); $("#impReport").hidden = true;
+    dlg.onclose = () => resolve(dlg.returnValue === "go" ? {w: parseFloat($("#impW").value), c: parseInt($("#impC").value) || 6, q: $("#impQ").value} : null);
+    dlg.showModal();
+  });
+}
+function importSummary(r, scaled) {
+  const l = [];
+  l.push("Imported " + ((r.objectsN) || 0) + " objects, " + (r.colours_used || 0) + " colour(s)" + (r.colours_merged ? " (" + r.colours_merged + " near-duplicate shade(s) merged)" : "") + ".");
+  if (r.dpi) l.push("Source resolution ≈ " + r.dpi + " dpi at this size" + (r.dpi < 150 ? " – low; edges may be rough, use a larger image." : "."));
+  return l;
+}
 async function importFile(file) {
   try {
     let res;
     if (/\.svg$/i.test(file.name)) { res = await post("/api/import/svg", {svg: await file.text()}); }
     else {
-      const w = parseFloat(prompt("Real-world width of the artwork in mm (flat colours work best; photos digitize poorly):", String(Math.round(S.doc.hoop.w * .7))));
-      if (!w) return; const cols = parseInt(prompt("Maximum number of thread colours (2–8):", "6")) || 6;
+      const o = await askImport(); if (!o || !o.w) return;
       const buf = new Uint8Array(await file.arrayBuffer()); let bin = ""; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
-      res = await post("/api/import/raster", {data: btoa(bin), width_mm: w, colors: cols});
+      res = await post("/api/import/raster", {data: btoa(bin), width_mm: o.w, colors: o.c, quality: o.q});
+      if (res.report) { res.report.objectsN = res.objects.length; res.notes = importSummary(res.report).concat(res.notes || []); }
     }
-    if (!res.objects.length) { alert("Nothing to digitize. For images, use flat-colour artwork on a plain background."); return; }
+    if (!res.objects.length) { alert((res.notes || []).join("\n") || "Nothing to digitize. For images, use flat-colour artwork on a plain background."); return; }
     res.objects.forEach(o => { o.id = "o" + (S.n++); o.name = o.name || o.id; });
     const f = fitObjects(res.objects, null); S.doc.objects.push(...res.objects); S.sel = null; commit(); renderAll(); fit();
     const msg = (res.notes || []).concat(f && f < 1 ? ["Artwork was scaled down to fit the hoop."] : []); if (msg.length) alert(msg.join("\n"));

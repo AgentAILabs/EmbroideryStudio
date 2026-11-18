@@ -66,3 +66,12 @@ Errors are JSON 4xx with `{"error": ...}`; unexpected failures are 500 with no i
 ## Tests
 `python3 -m unittest discover -s engine/tests` and `-s tests` (engine behaviour, HTTP round trips, geometry quality, safety, performance, static front-end guard, test-pack validity).
 `tests/test_crosscheck.py` compares our DST with pyembroidery's reader and runs only where it is installed (CI).
+
+
+## Image → stitches quality pipeline (`raster.py`, `tools/image_bench.py`)
+1. Decode (PNG/JPEG; JPEG median-filtered), photo detection (many unique colours → warning).
+2. Palette: median cut → merge shades closer than ΔE (CIELAB) / tiny populations → nearest-Lab assignment → majority filter → antialiasing-fringe removal.
+3. Per colour: adaptive up-sampling (coarser source → more), Gaussian blur, threshold at 0.5 (sub-pixel boundary), vectorised boundary tracing, iterative Douglas-Peucker with a tolerance floor above the pixel staircase.
+4. Nesting (outer/holes), then type choice: <1 mm → run along the midline; thin & hole-free → satin column from the outline; else fill with PCA angle.
+5. Ordering: colours by area (large first), fills → columns → runs, nearest-neighbour within a group to minimise jumps/trims.
+`tools/image_bench.py` draws four artworks at 1600 px (exact ground truth), degrades them (antialias, JPEG, 120 px, noise) and scores IoU against truth, object counts, cusps, outline error and stitch quality; `tests/test_studio.py` enforces thresholds. Legacy tracer kept as `quality="legacy"` for comparison.

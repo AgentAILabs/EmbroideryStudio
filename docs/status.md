@@ -9,7 +9,7 @@ save/reopen, SVG + PNG import, versions) with zero page errors / HTTP 5xx.
 | # | Item | Status | Evidence / note |
 |---|---|---|---|
 | 1 | MVP = image/SVG → objects → simulate → DST | ✅ | editor + engine + DST |
-| 2 | Raster: flat colour ≤ 8 colours, warn on poor input | ✅ | cap 8, low-DPI and colour-limit warnings, 5 artwork tests incl. hole stays empty |
+| 2 | Raster: flat colour ≤ 8 colours, warn on poor input | ✅ | quality pipeline (draft/standard/high), import dialog + report, objective benchmark `tools/image_bench.py`: mean IoU 0.949 vs 0.682 legacy, trims -89%, warnings 44 → 4 |
 | 3 | Bead/stone/sequin = placeholders, on production sheet, not in DST | ✅ | DST bytes identical with/without them (test) |
 | 4 | Engine as separate service behind versioned JSON contract | ✅ | HTTP service, `schema_version` contract tests; ⏸ job queue (not needed at this scale) |
 | 5 | .NET / MediatR / Konva | ⏸ | replaced by Python stdlib service + canvas editor: no installs, same contract |
