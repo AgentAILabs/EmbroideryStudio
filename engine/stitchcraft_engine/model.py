@@ -37,6 +37,7 @@ class Pattern:
     name: str = "design"
     stitches: List[Stitch] = field(default_factory=list)
     threads: List[ThreadColor] = field(default_factory=list)
+    lock_stitches: int = 0          # tie-in / tie-off stitches included in `stitches` (informational; not part of the JSON contract)
 
     def counts(self) -> dict:
         c = {k.value: 0 for k in Cmd}

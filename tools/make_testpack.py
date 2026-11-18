@@ -85,6 +85,18 @@ def designs():
         {"id": "p1", "type": "fill", "color": RED, "rings": [circ(-26)], "params": {"pattern": "tatami"}},
         {"id": "p2", "type": "fill", "color": BLUE, "rings": [circ(0)], "params": {"pattern": "contour"}},
         {"id": "p3", "type": "fill", "color": GREEN, "rings": [circ(26)], "params": {"pattern": "cross", "cross_size": 2.0}}])
+    # 12. trims and locks: a row of 5 mm running-stitch bars (one run each, so the jump distance IS the gap) on one line, separated by jumps of 1, 2, 3.5, 6, 12 and 25 mm. Jumps up to the
+    #     3 mm trim threshold carry the thread; longer ones get tie-off + trim + tie-in. A second row in another colour tests the
+    #     colour-change trim. Check what the machine cuts, and whether thread ends stay locked.
+    def trim_row(prefix, color, y):
+        row, end = [], None
+        for k, g in enumerate((None, 1, 2, 3.5, 6, 12, 25)):
+            start = -42.25 if g is None else end + g
+            row.append({"id": f"{prefix}{k}", "type": "run", "color": color, "points": [[start, y], [start + 5, y]], "params": {"stitch_len": 2.5},
+                        "name": "first bar" if g is None else f"bar after {g} mm jump"})
+            end = start + 5
+        return row
+    out["12_trims_locks"] = D("12_trims_locks", trim_row("r", RED, -10) + trim_row("b", BLUE, 10))
     return out
 
 

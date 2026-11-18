@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from .builder import StitchObject, build_pattern
 from .font import layout_text
-from .geometry import polygon_area, smooth, inset_ring
+from .geometry import polygon_area, smooth, inset_ring, rotate_closed
 from .model import Cmd, Pattern, ThreadColor
 from .stitches import (DigitizingError, satin_from_rails, contour_fill, cross_fill, center_walk_underlay, edge_walk_underlay, running_stitch,
                        satin_stitch, tatami_fill)
@@ -84,7 +84,10 @@ def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0):
     return StitchObject(oid, "satin", th, [satin_from_rails(a, b, spacing, split)], under)
 
 
-MACHINE_DEFAULTS = {"max_stitch": 7.0, "min_stitch": 0.3, "trim_distance": 3.0, "trim_jumps": 3}
+MACHINE_DEFAULTS = {"max_stitch": 7.0, "min_stitch": 0.3, "trim_distance": 3.0, "trim_jumps": 3,
+                    "lock_len": 0.6,              # tie-in / tie-off stitch length in mm (0 = no lock stitches)
+                    "trim_at_color_change": 1, "trim_at_end": 1,
+                    "smart_direction": 1}         # start a run at its nearer end when that turns a trim into a carried jump
 
 
 def machine(design: dict) -> dict:
@@ -95,6 +98,10 @@ def machine(design: dict) -> dict:
     m["max_stitch"] = min(max(m["max_stitch"], 1.0), 12.1)
     m["trim_distance"] = max(m["trim_distance"], 0.5)
     m["trim_jumps"] = int(min(max(m["trim_jumps"], 1), 6))
+    m["lock_len"] = 0.0 if m["lock_len"] <= 0 else min(max(m["lock_len"], 0.4), 1.5)      # a lock shorter than 0.4 mm is useless
+    m["trim_at_color_change"] = 1 if m["trim_at_color_change"] else 0
+    m["trim_at_end"] = 1 if m["trim_at_end"] else 0
+    m["smart_direction"] = 1 if m["smart_direction"] else 0
     return m
 
 
@@ -184,10 +191,13 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                 cover = tid(_p(ob, "cover_color") or ob.get("color"))
                 place = tid("#9ca3af")
                 sl = _p(ob, "stitch_len")
+                # Three passes cut the thread at their start/end points: start each one a third of the way round the outline
+                # from the previous so tie-in/tie-off stitches do not stack into one dense, needle-breaking spot.
+                tack_ring, cover_ring = rotate_closed(ring, 1 / 3), rotate_closed(ring, 2 / 3)
                 objs.append(StitchObject(oid + ".place", "running", place, [running_stitch(ring, sl)]))
-                objs.append(StitchObject(oid + ".tack", "running", cover, [running_stitch(ring, sl)]))
+                objs.append(StitchObject(oid + ".tack", "running", cover, [running_stitch(tack_ring, sl)]))
                 objs.append(StitchObject(oid + ".cover", "satin", cover,
-                                         [satin_stitch(ring, _p(ob, "width"), _p(ob, "spacing"), 0.0)]))
+                                         [satin_stitch(cover_ring, _p(ob, "width"), _p(ob, "spacing"), 0.0)]))
                 notes.append(f"{oid}: appliqué - machine stops at the placement->tack-down colour change; "
                              "place fabric then, trim after tack-down.")
             else:
@@ -195,7 +205,9 @@ def generate(design: dict, trim_distance: Optional[float] = None):
         except (DigitizingError, KeyError, TypeError, ValueError) as e:
             notes.append(f"{oid}: skipped ({e})")
     notes += _order_notes(design)
-    pattern = build_pattern(objs, threads, design.get("name", "design"), trim_distance)
+    pattern = build_pattern(objs, threads, design.get("name", "design"), trim_distance, lock_len=mach["lock_len"],
+                            trim_at_color_change=bool(mach["trim_at_color_change"]), trim_at_end=bool(mach["trim_at_end"]),
+                            choose_direction=bool(mach["smart_direction"]))
     return pattern, notes, stats(pattern, design)
 
 
@@ -252,6 +264,7 @@ def stats(p: Pattern, design: Optional[dict] = None) -> dict:
         if o.get("type") == "embellishment" and not o.get("hidden") and not o.get("guide"):
             emb[o.get("kind", "bead")] = emb.get(o.get("kind", "bead"), 0) + len(o.get("points", []))
     return {
+        "lock_stitches": p.lock_stitches,
         "embellishments": emb,
         "fabric": (design or {}).get("fabric"), "stabiliser": (design or {}).get("stabiliser"),
         "stitches": c["stitch"], "jumps": c["jump"], "trims": c["trim"], "color_changes": c["color_change"],

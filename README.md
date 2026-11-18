@@ -31,7 +31,7 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 | Embellishments & guides | Bead / stone / sequin placeholders (not stitched, listed on the production sheet), non-stitched guide objects, neckline guides in inches, petal/scallop/zigzag/dot border templates |
 | Export package | One zip: DST + project + preview + production sheet + manifest (sha256, trim jumps, checks) |
 | Satin splitting | Stitches longer than the machine max stitch are split with staggered points (satin, column, lettering), so wide columns up to and beyond the 12.1 mm DST limit stay valid; toggle per object |
-| Machine profile | Max stitch, trim distance, trim-jump count (DST has no trim code, so confirm on your machine) |
+| Trims & locks | Tie-off → trim → jump → tie-in at every thread cut; lock length, trim at colour change / end, trim distance, trim-jump count (DST has no trim code, so confirm on your machine); runs start at the nearer end to avoid needless cuts; appliqué passes staggered |
 | Safety | SVG DOCTYPE/entity rejected, PNG/JPEG type sniffing, size/pixel/complexity limits, low-DPI warning, PDF rejected with a clear message |
 | Exports | DST, project, preview **SVG + PNG**, production sheet, saved **versions** (browser) |
 | Workflow | Undo/redo, autosave, Beginner / Pro modes, keyboard shortcuts (V F S R T A, Ctrl+Z/Y/S/D, arrows, P, 0) |
@@ -44,7 +44,7 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 - Dockerfile/compose are written and statically tested but **not built** (no Docker daemon was available); the pyembroidery cross-check runs in CI only.
 
 ## Stitch-out test pack
-`python3 tools/make_testpack.py` writes 11 ready-to-stitch designs (flower, lettering 5/8/12 mm, logo, border, 4-colour, satin widths, 30x30 fill, appliqué, fill patterns) to `testpack/` with a printable results sheet. Procedure: `docs/testing/README.md`.
+`python3 tools/make_testpack.py` writes 12 ready-to-stitch designs (flower, lettering 5/8/12 mm, logo, border, 4-colour, satin widths, 30x30 fill, appliqué, fill patterns, trims + locks) to `testpack/` with a printable results sheet. Procedure: `docs/testing/README.md`.
 
 ## Tests
 Run everything with `./tools/run_tests.sh` (engine suite + studio suite: engine features, HTTP round trips, geometry quality, safety limits, performance, docs/front-end guards). CI runs exactly that script on every push. `tools/e2e_ui.js` drives the whole UI in a browser (needs Playwright; run it before releases).

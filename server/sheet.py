@@ -52,7 +52,8 @@ h1{{margin:0}}.m{{color:#555}}.sw{{display:inline-block;width:16px;height:16px;b
 <b>Fabric preset:</b> {E(design.get('fabric', '-'))} (unverified starting values)<br><b>Stabiliser:</b> {E(design.get('stabiliser') or 'cut-away')}<br>
 <b>Stitches:</b> {st['stitches']}<br><b>Colour changes:</b> {st['color_changes']} · <b>Trims:</b> {st['trims']} · <b>Jumps:</b> {st['jumps']}<br>
 <b>Estimated run time:</b> ~{st['est_minutes']} min at {st['assumed_spm']:.0f} spm (assumed)<br>
-<b>Machine profile:</b> max stitch {m['max_stitch']} mm · trim above {m['trim_distance']} mm · {m['trim_jumps']} trim jumps</p>
+<b>Machine profile:</b> max stitch {m['max_stitch']} mm · trim above {m['trim_distance']} mm · {m['trim_jumps']} trim jumps (DST has no trim code - confirm on your machine)<br>
+<b>Thread locks:</b> {('tie-in/tie-off ' + str(m['lock_len']) + ' mm, ' + str(st.get('lock_stitches', 0)) + ' lock stitches added') if m['lock_len'] else 'off'} · trim at colour change: {'yes' if m['trim_at_color_change'] else 'no'} · trim at end: {'yes' if m['trim_at_end'] else 'no'}</p>
 <h3>Colour order</h3><table><tr><th>#</th><th>Thread</th><th>Stitches</th></tr>{rows}</table>
 {('<p><b>Appliqué:</b> ' + str(len(appl)) + ' patch(es). At each placement → tack-down colour change, lay the fabric; trim after tack-down.</p>') if appl else ''}
 {emb_html}

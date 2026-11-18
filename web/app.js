@@ -501,18 +501,24 @@ function renderDesign() {
   <div class="row"><label>Max stitch mm</label><input type="number" id="mMax" value="${(d.machine || {}).max_stitch ?? 7}" step=".5" min="1" max="12.1"></div>
   <div class="row"><label title="Jumps longer than this get a trim">Trim above mm</label><input type="number" id="mTrim" value="${(d.machine || {}).trim_distance ?? 3}" step=".5" min=".5"></div>
   <div class="row"><label title="DST has no trim command; machines differ. Confirm on yours.">Trim jumps</label><input type="number" id="mJ" value="${(d.machine || {}).trim_jumps ?? 3}" step="1" min="1" max="6"></div>
+  <div class="row"><label title="Tie-in / tie-off stitch length. 0 = no lock stitches">Lock stitch mm</label><input type="number" id="mLock" value="${(d.machine || {}).lock_len ?? 0.6}" step=".1" min="0" max="1.5"></div>
+  <div class="row"><label title="Tie off + trim before every thread colour change">Trim at colour change</label><input type="checkbox" id="mTC" ${((d.machine || {}).trim_at_color_change ?? 1) ? "checked" : ""}></div>
+  <div class="row"><label title="Tie off + trim before the end of the design">Trim at end</label><input type="checkbox" id="mTE" ${((d.machine || {}).trim_at_end ?? 1) ? "checked" : ""}></div>
   <div class="btns"><button id="bCenter">Centre design</button><button id="bOpt" title="Group objects by thread colour">Optimise colours</button><button id="bVer">Save version…</button></div><ul id="vers" style="list-style:none;margin:0;padding:0"></ul>`;
-  const sig = html.replace(/ value="[^"]*"/g, "").replace(/ selected/g, "");
+  const sig = html.replace(/ value="[^"]*"/g, "").replace(/ selected/g, "").replace(/ checked/g, "");
   if (el.dataset.sig === sig) {   // same structure: sync values in place so a click in progress is never lost to a rebuild
     const sync = (id, v) => { const x = $("#" + id); if (x && document.activeElement !== x) x.value = v; };
     sync("stab", d.stabiliser || "cut-away"); sync("hw", d.hoop.w); sync("hh", d.hoop.h); sync("hm", d.hoop.margin); sync("fab", d.fabric);
-    sync("mMax", (d.machine || {}).max_stitch ?? 7); sync("mTrim", (d.machine || {}).trim_distance ?? 3); sync("mJ", (d.machine || {}).trim_jumps ?? 3);
+    sync("mMax", (d.machine || {}).max_stitch ?? 7); sync("mTrim", (d.machine || {}).trim_distance ?? 3); sync("mJ", (d.machine || {}).trim_jumps ?? 3); sync("mLock", (d.machine || {}).lock_len ?? 0.6);
+    for (const [id, k] of [["mTC", "trim_at_color_change"], ["mTE", "trim_at_end"]]) { const x = $("#" + id); if (x && document.activeElement !== x) x.checked = !!((d.machine || {})[k] ?? 1); }
     const hs = $("#hoopSel"); if (hs && document.activeElement !== hs) { const k = Object.keys(HOOPS).find(k => Math.abs(HOOPS[k][0] - d.hoop.w) < .2 && Math.abs(HOOPS[k][1] - d.hoop.h) < .2); hs.value = k || "Custom"; }
     renderVersions(); return;
   }
   el.dataset.sig = sig; el.innerHTML = html;
   const mset = (k, el) => el.onchange = () => { S.doc.machine = S.doc.machine || {}; const v = parseFloat(el.value); if (!isNaN(v)) S.doc.machine[k] = v; commit(); renderAll(); };
-  mset("max_stitch", $("#mMax")); mset("trim_distance", $("#mTrim")); mset("trim_jumps", $("#mJ"));
+  mset("max_stitch", $("#mMax")); mset("trim_distance", $("#mTrim")); mset("trim_jumps", $("#mJ")); mset("lock_len", $("#mLock"));
+  const mflag = (k, el) => el.onchange = () => { S.doc.machine = S.doc.machine || {}; S.doc.machine[k] = el.checked ? 1 : 0; commit(); renderAll(); };
+  mflag("trim_at_color_change", $("#mTC")); mflag("trim_at_end", $("#mTE"));
   $("#bOpt").onclick = optimiseColours; $("#bVer").onclick = saveVersion; renderVersions();
   const setH = (w, h) => { S.doc.hoop.w = w; S.doc.hoop.h = h; commit(); fit(); renderAll(); };
   $("#hoopSel").onchange = e => { const v = HOOPS[e.target.value]; if (v) setH(v[0], v[1]); };

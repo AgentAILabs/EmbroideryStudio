@@ -44,8 +44,23 @@ Order in the Objects list **is** the stitch order. Underlay is stitched before t
 Fabric presets (cotton, silk, georgette, velvet, denim, knit) set starting pull comp/spacing. **They are unverified guesses** until you stitch a test.
 Stabiliser (cut-away / tear-away / wash-away / none) is recorded on the production sheet.
 
-## Machine profile (Design panel)
-*Max stitch* (checks + auto-split), *Trim above* (jumps longer than this get a trim), *Trim jumps*: DST has no trim command, so a trim is written as N zero-move jumps (default 3). **Machines differ – confirm on yours** (see `docs/testing/README.md`).
+## Machine profile and trims (Design panel)
+| Setting | Meaning |
+|---|---|
+| Max stitch | used by the checks and by auto-split of long satin stitches |
+| Trim above (mm) | a jump longer than this is trimmed; shorter jumps carry the thread (no cut) |
+| Trim jumps | DST has **no trim command**, so a trim is written as N zero-move jumps (default 3). Machines differ - confirm on yours |
+| Lock stitch (mm) | tie-in / tie-off stitch length (default 0.6 mm; **0 = no locks**) |
+| Trim at colour change / at end | tie off and trim before every colour change / before the end (default on) |
+
+**Sequence the engine writes** at every thread cut (far jump, colour change, end):
+`… last stitches → tie-off (back-forth-back along the last stitch) → TRIM → [COLOR CHANGE] → JUMP → first stitch → tie-in (forward-back) → …`
+Locks stay inside the geometry just stitched, are never shorter than 0.3 mm, and are skipped (no error) where the adjacent segment is too short to lock reliably.
+A jump at or under the trim distance is *carried*: no trim and no locks.
+
+The engine also **starts a run at its nearer end** when that turns a trim into a carried jump (e.g. a satin column after its centre-walk underlay): same needle points, fewer cuts.
+Appliqué passes (placement, tack-down, cover) are started a third of the way round the outline from each other so their locks do not stack into one over-dense spot.
+The production sheet lists the lock length, how many lock stitches were added, and the trim policy.
 
 ## Importing artwork
 * **SVG**: fills → fills, strokes → satin (1–7 mm) or running. Unsupported path commands (arcs, S/T) and transforms are rejected/flagged instead of silently distorted. Files with DOCTYPE/entity declarations are rejected.

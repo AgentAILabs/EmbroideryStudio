@@ -65,7 +65,7 @@ class StudioTests(unittest.TestCase):
         b = io.BytesIO(); im.save(b, "PNG")
         r = server.api_raster({"data": base64.b64encode(b.getvalue()).decode(), "width_mm": 50, "colors": 4})
         self.assertEqual(len(r["objects"]), 1)
-        p, _, _ = generate(doc(*r["objects"])); self.assertTrue(run_checks(doc(), p).ok or True)
+        dd = doc(*r["objects"]); p, _, _ = generate(dd); self.assertTrue(run_checks(dd, p).ok, [i.message for i in run_checks(dd, p).errors])
 
 if __name__ == "__main__": unittest.main()
 
@@ -142,8 +142,8 @@ class MvpGapTests(unittest.TestCase):
         for n in (2, 4):
             d["machine"] = {"trim_jumps": n}
             res, err = server.api_dst(d); self.assertIsNone(err)
-            trims = sum(1 for r in read_dst(res.data).records if r == (0, 0, "jump"))   # trim = zero-move jumps
-            self.assertEqual(trims, n)
+            zero_jumps = sum(1 for r in read_dst(res.data).records if r == (0, 0, "jump"))   # each trim = n zero-move jumps
+            self.assertEqual(zero_jumps, n * generate(d)[2]["trims"])                       # one between the runs + one before END
 
     def test_satin_width_notes(self):
         notes = lambda w: generate(doc({"id": "s", "type": "satin", "color": "#f00", "points": [[0, 0], [20, 0]], "params": {"width": w}}))[1]
@@ -258,11 +258,11 @@ class TestPackTests(unittest.TestCase):
         mk = importlib.util.module_from_spec(spec); spec.loader.exec_module(mk)
         with tempfile.TemporaryDirectory() as t:
             rows, problems = mk.build(Path(t))
-            self.assertEqual(problems, []); self.assertEqual(len(rows), 11)
+            self.assertEqual(problems, []); self.assertEqual(len(rows), 12)
             for r in rows:
                 self.assertTrue(read_dst((Path(t) / r["file"]).read_bytes()).ends_properly)
                 self.assertTrue((Path(t) / (r["design"] + ".esproj")).exists())
-            with open(Path(t) / "RESULTS.csv", encoding="utf-8") as fh: self.assertEqual(len(list(csv.DictReader(fh))), 11)
+            with open(Path(t) / "RESULTS.csv", encoding="utf-8") as fh: self.assertEqual(len(list(csv.DictReader(fh))), 12)
             self.assertIn("Thread breaks", (Path(t) / "RESULTS.html").read_text())
 
 
@@ -805,3 +805,213 @@ class OptionalImagingTests(unittest.TestCase):
         with mock.patch.dict(sys.modules, {"numpy": None, "PIL": None}):
             self.assertIsNone(server.api_dst(d)[1]); self.assertIsNotNone(server.sheet.package(d)[0])
             self.assertEqual(server.api_svg({"svg": '<svg xmlns="http://www.w3.org/2000/svg" width="20mm" height="20mm" viewBox="0 0 20 20"><rect width="10" height="10" fill="#f00"/></svg>'})["objects"][0]["type"], "fill")
+
+
+def _seq(p):
+    from stitchcraft_engine.model import Cmd
+    return " ".join((f"{s.cmd.value[0].upper()}" if s.cmd != Cmd.STITCH else "s") + f"({s.x:.1f},{s.y:.1f})" for s in p.stitches)
+
+
+class TrimLockTests(unittest.TestCase):
+    from stitchcraft_engine.builder import StitchObject as SO
+    T2 = None
+    def build(self, **kw):
+        from stitchcraft_engine.builder import StitchObject, build_pattern
+        from stitchcraft_engine.model import ThreadColor
+        T = [ThreadColor("a", "#f00"), ThreadColor("b", "#00f")]
+        objs = [StitchObject("a", "running", 0, [[(0, 0), (10, 0)]]), StitchObject("b", "running", 0, [[(30, 0), (40, 0)]]),
+                StitchObject("c", "running", 1, [[(40, 10), (50, 10)]]), StitchObject("d", "running", 1, [[(50, 10), (60, 10)]]),
+                StitchObject("e", "running", 1, [[(60, 11), (70, 11)]])]
+        return build_pattern(objs, T, **kw)
+
+    def test_legacy_sequence_unchanged_when_everything_is_off(self):
+        self.assertEqual(_seq(self.build()), "J(0.0,0.0) s(0.0,0.0) s(10.0,0.0) T(10.0,0.0) J(30.0,0.0) s(30.0,0.0) s(40.0,0.0) C(40.0,0.0) "
+                         "J(40.0,10.0) s(40.0,10.0) s(50.0,10.0) s(60.0,10.0) J(60.0,11.0) s(60.0,11.0) s(70.0,11.0) E(70.0,11.0)")
+    def test_professional_sequence_tie_off_trim_jump_tie_in(self):
+        p = self.build(lock_len=0.6, trim_at_color_change=True, trim_at_end=True)
+        self.assertEqual(_seq(p),
+            "J(0.0,0.0) s(0.0,0.0) s(0.6,0.0) s(0.0,0.0) s(10.0,0.0) s(9.4,0.0) s(10.0,0.0) s(9.4,0.0) T(9.4,0.0) "       # start: tie-in; far jump: tie-off + trim
+            "J(30.0,0.0) s(30.0,0.0) s(30.6,0.0) s(30.0,0.0) s(40.0,0.0) s(39.4,0.0) s(40.0,0.0) s(39.4,0.0) T(39.4,0.0) "   # tie-in after the jump
+            "C(39.4,0.0) J(40.0,10.0) s(40.0,10.0) s(40.6,10.0) s(40.0,10.0) s(50.0,10.0) s(60.0,10.0) "                  # colour change: tie-off, TRIM, C, jump, tie-in
+            "J(60.0,11.0) s(60.0,11.0) s(70.0,11.0) s(69.4,11.0) s(70.0,11.0) s(69.4,11.0) T(69.4,11.0) E(69.4,11.0)")  # 1 mm jump: NO trim/locks; end: tie-off, TRIM, END
+        self.assertEqual(p.lock_stitches, 15)
+    def test_continuing_runs_and_short_jumps_get_no_trim_and_no_locks(self):
+        s = _seq(self.build(lock_len=0.6, trim_at_color_change=True, trim_at_end=True))
+        self.assertIn("s(50.0,10.0) s(60.0,10.0) J(60.0,11.0) s(60.0,11.0) s(70.0,11.0)", s)         # continuing + 1 mm jump: untouched
+    def test_trim_flags_are_independent(self):
+        base = dict(lock_len=0.0)
+        a = _seq(self.build(trim_at_end=True, **base)); b = _seq(self.build(trim_at_color_change=True, **base))
+        self.assertTrue(a.rstrip().endswith("T(70.0,11.0) E(70.0,11.0)")); self.assertNotIn("T(40.0,0.0) C", a)
+        self.assertIn("T(40.0,0.0) C(40.0,0.0)", b); self.assertNotIn("T(70.0,11.0)", b)
+    def test_lock_stitches_are_collinear_inside_the_run_and_in_range(self):
+        import math
+        from stitchcraft_engine.model import Cmd
+        on, off = self.build(lock_len=0.6, trim_at_color_change=True, trim_at_end=True), self.build()
+        self.assertEqual(on.bbox(), (0.0, 0.0, 70.0, 11.0)); self.assertEqual(off.bbox(), (0.0, 0.0, 70.0, 11.0))   # locks never extend the design
+        for s in on.stitches:                                          # all runs here are horizontal: locks must stay on the same line
+            if s.cmd == Cmd.STITCH: self.assertIn(round(s.y, 6), (0.0, 10.0, 11.0))
+        xs = [s.x for s in on.stitches if s.cmd == Cmd.STITCH]; self.assertGreaterEqual(min(xs), 0.0); self.assertLessEqual(max(xs), 70.0)   # never outside the stitched geometry
+        pts = [(s.x, s.y) for s in on.stitches if s.cmd == Cmd.STITCH]
+        short = [math.dist(a, b) for a, b in zip(pts, pts[1:]) if 0 < math.dist(a, b) < 1.0]
+        self.assertTrue(short and all(0.3 <= d <= 0.6 + 1e-9 for d in short), short)                # every lock stitch within [0.3, lock_len]
+    def test_stitch_count_difference_equals_lock_count(self):
+        on, off = self.build(lock_len=0.6), self.build()
+        self.assertEqual(on.counts()["stitch"] - off.counts()["stitch"], on.lock_stitches)
+    def test_locks_are_skipped_when_the_segment_is_too_short(self):
+        from stitchcraft_engine.builder import StitchObject, build_pattern
+        from stitchcraft_engine.model import ThreadColor, Cmd
+        p = build_pattern([StitchObject("a", "r", 0, [[(0, 0), (0.5, 0)]]), StitchObject("b", "r", 0, [[(20, 0), (20, 0)]])], [ThreadColor("a", "#000")], lock_len=0.6, trim_at_end=True)
+        self.assertEqual(p.lock_stitches, 0); self.assertEqual(p.stitches[-1].cmd, Cmd.END)        # no crash, no half-locks
+    def test_colour_change_at_the_same_point_has_no_duplicate_stitches(self):
+        from stitchcraft_engine.builder import StitchObject, build_pattern
+        from stitchcraft_engine.model import ThreadColor, Cmd
+        from stitchcraft_engine.validate import validate
+        T = [ThreadColor("a", "#f00"), ThreadColor("b", "#00f")]
+        p = build_pattern([StitchObject("a", "r", 0, [[(0, 0), (10, 0)]]), StitchObject("b", "r", 1, [[(10, 0), (20, 0)]])], T, lock_len=0.6, trim_at_color_change=True, trim_at_end=True)
+        self.assertTrue(validate(p, 100, 100, 3).ok); self.assertFalse([i for i in validate(p, 100, 100, 3).issues if i.code in ("ZERO_LENGTH", "STITCH_SHORT")])
+    def test_lock_stitches_keep_their_objects_id_and_thread(self):
+        from stitchcraft_engine.model import Cmd
+        p = self.build(lock_len=0.6, trim_at_color_change=True, trim_at_end=True)
+        for s in p.stitches:
+            if s.cmd == Cmd.STITCH: self.assertIn(s.object_id, "abcde"); self.assertEqual(s.thread, {"a": 0, "b": 0, "c": 1, "d": 1, "e": 1}[s.object_id])
+
+    # ---- through generate(): machine profile -> output
+    def design(self, **machine_kw):
+        sq = lambda x: [[x, 0], [x + 10, 0], [x + 10, 10], [x, 10]]
+        d = doc({"id": "a", "type": "fill", "color": "#ff0000", "rings": [sq(0)]}, {"id": "b", "type": "fill", "color": "#0000ff", "rings": [sq(30)]},
+                {"id": "c", "type": "satin", "color": "#0000ff", "points": [[0, 20], [30, 25]], "params": {"width": 3}})
+        d["machine"] = machine_kw; return d
+    def test_defaults_are_the_professional_sequence(self):
+        from stitchcraft_engine.design import machine
+        m = machine({}); self.assertEqual((m["lock_len"], m["trim_at_color_change"], m["trim_at_end"]), (0.6, 1, 1))
+        p, _, st = generate(self.design()); s = _seq(p)
+        self.assertGreater(st["lock_stitches"], 0); self.assertIn(" T(", s); self.assertTrue(s.rstrip().endswith(")") and " E(" in s)
+        from stitchcraft_engine.model import Cmd
+        kinds = [x.cmd for x in p.stitches]; ci = kinds.index(Cmd.COLOR_CHANGE)
+        self.assertEqual(kinds[ci - 1], Cmd.TRIM); self.assertEqual(kinds[-2], Cmd.TRIM); self.assertEqual(kinds[-1], Cmd.END)
+    def test_everything_can_be_switched_off(self):
+        p, _, st = generate(self.design(lock_len=0, trim_at_color_change=0, trim_at_end=0)); from stitchcraft_engine.model import Cmd
+        self.assertEqual(st["lock_stitches"], 0); kinds = [x.cmd for x in p.stitches]; ci = kinds.index(Cmd.COLOR_CHANGE)
+        self.assertNotEqual(kinds[ci - 1], Cmd.TRIM); self.assertNotEqual(kinds[-2], Cmd.TRIM)
+    def test_machine_profile_clamps(self):
+        from stitchcraft_engine.design import machine
+        for given, want in ((0.1, 0.4), (5, 1.5), (0, 0.0), (-3, 0.0), ("x", 0.6), (0.8, 0.8)):
+            self.assertEqual(machine({"machine": {"lock_len": given}})["lock_len"], want, given)
+        self.assertEqual(machine({"machine": {"trim_at_end": 0}})["trim_at_end"], 0)
+    def test_dst_has_the_trim_jumps_before_colour_change_and_end(self):
+        for n in (2, 3, 5):
+            d = self.design(trim_jumps=n); res, err = server.api_dst(d); self.assertIsNone(err)
+            kinds = [r[2] if r != (0, 0, "jump") else "TJ" for r in read_dst(res.data).records]
+            ci = kinds.index("color_change"); self.assertEqual(kinds[ci - n:ci], ["TJ"] * n); self.assertNotEqual(kinds[ci - n - 1], "TJ")   # exactly n before the colour change
+            self.assertEqual(kinds[-1 - n:-1], ["TJ"] * n); self.assertEqual(kinds[-1], "end")                                              # exactly n before END
+    def test_locks_add_no_new_warning_codes_on_the_test_pack(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("mk2", Path(__file__).resolve().parent.parent / "tools" / "make_testpack.py")
+        mk = importlib.util.module_from_spec(spec); spec.loader.exec_module(mk)
+        for name, dsg in mk.designs().items():
+            off = json.loads(json.dumps(dsg)); off["machine"] = {"lock_len": 0, "trim_at_color_change": 0, "trim_at_end": 0}
+            p_on, _, st_on = generate(dsg); p_off, _, st_off = generate(off)
+            codes_on = {i.code for i in run_checks(dsg, p_on).issues}; codes_off = {i.code for i in run_checks(off, p_off).issues}
+            self.assertLessEqual(codes_on, codes_off | set(), (name, codes_on - codes_off))
+            self.assertEqual(st_on["stitches"] - st_off["stitches"], st_on["lock_stitches"], name)
+            self.assertEqual(p_on.bbox(), p_off.bbox(), name)                         # locks never leave the stitched geometry
+            self.assertGreaterEqual(st_on["est_minutes"], st_off["est_minutes"], name)
+    def test_lock_count_reported_over_http_and_on_the_sheet(self):
+        r = server.api_generate(self.design()); self.assertGreater(r["stats"]["lock_stitches"], 0)
+        h = server.sheet.sheet_html(self.design()); self.assertIn("Thread locks:", h); self.assertIn("lock stitches added", h)
+        off = self.design(lock_len=0, trim_at_end=0); h2 = server.sheet.sheet_html(off)
+        self.assertIn("Thread locks:</b> off", h2); self.assertIn("trim at end: no", h2)
+
+
+class StaggeredAppliqueTests(unittest.TestCase):
+    RING = [[0, 0], [36, 0], [36, 36], [0, 36]]
+    def test_rotate_closed_keeps_the_outline_and_moves_the_start(self):
+        from stitchcraft_engine.geometry import rotate_closed, polyline_length, point_in_ring
+        ring = [(0, 0), (36, 0), (36, 36), (0, 36), (0, 0)]
+        for frac in (0.1, 1 / 3, 0.5, 2 / 3, 0.99):
+            r = rotate_closed(ring, frac)
+            self.assertEqual(r[0], r[-1]); self.assertAlmostEqual(polyline_length(r), polyline_length(ring), places=6)       # same perimeter, closed
+            self.assertTrue(all(abs(x) < 1e-9 or abs(x - 36) < 1e-9 or abs(y) < 1e-9 or abs(y - 36) < 1e-9 for x, y in r))   # every point still on the outline
+            self.assertGreater(abs(r[0][0]) + abs(r[0][1]), 0 if frac < 1e-9 else -1)
+            perim_pos = lambda q: (q[0] if q[1] == 0 else 36 + q[1] if q[0] == 36 else 72 + (36 - q[0]) if q[1] == 36 else 108 + (36 - q[1]))
+            self.assertAlmostEqual(perim_pos(r[0]), 144 * frac, places=6)                                                      # restarts exactly `frac` round the outline
+        self.assertEqual(rotate_closed(ring, 0), ring); self.assertEqual(rotate_closed([(0, 0), (1, 1)], 0.5), [(0, 0), (1, 1)])    # degenerate input untouched
+    def test_three_passes_start_at_different_places(self):
+        import math
+        from stitchcraft_engine.model import Cmd
+        d = doc({"id": "a", "type": "applique", "color": "#2e9e44", "rings": [self.RING]})
+        p, _, _ = generate(d)
+        starts = [next(s for s in p.stitches if s.cmd == Cmd.STITCH and (s.object_id or "").endswith(suffix)) for suffix in ("a.place", "a.tack", "a.cover")]
+        pts = [(s.x, s.y) for s in starts]
+        for i in range(3):
+            for j in range(i + 1, 3): self.assertGreater(math.dist(pts[i], pts[j]), 20, (pts, i, j))       # a third of a 144 mm perimeter ~ 48 mm apart
+    def test_applique_has_no_density_warning_with_locks_and_all_passes_cover_the_same_outline(self):
+        d = doc({"id": "a", "type": "applique", "color": "#2e9e44", "rings": [self.RING]})
+        p, _, st = generate(d); self.assertEqual({i.code for i in run_checks(d, p).issues} & {"DENSITY", "STITCH_SHORT", "ZERO_LENGTH"}, set())
+        bb = p.bbox(); self.assertAlmostEqual(bb[2] - bb[0], 36 + 2.5, delta=0.6)                            # outline + cover width, unchanged by the rotation
+    def test_applique_geometry_unchanged_apart_from_start_points(self):
+        a, b = doc({"id": "a", "type": "applique", "color": "#2e9e44", "rings": [self.RING]}), doc({"id": "a", "type": "applique", "color": "#2e9e44", "rings": [self.RING]})
+        b["machine"] = {"lock_len": 0, "trim_at_color_change": 0, "trim_at_end": 0}
+        pa, pb = generate(a)[0], generate(b)[0]; self.assertEqual(pa.bbox(), pb.bbox())
+
+
+class TrimTestDesignTests(unittest.TestCase):
+    def test_trim_design_has_exactly_the_intended_gaps_and_trims(self):
+        import importlib.util, math
+        from stitchcraft_engine.model import Cmd
+        spec = importlib.util.spec_from_file_location("mk3", Path(__file__).resolve().parent.parent / "tools" / "make_testpack.py")
+        mk = importlib.util.module_from_spec(spec); spec.loader.exec_module(mk)
+        d = mk.designs()["12_trims_locks"]
+        p, _, st = generate(d); self.assertTrue(run_checks(d, p).ok)
+        self.assertEqual(st["color_changes"], 1)
+        # first row: 7 bars, 6 gaps (1, 2, 3.5, 6, 12, 25). Only gaps above the 3 mm threshold are trimmed: 3.5, 6, 12, 25 -> 4 trims in row 1
+        # (+1 trim at the colour change, +4 in row 2, +1 at the end) = 10
+        self.assertEqual(st["trims"], 4 + 1 + 4 + 1)
+        xs = sorted((o["points"][0][0], o["points"][1][0]) for o in d["objects"] if o["id"].startswith("r"))
+        gaps = [round(b[0] - a[1], 3) for a, b in zip(xs, xs[1:])]; self.assertEqual(gaps, [1, 2, 3.5, 6, 12, 25])
+        lo, hi = p.bbox()[0], p.bbox()[2]; self.assertLessEqual(hi - lo, 94)                      # fits the 100 mm hoop with margin
+
+
+class SmartDirectionTests(unittest.TestCase):
+    def build(self, runs, **kw):
+        from stitchcraft_engine.builder import StitchObject, build_pattern
+        from stitchcraft_engine.model import ThreadColor
+        return build_pattern([StitchObject(f"o{i}", "r", 0, [r]) for i, r in enumerate(runs)], [ThreadColor("a", "#000")], **kw)
+    def trims(self, p):
+        from stitchcraft_engine.model import Cmd
+        return sum(1 for s in p.stitches if s.cmd == Cmd.TRIM)
+
+    def test_reverses_a_run_when_that_turns_a_trim_into_a_carry(self):
+        a = [(0, 0), (5, 0)]; b = [(9, 0), (6, 0)]               # b is drawn right-to-left: its start is 4 mm away, its end only 1 mm
+        off, on = self.build([a, b]), self.build([a, b], choose_direction=True)
+        self.assertEqual(self.trims(off), 1); self.assertEqual(self.trims(on), 0)
+        from stitchcraft_engine.model import Cmd
+        self.assertEqual([(s.x, s.y) for s in on.stitches if s.cmd == Cmd.STITCH][-2:], [(6, 0), (9, 0)])      # b is now stitched 6 -> 9
+        self.assertEqual([(s.x, s.y) for s in off.stitches if s.cmd == Cmd.STITCH][-2:], [(9, 0), (6, 0)])      # without the rule b stays right-to-left
+        pts = lambda p: sorted((s.x, s.y) for s in p.stitches if s.cmd == Cmd.STITCH)
+        self.assertEqual(pts(off), pts(on))                       # exactly the same needle points, only the order differs
+    def test_does_not_reverse_when_forward_is_already_a_carry_or_both_ends_are_far(self):
+        a = [(0, 0), (5, 0)]
+        for b in ([(6, 0), (9, 0)],                               # forward 1 mm: fine as drawn
+                  [(30, 0), (20, 0)]):                            # both ends far (15 / 25 mm): reversing would not remove the trim
+            self.assertEqual(_seq(self.build([a, b], choose_direction=True)), _seq(self.build([a, b])))
+    def test_machine_profile_switches_it_and_it_helps_satin_after_underlay(self):
+        d = doc({"id": "a", "type": "satin", "color": "#f00", "points": [[0, 0], [5, 0]], "params": {"width": 3}})
+        on, off = generate(d), generate(dict(d, machine={"smart_direction": 0}))
+        self.assertLess(on[2]["trims"], off[2]["trims"])           # the satin after its centre-walk underlay no longer trims
+    def test_never_more_trims_than_without_it_on_the_test_pack(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("mk4", Path(__file__).resolve().parent.parent / "tools" / "make_testpack.py")
+        mk = importlib.util.module_from_spec(spec); spec.loader.exec_module(mk)
+        total_on = total_off = 0
+        for name, d in mk.designs().items():
+            on_d, off_d = json.loads(json.dumps(d)), json.loads(json.dumps(d))
+            on_d["machine"] = {"lock_len": 0}; off_d["machine"] = {"lock_len": 0, "smart_direction": 0}          # locks depend on direction, so compare without them
+            (p_on, _, s_on), (p_off, _, s_off) = generate(on_d), generate(off_d)
+            self.assertLessEqual(s_on["trims"], s_off["trims"], name); total_on += s_on["trims"]; total_off += s_off["trims"]
+            from collections import Counter
+            key = lambda p: Counter((round(s.x, 3), round(s.y, 3)) for s in p.stitches if s.cmd.value == "stitch")
+            invented, dropped = key(p_on) - key(p_off), key(p_off) - key(p_on)
+            self.assertEqual(sum(invented.values()), 0, name)                                                    # no needle point is ever invented
+            self.assertLessEqual(sum(dropped.values()), s_off["jumps"], name)                                    # only the duplicate stitch where the needle already was
+        self.assertLess(total_on, total_off)

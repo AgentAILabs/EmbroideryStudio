@@ -23,6 +23,11 @@ def designs():
             {"id": "a", "type": "fill", "color": "#f00", "rings": [sq]},
             {"id": "b", "type": "satin", "color": "#00f", "points": [[0, 40], [30, 45]], "params": {"width": 3}},
             {"id": "c", "type": "text", "color": "#000", "text": "OK 7", "height": 8, "x": 0, "y": 55}]},
+        "colour_and_trims": {"name": "ct", "hoop": {"w": 150, "h": 150}, "objects": [          # far jumps + a colour change + end, with lock stitches (the default)
+            {"id": "a", "type": "fill", "color": "#f00", "rings": [sq]},
+            {"id": "b", "type": "fill", "color": "#f00", "rings": [[[50, 0], [70, 0], [70, 20], [50, 20]]]},
+            {"id": "c", "type": "satin", "color": "#00f", "points": [[0, 60], [40, 70]], "params": {"width": 3}},
+            {"id": "d", "type": "applique", "color": "#0a0", "rings": [[[60, 50], [90, 50], [90, 80], [60, 80]]]}]},
         "far_jump": {"name": "far", "hoop": {"w": 200, "h": 200}, "objects": [
             {"id": "a", "type": "run", "color": "#f00", "points": [[0, 0], [10, 0]]},
             {"id": "b", "type": "run", "color": "#00f", "points": [[90, 90], [100, 90]]}]},
@@ -58,6 +63,11 @@ class PyembroideryCrossCheck(unittest.TestCase):
                           f"\n  their cmds around: {[(x, y, cmd) for x, y, cmd in theirs.stitches[max(0, 3):10]]}")
             their_cc = sum(1 for _, _, cmd in theirs.stitches if (cmd & pyembroidery.COMMAND_MASK) == pyembroidery.COLOR_CHANGE)
             self.assertEqual(their_cc, st["color_changes"], name)
+            # informational: how pyembroidery interprets our trims (consecutive zero-move jumps); DST has no trim opcode, so this is
+            # convention, not a pass/fail. Read it in the CI log when tuning "Trim jumps" for a real machine.
+            their_trim = sum(1 for _, _, cmd in theirs.stitches if (cmd & pyembroidery.COMMAND_MASK) == pyembroidery.TRIM)
+            their_jump = sum(1 for _, _, cmd in theirs.stitches if (cmd & pyembroidery.COMMAND_MASK) == pyembroidery.JUMP)
+            print(f"[crosscheck] {name}: our trims={st['trims']} locks={st['lock_stitches']} | pyembroidery reads TRIM={their_trim} JUMP={their_jump}")
             # informational only: where the two libraries put the origin (not asserted - DST has no absolute origin)
             print(f"[crosscheck] {name}: ok; first stitch ours={our_xy[0]} theirs={their_xy[0]}")
 

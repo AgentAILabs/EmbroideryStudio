@@ -31,6 +31,16 @@ await step('convert rect fill -> column (auto rails)',async()=>{const idx=await 
 await step('size / rotate / flip on selection',async()=>{await pg.click('#objs li:nth-child(2)');await wait(200);await pg.fill('#szW','20');await pg.dispatchEvent('#szW','change');await wait(200);await pg.fill('#rotDeg','30');await pg.click('[data-op=rot]');await pg.click('[data-op=fh]');await wait(300);return 'ok'});
 await step('undo x2 / redo x1',async()=>{const n0=(await S()).n;await pg.keyboard.press('Control+z');await pg.keyboard.press('Control+z');await wait(300);await pg.keyboard.press('Control+y');await wait(300);return 'ok'});
 await step('no blocking errors in checks',async()=>{await wait(800);const s=await S();if(s.iss>0)throw new Error(s.iss+' error issues: '+(await pg.evaluate(()=>__ES.gen.issues.filter(i=>i.severity==='error').map(i=>i.message).join(' | ').slice(0,160))));return s.st+' stitches'});
+await step('machine panel: lock stitches + trim flags change the output',async()=>{
+  await pg.click('[data-view=design]');await pg.evaluate(()=>document.activeElement&&document.activeElement.blur());
+  const stats=()=>pg.evaluate(()=>({l:__ES.gen.stats.lock_stitches,t:__ES.gen.stats.trims,st:__ES.gen.stats.stitches}));
+  const on=await stats();if(!(on.l>0))throw new Error('default should add lock stitches, got '+on.l);
+  await pg.fill('#mLock','0');await pg.dispatchEvent('#mLock','change');await pg.uncheck('#mTC');await pg.uncheck('#mTE');await wait(900);
+  const off=await stats();if(off.l!==0)throw new Error('locks should be 0 when off, got '+off.l);if(!(off.t<on.t))throw new Error('trims should drop: '+on.t+' -> '+off.t);
+  if(off.st>=on.st)throw new Error('stitch count should drop without locks');
+  await pg.fill('#mLock','0.6');await pg.dispatchEvent('#mLock','change');await pg.check('#mTC');await pg.check('#mTE');await wait(900);
+  const back=await stats();if(back.l!==on.l||back.t!==on.t)throw new Error('restoring settings should restore output');
+  return 'locks '+on.l+' -> 0 -> '+back.l+', trims '+on.t+' -> '+off.t+' -> '+back.t});
 await step('simulation play/step/scrub + jumps toggle',async()=>{await pg.click('[data-view=stitch]');await pg.click('#sReset');await pg.click('#sStep');await pg.click('#sPlay');await wait(500);await pg.click('#sPlay');await pg.fill('#sPos','100');await pg.dispatchEvent('#sPos','input');await pg.uncheck('#sJumps');await wait(150);await pg.check('#sJumps');return await pg.evaluate(()=>__ES.sim.i)});
 let dstPath=SP+'/e2e.dst';
 await step('export DST (valid, round trip)',async()=>{const [d]=await Promise.all([pg.waitForEvent('download'),pg.click('#bExport')]);await d.saveAs(dstPath);const sz=fs.statSync(dstPath).size;if(sz<600)throw new Error('tiny '+sz);return d.suggestedFilename()+' '+sz+'B'});

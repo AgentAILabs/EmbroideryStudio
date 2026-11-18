@@ -120,3 +120,26 @@ def inset_ring(ring: Sequence[Point], d: float, miter_limit: float = 2.5):
     if not all(point_in_ring(q, P) for q in out):
         return None
     return out
+
+
+def rotate_closed(path: Sequence[Point], frac: float) -> List[Point]:
+    """A closed path (first point repeated at the end) re-started at `frac` (0..1) of its perimeter. Same outline, new
+    start/end point - used to stagger the thread cuts of layered passes so their lock stitches do not pile up."""
+    pts = [tuple(p) for p in path]
+    if len(pts) < 3 or dist(pts[0], pts[-1]) > 1e-9:
+        return pts
+    total = polyline_length(pts)
+    frac = frac % 1.0
+    if total < 1e-9 or frac < 1e-9:
+        return pts
+    target, acc = total * frac, 0.0
+    for i in range(len(pts) - 1):
+        seg = dist(pts[i], pts[i + 1])
+        if acc + seg >= target:
+            t = (target - acc) / seg if seg > 1e-12 else 0.0
+            cut = (pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t)
+            body = pts[:-1]                                   # distinct points of the ring
+            new = [cut] + body[i + 1:] + body[:i + 1] + [cut]
+            return [q for k, q in enumerate(new) if k == 0 or dist(q, new[k - 1]) > 1e-9]
+        acc += seg
+    return pts
