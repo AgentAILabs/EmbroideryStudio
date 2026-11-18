@@ -78,6 +78,13 @@ def designs():
         {"id": "f2", "type": "run", "color": BLACK, "closed": True, "points": rect(-15, -15, 30, 30)}])
     # 10. appliqué (placement -> tack-down -> cover; tests the stop + trim workflow)
     out["10_applique"] = D("10_applique", [{"id": "a1", "type": "applique", "color": GREEN, "rings": [rect(-18, -18, 36, 36)], "params": {"width": 2.5}}])
+    # 11. fill patterns side by side: same 22 mm circle as tatami / contour / cross-stitch (compare density + texture)
+    import math
+    def circ(cx, r=11, n=48): return [[cx + r * math.cos(k * 2 * math.pi / n), r * math.sin(k * 2 * math.pi / n)] for k in range(n)]
+    out["11_fill_patterns"] = D("11_fill_patterns", [
+        {"id": "p1", "type": "fill", "color": RED, "rings": [circ(-26)], "params": {"pattern": "tatami"}},
+        {"id": "p2", "type": "fill", "color": BLUE, "rings": [circ(0)], "params": {"pattern": "contour"}},
+        {"id": "p3", "type": "fill", "color": GREEN, "rings": [circ(26)], "params": {"pattern": "cross", "cross_size": 2.0}}])
     return out
 
 

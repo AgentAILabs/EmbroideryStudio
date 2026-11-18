@@ -248,11 +248,11 @@ class TestPackTests(unittest.TestCase):
         mk = importlib.util.module_from_spec(spec); spec.loader.exec_module(mk)
         with tempfile.TemporaryDirectory() as t:
             rows, problems = mk.build(Path(t))
-            self.assertEqual(problems, []); self.assertEqual(len(rows), 10)
+            self.assertEqual(problems, []); self.assertEqual(len(rows), 11)
             for r in rows:
                 self.assertTrue(read_dst((Path(t) / r["file"]).read_bytes()).ends_properly)
                 self.assertTrue((Path(t) / (r["design"] + ".esproj")).exists())
-            with open(Path(t) / "RESULTS.csv", encoding="utf-8") as fh: self.assertEqual(len(list(csv.DictReader(fh))), 10)
+            with open(Path(t) / "RESULTS.csv", encoding="utf-8") as fh: self.assertEqual(len(list(csv.DictReader(fh))), 11)
             self.assertIn("Thread breaks", (Path(t) / "RESULTS.html").read_text())
 
 
@@ -719,3 +719,34 @@ class DocsConsistencyTests(unittest.TestCase):
     def test_documented_shortcuts_are_bound(self):
         js = (self.ROOT / "web" / "app.js").read_text(encoding="utf-8")
         for key in ('v: "select"', 'f: "fill"', 's: "satin"', 'c: "column"', 'r: "run"', 't: "text"', 'a: "applique"', 'e: "bead"'): self.assertIn(key, js, key)
+
+
+class RevisitedColourTests(unittest.TestCase):
+    """Regression: red -> blue -> red used to be rejected ('2 colour changes but only 2 threads'), blocking export."""
+    def three(self):
+        sq = lambda x: [[x, 0], [x + 10, 0], [x + 10, 10], [x, 10]]
+        return doc({"id": "a", "type": "fill", "color": "#ff0000", "rings": [sq(0)]}, {"id": "b", "type": "fill", "color": "#0000ff", "rings": [sq(20)]},
+                   {"id": "c", "type": "fill", "color": "#ff0000", "rings": [sq(40)]})
+    def test_returning_to_an_earlier_colour_is_valid_and_exports(self):
+        d = self.three(); p, _, st = generate(d)
+        self.assertEqual(len(p.threads), 2); self.assertEqual(st["color_changes"], 2)
+        self.assertTrue(run_checks(d, p).ok, [i.message for i in run_checks(d, p).errors])
+        res, err = server.api_dst(d); self.assertIsNone(err)
+        back = read_dst(res.data); self.assertTrue(back.ends_properly); self.assertEqual(back.color_changes, 2)
+        self.assertEqual([s["hex"] for s in st["color_sequence"]], ["#ff0000", "#0000ff", "#ff0000"])     # sheet shows the real order incl. the repeat
+        self.assertIsNotNone(server.sheet.package(d)[0])
+    def test_appliqué_whose_cover_matches_an_earlier_colour_exports(self):
+        d = doc({"id": "a", "type": "fill", "color": "#c8102e", "rings": [SQ]},
+                {"id": "b", "type": "applique", "color": "#c8102e", "rings": [[[40, 0], [60, 0], [60, 20], [40, 20]]]})
+        self.assertTrue(run_checks(d, generate(d)[0]).ok); self.assertIsNone(server.api_dst(d)[1])
+    def test_real_sequence_errors_are_still_caught(self):
+        from stitchcraft_engine.model import Pattern, Stitch, ThreadColor, Cmd
+        from stitchcraft_engine.validate import validate
+        same = Pattern("t", [Stitch(0, 0, Cmd.JUMP, 0), Stitch(0, 0, Cmd.STITCH, 0), Stitch(5, 0, Cmd.STITCH, 0), Stitch(5, 0, Cmd.COLOR_CHANGE, 0),
+                             Stitch(9, 0, Cmd.STITCH, 0), Stitch(9, 0, Cmd.END, 0)], [ThreadColor("a", "#000")])
+        self.assertIn("COLOR_SEQ", {i.code for i in validate(same).errors})                 # a 'change' to the same thread
+        bad = Pattern("t", [Stitch(0, 0, Cmd.STITCH, 3), Stitch(5, 0, Cmd.STITCH, 3), Stitch(5, 0, Cmd.END, 3)], [ThreadColor("a", "#000")])
+        self.assertIn("THREAD_INDEX", {i.code for i in validate(bad).errors})               # dangling thread reference
+        two = Pattern("t", [Stitch(0, 0, Cmd.STITCH, 0), Stitch(5, 0, Cmd.STITCH, 0), Stitch(5, 0, Cmd.COLOR_CHANGE, 1), Stitch(9, 0, Cmd.STITCH, 1),
+                            Stitch(9, 0, Cmd.END, 1)], [ThreadColor("a", "#000"), ThreadColor("b", "#fff")])
+        self.assertTrue(validate(two).ok)

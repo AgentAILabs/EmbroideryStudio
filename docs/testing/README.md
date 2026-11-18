@@ -12,6 +12,7 @@ Generate (or use the committed `testpack/`): `python3 tools/make_testpack.py`
 | 08 | satin widths 1/2/3/4/6 mm | Narrow-satin breaks, pull compensation, **auto-split** on 6 mm |
 | 09 | 30×30 mm fill | Density, underlay, pull comp, puckering |
 | 10 | appliqué | Placement → tack-down → cover; stop and trim workflow |
+| 11 | fill patterns | Same circle as tatami / contour / cross-stitch: density, texture, thread breaks on short stitches |
 
 ## Procedure
 1. Same fabric + stabiliser + needle + thread + speed for the whole run (record them on `RESULTS.html`).

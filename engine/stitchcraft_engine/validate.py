@@ -38,9 +38,17 @@ def validate(p: Pattern, hoop_w: float = 100, hoop_h: float = 100, margin: float
         add("NO_END", "error", "Design does not end with an END command")
     if sum(1 for s in S if s.cmd == Cmd.END) > 1:
         add("MULTI_END", "error", "More than one END command")
-    cc = sum(1 for s in S if s.cmd == Cmd.COLOR_CHANGE)
-    if p.threads and cc > len(p.threads) - 1:
-        add("COLOR_SEQ", "error", f"{cc} colour changes but only {len(p.threads)} threads defined")
+    # A design may legitimately return to an earlier thread colour (red -> blue -> red), so the number of colour changes
+    # is NOT bounded by the number of distinct threads. The real invariants: thread indices exist, and a colour change
+    # actually changes the thread.
+    cur = S[0].thread if S else 0
+    for i, st in enumerate(S):
+        if p.threads and not 0 <= st.thread < len(p.threads):
+            add("THREAD_INDEX", "error", f"Stitch references thread {st.thread} but only {len(p.threads)} threads are defined", i); break
+        if st.cmd == Cmd.COLOR_CHANGE:
+            if st.thread == cur and i > 0:
+                add("COLOR_SEQ", "error", "A colour change switches to the thread that is already in use", i)
+            cur = st.thread
     for i in range(1, len(S)):
         if S[i].cmd == Cmd.COLOR_CHANGE and S[i - 1].cmd == Cmd.COLOR_CHANGE:
             add("DOUBLE_COLOR", "error", "Two colour changes in a row", i)

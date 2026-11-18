@@ -36,16 +36,14 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 | Exports | DST, project, preview **SVG + PNG**, production sheet, saved **versions** (browser) |
 | Workflow | Undo/redo, autosave, Beginner / Pro modes, keyboard shortcuts (V F S R T A, Ctrl+Z/Y/S/D, arrows, P, 0) |
 
-## Not done yet (honest)
-- Not machine-tested: stitch `samples` on a test fabric before production (matrix in `docs/requirements-finalized.md` §F).
-- Lettering is a simple stroke font, no TrueType fonts, no Telugu/Hindi yet.
-- PDF import is not supported (export as SVG). Only DST export (PES/JEF/EXP planned; pyembroidery cross-check needs network).
-- Edge-inset underlay is a pure-Python miter inset: it falls back (with a note) on shapes too small or complex. No skeleton satin-from-outline; curves are Catmull-Rom smoothing, not Bezier nodes.
-- No accounts / cloud; projects are local files + browser autosave.
-See `docs/roadmap.md`.
+## Not done yet (honest; full table in `docs/status.md`)
+- **Never stitched on a machine** – run the test pack first (`docs/testing/`). Fabric presets, trim-jump default and time estimate are unverified.
+- DST export only (PES/JEF/EXP need a reference to validate against); PDF import not supported (export as SVG).
+- No Bezier node handles, TrueType / Telugu / Hindi lettering, thread brand charts, accounts/cloud, desktop shell.
+- Dockerfile/compose are written and statically tested but **not built** (no Docker daemon was available); the pyembroidery cross-check runs in CI only.
 
 ## Stitch-out test pack
-`python3 tools/make_testpack.py` writes 10 ready-to-stitch designs (flower, lettering 5/8/12 mm, logo, border, 4-colour, satin widths, 30x30 fill, appliqué) to `testpack/` with a printable results sheet. Procedure: `docs/testing/README.md`.
+`python3 tools/make_testpack.py` writes 11 ready-to-stitch designs (flower, lettering 5/8/12 mm, logo, border, 4-colour, satin widths, 30x30 fill, appliqué, fill patterns) to `testpack/` with a printable results sheet. Procedure: `docs/testing/README.md`.
 
 ## Tests
-`python3 -m unittest discover -s engine/tests` (27) and `python3 -m unittest discover -s tests` (26: engine features, HTTP round trips, safety limits, performance). CI runs both on every push.
+`python3 -m unittest discover -s engine/tests` (27) and `python3 -m unittest discover -s tests` (94: engine features, HTTP round trips, geometry quality, safety limits, performance, docs/front-end guards). CI runs both on every push. `tools/e2e_ui.js` drives the whole UI in a browser (needs Playwright; run it before releases).
