@@ -360,18 +360,18 @@ function saveVersion() { const name = prompt("Version name:", "v" + (versions().
 function renderVersions() { const el = $("#vers"); if (!el) return; const all = versions(), v = all.filter(x => x.doc && x.doc.name === S.doc.name);
   el.innerHTML = v.map(x => `<li class="note">${esc(x.name)} · ${new Date(x.time).toLocaleString()} <button data-vi="${all.indexOf(x)}" style="padding:0 6px">Restore</button></li>`).join("") || `<li class="note">No saved versions for this design name.</li>`;
   el.onclick = e => { const i = e.target.dataset.vi; if (i === undefined) return; const x = versions()[+i]; if (x && confirm("Restore version “" + x.name + "”? (Undo returns to the current state.)")) { S.doc = JSON.parse(JSON.stringify(x.doc)); fixSel(); commit(); renderAll(); fit(); } }; }
-function productionSheet() {
-  if (!S.gen || !S.gen.stats) { alert("Nothing to report yet."); return; }
-  const st = S.gen.stats, h = S.doc.hoop, img = renderPreview(600).toDataURL("image/png");
-  const rows = st.color_sequence.map((s, i) => `<tr><td>${i + 1}</td><td><span style="display:inline-block;width:16px;height:16px;background:${s.hex};border:1px solid #000"></span> ${s.hex}</td><td>${s.stitches}</td></tr>`).join("");
-  const emb = S.doc.objects.filter(o => o.type === "applique").length;
-  const html = `<!doctype html><title>Production sheet – ${esc(S.doc.name)}</title><style>body{font:14px system-ui;margin:24px;max-width:820px}table{border-collapse:collapse}td,th{border:1px solid #999;padding:4px 10px;text-align:left}h1{margin:0}.m{color:#555}</style>
-<h1>${esc(S.doc.name)}</h1><p class="m">EmbroideryStudio production sheet · ${new Date().toLocaleString()}</p><img src="${img}" width="420" style="float:right;border:1px solid #ccc">
-<p><b>Design size:</b> ${st.width_mm} × ${st.height_mm} mm<br><b>Hoop:</b> ${h.w} × ${h.h} mm (margin ${h.margin} mm)<br><b>Fabric preset:</b> ${S.doc.fabric} (unverified starting values) · <b>Stabiliser:</b> ${S.doc.stabiliser || "cut-away"}<br><b>Stitches:</b> ${st.stitches}<br><b>Colour changes:</b> ${st.color_changes} · <b>Trims:</b> ${st.trims} · <b>Jumps:</b> ${st.jumps}<br><b>Estimated run time:</b> ~${st.est_minutes} min at ${st.assumed_spm} spm (assumed)</p>
-<h3>Colour order</h3><table><tr><th>#</th><th>Thread</th><th>Stitches</th></tr>${rows}</table>
-${emb ? `<p><b>Appliqué:</b> ${emb} patch(es). At the placement→tack-down colour change, place fabric; trim after tack-down.</p>` : ""}
-<div style="clear:both"></div><p class="m">Not machine-tested. Stitch a sample on matching fabric and stabiliser before production use.</p>`;
-  const w = window.open("", "_blank"); if (w) { w.document.write(html); w.document.close(); } else alert("Allow pop-ups to view the production sheet.");
+async function productionSheet() {
+  if (!S.doc.objects.length) { alert("Nothing to report yet."); return; }
+  const w = window.open("", "_blank"); if (!w) { alert("Allow pop-ups to view the production sheet."); return; }
+  w.document.write("<p style='font:14px sans-serif'>Building production sheet…</p>");
+  try { const r = await fetch("/api/export/sheet", {method: "POST", body: JSON.stringify(S.doc)}); if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+    const html = await r.text(); w.document.open(); w.document.write(html); w.document.close();
+  } catch (e) { w.close(); alert("Could not build the production sheet: " + e.message); }
+}
+async function exportPackage() {
+  const r = await fetch("/api/export/package", {method: "POST", body: JSON.stringify(S.doc)});
+  if (!r.ok) { const j = await r.json().catch(() => ({})); alert("Package blocked:\n" + ((j.issues || []).filter(i => i.severity === "error").map(i => "• " + i.message).join("\n") || j.error || r.statusText)); return; }
+  download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + "-package.zip", await r.arrayBuffer(), "application/zip");
 }
 async function exportSvg() { if (!S.doc.objects.length) return; const r = await fetch("/api/export/svg", {method: "POST", body: JSON.stringify(S.doc)}); if (!r.ok) { alert("Preview failed"); return; } download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + ".preview.svg", await r.text(), "image/svg+xml"); }
 async function viewDst(file) {
@@ -510,7 +510,7 @@ function setView(v) { S.vmode = v; document.querySelectorAll("#viewSeg button").
 document.querySelectorAll("#tools [data-tool]").forEach(b => b.onclick = () => setTool(b.dataset.tool));
 document.querySelectorAll("#viewSeg button").forEach(b => b.onclick = () => setView(b.dataset.view));
 document.querySelectorAll("#modeSeg button").forEach(b => b.onclick = () => { S.mode = b.dataset.mode; document.querySelectorAll("#modeSeg button").forEach(x => x.classList.toggle("on", x === b)); renderProps(); });
-$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => $("#fileDst").click(); $("#fileDst").onchange = e => { const f = e.target.files[0]; if (f) viewDst(f); e.target.value = ""; };
+$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => $("#fileDst").click(); $("#fileDst").onchange = e => { const f = e.target.files[0]; if (f) viewDst(f); e.target.value = ""; };
 $("#bNew").onclick = () => { if (!S.doc.objects.length || confirm("Discard the current design?")) loadDoc(newDoc()); };
 $("#bOpen").onclick = () => $("#fileOpen").click(); $("#bImport").onclick = () => $("#fileImport").click();
 $("#fileOpen").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); if (!j.doc || !Array.isArray(j.doc.objects)) throw new Error("not an EmbroideryStudio project"); loadDoc(j.doc); } catch (err) { alert("Could not open: " + err.message); } e.target.value = ""; };

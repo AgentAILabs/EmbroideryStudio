@@ -1,6 +1,8 @@
 """EmbroideryStudio API + static host (stdlib only).  python3 server/app.py [port]
 POST /api/generate        design JSON -> stitches, stats, issues
 POST /api/export/dst      design JSON -> .dst  (blocked on validation errors)
+POST /api/export/package  design JSON -> zip (dst, project, preview, sheet, manifest)
+POST /api/export/sheet    design JSON -> production sheet HTML
 POST /api/export/svg      design JSON -> preview SVG
 POST /api/import/dst      {data(base64)} -> stitches (view only)
 POST /api/import/svg      {svg, width_mm?} -> objects
@@ -17,6 +19,7 @@ from stitchcraft_engine.dst import write_dst, read_dst                          
 from stitchcraft_engine.model import Cmd                                        # noqa: E402
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
 from stitchcraft_engine.raster import digitize_raster, RasterUnavailable        # noqa: E402
+import sheet                                                                   # noqa: E402
 
 WEB = ROOT / "web"
 MAX_BODY = 25 * 1024 * 1024
@@ -166,9 +169,19 @@ class H(BaseHTTPRequestHandler):
                 res, err = api_dst(d)
                 if err:
                     return self._send(422, err)
-                name = "".join(c for c in d.get("name", "design") if c.isalnum() or c in "-_") or "design"
+                name = sheet._safe(d.get("name"))
                 return self._send(200, res.data, "application/octet-stream",
                                   {"Content-Disposition": f'attachment; filename="{name}.dst"', "X-SHA256": res.sha256})
+            if path == "/api/export/package":
+                check_design(d)
+                data, err = sheet.package(d)
+                if err:
+                    return self._send(422, err)
+                return self._send(200, data, "application/zip",
+                                  {"Content-Disposition": f'attachment; filename="{sheet._safe(d.get("name"))}-package.zip"'})
+            if path == "/api/export/sheet":
+                check_design(d)
+                return self._send(200, sheet.sheet_html(d).encode(), "text/html; charset=utf-8")
             if path == "/api/export/svg":
                 return self._send(200, api_preview_svg(d), "image/svg+xml",
                                   {"Content-Disposition": 'attachment; filename="preview.svg"'})

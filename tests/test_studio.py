@@ -334,3 +334,55 @@ class Step2Tests(unittest.TestCase):
     def test_stabiliser_in_stats(self):
         d = doc({"id": "f", "type": "fill", "color": "#f00", "rings": [SQ]}); d["stabiliser"] = "tear-away"
         self.assertEqual(generate(d)[2]["stabiliser"], "tear-away")
+
+
+class PackageTests(unittest.TestCase):
+    D = lambda self: doc({"id": "a", "type": "fill", "color": "#c8102e", "rings": [SQ]},
+                         {"id": "b", "type": "applique", "color": "#2e9e44", "rings": [[[40, 0], [60, 0], [60, 20], [40, 20]]]})
+    def test_package_contents_and_dst_matches_direct_export(self):
+        import zipfile
+        d = self.D(); d["name"] = "My Design 1"; d["stabiliser"] = "tear-away"
+        data, err = server.sheet.package(d); self.assertIsNone(err)
+        z = zipfile.ZipFile(io.BytesIO(data)); names = z.namelist()
+        for ext in (".dst", ".esproj", ".preview.svg", ".production-sheet.html", ".stitchcraft.json"):
+            self.assertTrue(any(n.endswith(ext) for n in names), ext)
+        self.assertIn("My_Design_1.dst", names); self.assertIn("MANIFEST.txt", names)
+        self.assertEqual(z.read("My_Design_1.dst"), server.api_dst(d)[0].data)            # same bytes as the single export
+        self.assertIn(server.api_dst(d)[0].sha256, z.read("MANIFEST.txt").decode())
+        self.assertIn("NOT machine-tested", z.read("MANIFEST.txt").decode())
+        proj = json.loads(z.read("My_Design_1.esproj")); self.assertEqual(proj["doc"]["name"], "My Design 1")
+    def test_sheet_contents_and_escaping(self):
+        d = self.D(); d["name"] = "<script>alert(1)</script>"; d["stabiliser"] = "wash-away"
+        h = server.sheet.sheet_html(d)
+        self.assertNotIn("<script>alert", h); self.assertIn("&lt;script&gt;", h)
+        for token in ("Colour order", "wash-away", "Appliqué", "NOT machine-tested", "trim jumps", "<svg"): self.assertIn(token, h)
+    def test_package_blocked_on_errors(self):
+        data, err = server.sheet.package(doc({"id": "a", "type": "fill", "color": "#f00", "rings": [[[0, 0], [300, 0], [300, 10], [0, 10]]]}))
+        self.assertIsNone(data); self.assertEqual(err["error"], "Export blocked")
+    def test_package_over_http(self):
+        import threading, urllib.request, zipfile
+        from http.server import ThreadingHTTPServer
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), server.H); threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            r = urllib.request.Request(f"http://127.0.0.1:{srv.server_address[1]}/api/export/package", data=json.dumps(self.D()).encode(), method="POST")
+            with urllib.request.urlopen(r) as resp:
+                self.assertEqual(resp.headers["Content-Type"], "application/zip"); self.assertIn("-package.zip", resp.headers["Content-Disposition"])
+                self.assertIn("MANIFEST.txt", zipfile.ZipFile(io.BytesIO(resp.read())).namelist())
+            r = urllib.request.Request(f"http://127.0.0.1:{srv.server_address[1]}/api/export/sheet", data=json.dumps(self.D()).encode(), method="POST")
+            with urllib.request.urlopen(r) as resp: self.assertTrue(resp.read().startswith(b"<!doctype html>"))
+        finally: srv.shutdown(); srv.server_close()
+
+
+class FrontEndStaticTests(unittest.TestCase):
+    """Cheap guard (no browser): every handler wired in app.js is defined, and every element id it uses exists in index.html."""
+    def test_handlers_defined_and_ids_exist(self):
+        import re
+        web = Path(__file__).resolve().parent.parent / "web"
+        js, page = (web / "app.js").read_text(encoding="utf-8"), (web / "index.html").read_text(encoding="utf-8")
+        defs = set(re.findall(r"function\s+(\w+)", js)) | set(re.findall(r"(?:const|let|var)\s+(\w+)\s*=", js))
+        used = set(re.findall(r"\.on(?:click|change|input)\s*=\s*(\w+)\s*[;,)]", js))
+        self.assertEqual(sorted(u for u in used if u not in defs), [])
+        static_ids = set(re.findall(r'id="(\w+)"', page))
+        dynamic_ids = set(re.findall(r'id="(\w+)"', js))                      # panels built from template strings
+        wired = set(re.findall(r'\$\("#(\w+)"\)\.on', js))
+        self.assertEqual(sorted(i for i in wired if i not in static_ids | dynamic_ids), [])
