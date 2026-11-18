@@ -113,6 +113,14 @@ class PyembroideryExpCrossCheck(unittest.TestCase):
                 f = Path(t) / "x.exp"; f.write_bytes(data); theirs = pyembroidery.read(str(f))
             self.assertIsNotNone(theirs, name)
             C = pyembroidery.COMMAND_MASK
+            from collections import Counter
+            names = {getattr(pyembroidery, n): n for n in ("STITCH", "JUMP", "TRIM", "COLOR_CHANGE", "STOP", "END", "NEEDLE_SET") if hasattr(pyembroidery, n)}
+            tc = Counter(names.get(cmd & C, hex(cmd & C)) for _, _, cmd in theirs.stitches)
+            first = next((i for i, (_, _, cmd) in enumerate(theirs.stitches) if (cmd & C) not in (pyembroidery.STITCH,)), None)
+            print(f"[crosscheck-exp] {name}: wrote {len(data)} bytes; ours stitches={st['stitches']} jumps={st['jumps']} trims={st['trims']} colour={st['color_changes']} | theirs {dict(tc)}")
+            if first is not None:
+                print(f"[crosscheck-exp]   theirs around first non-stitch: {[(int(x), int(y), names.get(cmd & C, hex(cmd & C))) for x, y, cmd in theirs.stitches[max(0, first - 2):first + 4]]}")
+                print(f"[crosscheck-exp]   our bytes at the start: {data[:12].hex(' ')}")
             their_xy = [(int(x), int(y)) for x, y, cmd in theirs.stitches if (cmd & C) == pyembroidery.STITCH]
             self.assertEqual(len(their_xy), st["stitches"], f"{name}: stitch count {len(their_xy)} vs {st['stitches']}")
             ours = [(s.x, s.y) for s in pat.stitches if s.cmd.value == "stitch"]
