@@ -7,11 +7,13 @@ POST /api/export/svg      design JSON -> preview SVG
 POST /api/import/dst      {data(base64)} -> stitches (view only)
 POST /api/import/svg      {svg, width_mm?} -> objects
 POST /api/import/raster   {data(base64), width_mm, colors} -> objects
+GET  /api/library         library index (designs/library/index.json)
+GET  /api/library/<id>/thumb.svg | dst | esproj   only ids listed in the index
 GET  /api/templates       template catalogue
 POST /api/tools/column-from-outline  {ring} -> {rail1, rail2, ...} or 400 with the reason
 POST /api/template        {id, params, color} -> objects
 GET  /api/health"""
-import base64, json, os, sys, hashlib
+import base64, json, os, re, sys, hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -27,6 +29,8 @@ from stitchcraft_engine.outline import column_from_outline                      
 import sheet                                                                   # noqa: E402
 
 WEB = ROOT / "web"
+LIB = ROOT / "designs" / "library"
+LIB_FILES = {"thumb.svg": ("thumb.svg", "image/svg+xml"), "dst": ("dst", "application/octet-stream"), "esproj": ("esproj", "application/json")}
 MAX_BODY = 25 * 1024 * 1024
 MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json"}
 
@@ -60,6 +64,25 @@ def check_design(d):
 def _only_unstitched(d):
     objs = [o for o in d.get("objects", []) if not o.get("hidden")]
     return bool(objs) and all(o.get("guide") or o.get("type") == "embellishment" for o in objs)
+
+
+def library_index():
+    """The library index, or an empty list when the folder is missing/corrupt (the panel then just shows 'no designs')."""
+    try:
+        data = json.loads((LIB / "index.json").read_text(encoding="utf-8"))
+        return [e for e in data.get("designs", []) if isinstance(e, dict) and isinstance(e.get("id"), str) and re.fullmatch(r"[a-z0-9_]+", e["id"])]
+    except (OSError, ValueError):
+        return []
+
+
+def library_file(design_id, kind):
+    """(path, content_type) for a library file, only for ids listed in the index and the three known file kinds. Never builds
+    a path from anything the client sent except an id that already exists in the index."""
+    if kind not in LIB_FILES or design_id not in {e["id"] for e in library_index()}:
+        return None
+    ext, ctype = LIB_FILES[kind]
+    f = LIB / design_id / f"{design_id}.{ext}"
+    return (f, ctype) if f.is_file() else None
 
 
 def api_generate(d):
@@ -162,6 +185,17 @@ class H(BaseHTTPRequestHandler):
         if path == "/api/font":
             from stitchcraft_engine.font import GLYPHS, GLYPH_W, GLYPH_H, GAP
             return self._send(200, {"glyphs": GLYPHS, "w": GLYPH_W, "h": GLYPH_H, "gap": GAP})
+        if path == "/api/library":
+            return self._send(200, {"designs": library_index()})
+        m = re.fullmatch(r"/api/library/([a-z0-9_]+)/(thumb\.svg|dst|esproj)", path)
+        if m:
+            hit = library_file(m.group(1), m.group(2))
+            if not hit:
+                return self._send(404, {"error": "not found"})
+            f, ctype = hit
+            data = f.read_bytes()
+            extra = {"Content-Disposition": f'attachment; filename="{m.group(1)}.dst"', "X-SHA256": hashlib.sha256(data).hexdigest()} if m.group(2) == "dst" else {}
+            return self._send(200, data, ctype, extra)
         if path == "/api/templates":
             return self._send(200, {"templates": templates.catalog()})
         if path == "/api/health":

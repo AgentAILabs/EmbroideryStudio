@@ -1340,3 +1340,61 @@ class LibraryTests(unittest.TestCase):
     def test_readme_states_originality_and_limits(self):
         t = (self.root / "designs" / "library" / "README.md").read_text()
         for phrase in ("drawn from scratch", "No photo, catalogue", "Nothing here has been stitched"): self.assertIn(phrase, t)
+
+
+class LibraryEndpointTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import threading
+        from http.server import ThreadingHTTPServer
+        cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), server.H); cls.port = cls.srv.server_address[1]
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+    @classmethod
+    def tearDownClass(cls): cls.srv.shutdown(); cls.srv.server_close()
+    def get(self, path):
+        import urllib.request, urllib.error
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{self.port}{path}") as r: return r.status, r.read(), r.headers
+        except urllib.error.HTTPError as e: return e.code, e.read(), e.headers
+    def test_index_and_files(self):
+        c, b, _ = self.get("/api/library"); self.assertEqual(c, 200)
+        designs = json.loads(b)["designs"]; self.assertGreaterEqual(len(designs), 12)
+        e = designs[0]
+        c, svg, h = self.get(f"/api/library/{e['id']}/thumb.svg"); self.assertEqual((c, h["Content-Type"]), (200, "image/svg+xml")); self.assertTrue(svg.startswith(b"<svg"))
+        c, dst, h = self.get(f"/api/library/{e['id']}/dst"); self.assertEqual(c, 200)
+        self.assertEqual(h["X-SHA256"], e["sha256"]); self.assertIn(f'filename="{e["id"]}.dst"', h["Content-Disposition"]); self.assertTrue(read_dst(dst).ends_properly)
+        c, pj, _ = self.get(f"/api/library/{e['id']}/esproj"); self.assertEqual(c, 200); self.assertEqual(json.loads(pj)["doc"]["name"], e["id"])
+    def test_every_listed_design_is_downloadable_and_valid(self):
+        for e in json.loads(self.get("/api/library")[1])["designs"]:
+            c, dst, h = self.get(f"/api/library/{e['id']}/dst"); self.assertEqual(c, 200, e["id"]); self.assertEqual(h["X-SHA256"], e["sha256"], e["id"])
+            self.assertEqual(self.get(f"/api/library/{e['id']}/thumb.svg")[0], 200); self.assertEqual(self.get(f"/api/library/{e['id']}/esproj")[0], 200)
+    def test_unknown_ids_kinds_and_traversal_are_all_404(self):
+        e = json.loads(self.get("/api/library")[1])["designs"][0]["id"]
+        for path in ("/api/library/nope/dst", f"/api/library/{e}/exe", f"/api/library/{e}/../../server/app.py", "/api/library/../server/app.py/dst",
+                     f"/api/library/%2e%2e/{e}/dst", f"/api/library/{e.upper()}/dst", "/api/library//dst", f"/api/library/{e}/dst/extra", f"/api/library/{e}\\..\\x/dst"):
+            self.assertEqual(self.get(path)[0], 404, path)
+    def test_an_id_not_in_the_index_is_refused_even_if_the_folder_exists(self):
+        import tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as t:
+            lib = Path(t); (lib / "ghost").mkdir(); (lib / "ghost" / "ghost.dst").write_bytes(b"x")
+            (lib / "index.json").write_text(json.dumps({"designs": [{"id": "real"}]})); (lib / "real").mkdir(); (lib / "real" / "real.dst").write_bytes(b"y")
+            with mock.patch.object(server, "LIB", lib):
+                self.assertEqual(self.get("/api/library/ghost/dst")[0], 404)         # exists on disk, not in the index
+                self.assertEqual(self.get("/api/library/real/dst")[0], 200)
+    def test_missing_or_corrupt_index_gives_an_empty_list_not_a_500(self):
+        import tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as t:
+            with mock.patch.object(server, "LIB", Path(t) / "none"):
+                c, b, _ = self.get("/api/library"); self.assertEqual((c, json.loads(b)), (200, {"designs": []}))
+            (Path(t) / "index.json").write_text("{not json")
+            with mock.patch.object(server, "LIB", Path(t)):
+                self.assertEqual(json.loads(self.get("/api/library")[1]), {"designs": []})
+    def test_index_entries_with_unsafe_ids_are_dropped(self):
+        import tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as t:
+            (Path(t) / "index.json").write_text(json.dumps({"designs": [{"id": "../etc"}, {"id": "ok_1"}, {"id": "A b"}, 5, {"id": 7}]}))
+            with mock.patch.object(server, "LIB", Path(t)):
+                self.assertEqual([e["id"] for e in json.loads(self.get("/api/library")[1])["designs"]], ["ok_1"])
