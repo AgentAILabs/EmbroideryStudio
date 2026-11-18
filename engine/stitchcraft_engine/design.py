@@ -14,7 +14,7 @@ from .builder import StitchObject, build_pattern
 from .font import layout_text
 from .geometry import polygon_area, smooth
 from .model import Cmd, Pattern, ThreadColor
-from .stitches import (DigitizingError, center_walk_underlay, edge_walk_underlay, running_stitch,
+from .stitches import (DigitizingError, satin_from_rails, center_walk_underlay, edge_walk_underlay, running_stitch,
                        satin_stitch, tatami_fill)
 from .validate import validate
 
@@ -22,6 +22,7 @@ DEFAULTS = {
     "fill": {"angle": 45.0, "spacing": 0.4, "stitch_len": 3.5, "underlay": True, "pull_comp": 0.2},
     "satin": {"width": 3.0, "spacing": 0.4, "underlay": "auto", "pull_comp": 0.2},
     "run": {"stitch_len": 2.5},
+    "column": {"spacing": 0.4, "underlay": "auto", "pull_comp": 0.2},
     "text": {"spacing": 1.0, "underlay": "auto", "pull_comp": 0.1},
     "applique": {"width": 2.5, "spacing": 0.4, "stitch_len": 2.5, "cover_color": None},
 }
@@ -52,6 +53,33 @@ def _satin_objs(oid, th, path, width, spacing, pull, underlay):
     elif underlay == "edge" and width > 1.0:
         under = [edge_walk_underlay(path, width)]
     return StitchObject(oid, "satin", th, [satin_stitch(path, width, spacing, pull)], under)
+
+
+def _column(oid, th, r1, r2, spacing, pull, underlay, notes):
+    """Two-rail satin: stitches zig-zag between the rails. Rails are resampled by arc length, so
+    unequal rail lengths simply stretch the stitch angle. pull_comp pushes each rail outwards."""
+    from .geometry import dist, polyline_length, resample_n
+    if len(r1) < 2 or len(r2) < 2:
+        raise DigitizingError("column needs two rails with at least 2 points each")
+    if dist(r1[0], r2[0]) + dist(r1[-1], r2[-1]) > dist(r1[0], r2[-1]) + dist(r1[-1], r2[0]):
+        r2 = r2[::-1]                       # rails drawn in opposite directions: flip the second
+        notes.append(f"{oid}: second rail direction reversed to match the first")
+    n = max(2, int(max(polyline_length(r1), polyline_length(r2)) / 0.5))
+    a, b = resample_n(r1, n), resample_n(r2, n)
+    width = sum(dist(p, q) for p, q in zip(a, b)) / len(a)
+    if width < 1.0:
+        notes.append(f"{oid}: column is very narrow ({width:.1f} mm)")
+    elif width > 7.0:
+        notes.append(f"{oid}: column averages {width:.1f} mm wide - loose satin, consider splitting")
+    if pull:
+        a, b = [(p[0] + (p[0] - q[0]) / max(dist(p, q), 1e-9) * pull / 2, p[1] + (p[1] - q[1]) / max(dist(p, q), 1e-9) * pull / 2) for p, q in zip(a, b)], \
+               [(q[0] + (q[0] - p[0]) / max(dist(p, q), 1e-9) * pull / 2, q[1] + (q[1] - p[1]) / max(dist(p, q), 1e-9) * pull / 2) for p, q in zip(a, b)]
+    mid = [((p[0] + q[0]) / 2, (p[1] + q[1]) / 2) for p, q in zip(a, b)]
+    if underlay == "auto":
+        underlay = "center" if width >= 2.0 else "none"
+    under = [center_walk_underlay(mid)] if underlay == "center" else \
+            [running_stitch(a, 2.5), running_stitch(b[::-1], 2.5)] if underlay == "edge" else []
+    return StitchObject(oid, "satin", th, [satin_from_rails(a, b, spacing)], under)
 
 
 def generate(design: dict, trim_distance: float = 3.0):
@@ -85,6 +113,9 @@ def generate(design: dict, trim_distance: float = 3.0):
             elif typ == "satin":
                 objs.append(_satin_objs(oid, th, _pts(ob["points"], ob, bool(ob.get("closed"))), _p(ob, "width"), _p(ob, "spacing"),
                                         _p(ob, "pull_comp") or 0.0, _p(ob, "underlay")))
+            elif typ == "column":
+                objs.append(_column(oid, th, _pts(ob["rail1"], ob), _pts(ob["rail2"], ob), _p(ob, "spacing"),
+                                    _p(ob, "pull_comp") or 0.0, _p(ob, "underlay"), notes))
             elif typ == "run":
                 pts = _pts(ob["points"], ob, bool(ob.get("closed")))
                 objs.append(StitchObject(oid, "running", th,

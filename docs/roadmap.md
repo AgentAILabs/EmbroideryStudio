@@ -3,7 +3,7 @@ Done (v0.3): see README table + smooth (Catmull-Rom) curve mode + sample project
 ## Next (highest value first)
 1. **Physical stitch-out** of the test matrix; tune fabric presets from results.
 2. Bezier/curve nodes + convert-to-curve; Shapely offsets for edge-inset underlay and true pull-comp.
-3. Satin-from-outline (skeleton rails) so any thick shape becomes a satin column; corner/split handling.
+3. Satin-from-outline (skeleton rails) so any thick shape becomes a satin column (manual two-rail Column tool is done); corner/split handling.
 4. More formats: PES, JEF, EXP (cross-check with pyembroidery/Ink-Stitch in CI).
 5. TrueType lettering to satin + Telugu/Devanagari research; arc/envelope text.
 6. Thread brand charts (Madeira, Isacord, Gunold) with licensed data; colour-sequence optimiser.

@@ -79,3 +79,21 @@ class ViewExportTests(unittest.TestCase):
         pat, _, st = generate(d)
         self.assertEqual(sum(1 for s in v["stitches"] if s[2] == 0), st["stitches"])
         self.assertTrue(server.api_preview_svg(d).startswith(b"<svg"))
+
+class ColumnTests(unittest.TestCase):
+    PETAL = {"id": "c", "type": "column", "color": "#f0a", "rail1": [[0, 0], [5, 10], [10, 20]], "rail2": [[6, 0], [8, 10], [10, 20]]}
+    def test_column_stays_between_rails_and_is_valid(self):
+        d = doc(dict(self.PETAL, params={"pull_comp": 0, "underlay": "none"}))
+        p, notes, st = generate(d)
+        self.assertTrue(run_checks(d, p).ok); self.assertGreater(st["stitches"], 40)
+        bb = p.bbox(); self.assertGreaterEqual(bb[0], -1e-6); self.assertLessEqual(bb[2], 10.0001)
+    def test_opposite_rail_direction_is_corrected(self):
+        c = dict(self.PETAL, rail2=list(reversed(self.PETAL["rail2"])), params={"pull_comp": 0, "underlay": "none"})
+        a = generate(doc(c))
+        self.assertTrue(any("reversed" in n for n in a[1]))
+        ref = generate(doc(dict(self.PETAL, params={"pull_comp": 0, "underlay": "none"})))
+        self.assertEqual(a[0].counts(), ref[0].counts())
+        self.assertTrue(run_checks(doc(c), a[0]).ok)
+    def test_bad_column_is_skipped(self):
+        _, notes, _ = generate(doc(dict(self.PETAL, rail2=[[1, 1]]), {"id": "a", "type": "fill", "color": "#f00", "rings": [SQ]}))
+        self.assertTrue(any("skipped" in n for n in notes))

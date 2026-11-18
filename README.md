@@ -11,7 +11,7 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 ## Features (working today)
 | Area | What you get |
 |---|---|
-| Manual digitizing | Fill (tatami), Satin column, Running stitch, Rectangle, Ellipse, Lettering, Appliqué tools; vertex editing, move, nudge, snap-to-grid |
+| Manual digitizing | Fill (tatami), Satin column, **two-rail Column** (petals, leaves, tapers), Running stitch, Rectangle, Ellipse, Lettering, Appliqué tools; vertex editing, move, nudge, snap-to-grid |
 | Auto digitizing | SVG import (fills → tatami, strokes → satin/run); flat-colour PNG/JPG import (quantise → trace → fills) |
 | Lettering | Built-in single-line satin font (A–Z, 0–9, `- . !`), height / spacing / stroke width |
 | Appliqué | Placement line → tack-down → satin cover, with fabric-placement stop note |

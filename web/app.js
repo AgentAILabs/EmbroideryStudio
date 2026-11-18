@@ -5,8 +5,8 @@ const $ = (s, r = document) => r.querySelector(s);
 const PALETTE = ["#000000","#ffffff","#7f7f7f","#c8102e","#e4572e","#f28c28","#ffc72c","#f6e27a","#9bd13b","#2e9e44","#0b6e4f","#14b8a6","#4cc3ff","#2563eb","#1e3a8a","#6d28d9","#c026d3","#ec4899","#f9a8d4","#7c4a2d","#d2a679","#b08d57","#d4af37","#a8a29e"];
 const HOOPS = {"100 × 100 mm":[100,100],"130 × 180 mm":[130,180],"4 × 4 in":[101.6,101.6],"5 × 7 in":[127,177.8],"200 × 300 mm":[200,300],"240 × 150 mm":[240,150]};
 const FABRICS = {cotton:{pull_comp:.2,spacing:.40},silk:{pull_comp:.3,spacing:.45},georgette:{pull_comp:.35,spacing:.45},velvet:{pull_comp:.4,spacing:.38},denim:{pull_comp:.1,spacing:.40},knit:{pull_comp:.4,spacing:.42}};
-const DEF = {fill:{angle:45,spacing:.4,stitch_len:3.5,underlay:true,pull_comp:.2},satin:{width:3,spacing:.4,underlay:"auto",pull_comp:.2},run:{stitch_len:2.5},text:{spacing:1,underlay:"auto",pull_comp:.1},applique:{width:2.5,spacing:.4,stitch_len:2.5}};
-const TOOLHINT = {select:"Click to select, drag to move, drag the white handles to edit points. Space+drag or right-drag pans, wheel zooms.",fill:"Click points of the shape. Double-click, Enter or click the first point to finish. Esc cancels.",satin:"Click along the centre line of the column. Double-click or Enter to finish.",run:"Click points of the line. Double-click or Enter to finish.",rect:"Drag to draw a rectangle.",ellipse:"Drag to draw an ellipse.",text:"Click where the text should start.",applique:"Click the outline of the appliqué patch. Double-click or Enter to finish."};
+const DEF = {fill:{angle:45,spacing:.4,stitch_len:3.5,underlay:true,pull_comp:.2},satin:{width:3,spacing:.4,underlay:"auto",pull_comp:.2},run:{stitch_len:2.5},column:{spacing:.4,underlay:"auto",pull_comp:.2},text:{spacing:1,underlay:"auto",pull_comp:.1},applique:{width:2.5,spacing:.4,stitch_len:2.5}};
+const TOOLHINT = {select:"Click to select, drag to move, drag the white handles to edit points. Space+drag or right-drag pans, wheel zooms.",fill:"Click points of the shape. Double-click, Enter or click the first point to finish. Esc cancels.",satin:"Click along the centre line of the column. Double-click or Enter to finish.",column:"Draw the FIRST edge (double-click/Enter to finish), then the SECOND edge. Stitches zig-zag between them.",run:"Click points of the line. Double-click or Enter to finish.",rect:"Drag to draw a rectangle.",ellipse:"Drag to draw an ellipse.",text:"Click where the text should start.",applique:"Click the outline of the appliqué patch. Double-click or Enter to finish."};
 
 const S = { doc: newDoc(), sel: null, tool: "select", view: {x: 0, y: 0, z: 3}, mode: "beginner", vmode: "design",
   gen: null, draft: null, cursor: null, sim: {i: 0, playing: false}, hist: [], hi: -1, color: "#c8102e", font: null, n: 1 };
@@ -48,6 +48,7 @@ async function post(url, body) {
 const clone = o => JSON.parse(JSON.stringify(o));
 function allPts(o) {
   if (o.rings) return o.rings.flat();
+  if (o.rail1) return o.rail1.concat(o.rail2);
   if (o.points) return o.points;
   if (o.type === "text") { const [w, h] = textSize(o); return [[o.x, o.y], [o.x + w, o.y + h]]; }
   return [];
@@ -60,6 +61,7 @@ function bbox(pts) {
 function mapPts(o, f) {
   if (o.rings) o.rings = o.rings.map(r => r.map(p => f(p)));
   if (o.points) o.points = o.points.map(p => f(p));
+  if (o.rail1) { o.rail1 = o.rail1.map(p => f(p)); o.rail2 = o.rail2.map(p => f(p)); }
   if (o.type === "text") { const p = f([o.x, o.y]); o.x = p[0]; o.y = p[1]; }
 }
 function textSize(o) { const f = S.font; if (!f) return [10, o.height || 10]; const k = (o.height || 10) / f.h; let w = 0;
@@ -85,6 +87,7 @@ function hit(o, p, tol) {
   if (o.hidden) return false;
   if (o.type === "fill" || o.type === "applique") return o.rings.reduce((n, r) => n + inRing(p, r), 0) % 2 === 1 || o.rings.some(r => r.some((q, i) => segDist(p, q, r[(i + 1) % r.length]) < tol));
   if (o.type === "satin" || o.type === "run") { const w = o.type === "satin" ? ((o.params || {}).width ?? 3) / 2 : 0; const P = o.points; for (let i = 0; i < P.length - 1; i++) if (segDist(p, P[i], P[i + 1]) < Math.max(tol, w)) return true; return false; }
+  if (o.type === "column") { const R = [o.rail1, o.rail2]; if (R.some(r => r.some((q, i) => i < r.length - 1 && segDist(p, q, r[i + 1]) < tol))) return true; const ring = o.rail1.concat(o.rail2.slice().reverse()); return inRing(p, ring); }
   if (o.type === "text") { const [w, h] = textSize(o); return p[0] >= o.x - tol && p[0] <= o.x + w + tol && p[1] >= o.y - tol && p[1] <= o.y + h + tol; }
   return false;
 }
@@ -122,6 +125,9 @@ function drawObjects(c) {
     } else if (o.type === "satin" || o.type === "run") {
       c.beginPath(); pathOf(c, shown(o, o.points, !!o.closed), !!o.closed); c.strokeStyle = o.color + (o.type === "satin" ? "cc" : "ff");
       c.lineWidth = Math.max(1.5, (o.type === "satin" ? P(o, "width") : .5) * S.view.z); c.stroke();
+    } else if (o.type === "column") {
+      const ring = shown(o, o.rail1, false).concat(shown(o, o.rail2, false).slice().reverse()); c.beginPath(); pathOf(c, ring, true); c.fillStyle = o.color + "cc"; c.fill(); c.strokeStyle = "#0006"; c.lineWidth = 1; c.stroke();
+      c.strokeStyle = "#fff8"; c.beginPath(); const a = shown(o, o.rail1, false), b = shown(o, o.rail2, false).slice().reverse(); for (let i = 0; i < a.length; i += 1) { const q = toScreen(a[i]), r = toScreen(b[Math.min(b.length - 1, Math.round(i * (b.length - 1) / Math.max(1, a.length - 1)))]); c.moveTo(q[0], q[1]); c.lineTo(r[0], r[1]); } c.stroke();
     } else if (o.type === "text") {
       c.strokeStyle = o.color; c.lineWidth = Math.max(1.5, (P(o, "width") || Math.min(o.height * .16, 4)) * S.view.z);
       for (const st of textStrokes(o)) { c.beginPath(); pathOf(c, st, false); c.stroke(); }
@@ -166,6 +172,7 @@ function draw() {
 }
 function drawDraft() {
   const dr = S.draft, c = ctx; c.save(); c.strokeStyle = "#2563eb"; c.lineWidth = 2; c.setLineDash([5, 3]);
+  if (S.colRail) { c.beginPath(); pathOf(c, S.colRail, false); c.setLineDash([]); c.stroke(); c.setLineDash([5, 3]); }
   if (dr.kind === "poly") { const pts = S.cursor ? dr.pts.concat([S.cursor]) : dr.pts; c.beginPath(); pathOf(c, pts, false); c.stroke(); c.setLineDash([]); for (const p of dr.pts) { const q = toScreen(p); c.fillStyle = "#2563eb"; c.fillRect(q[0] - 3, q[1] - 3, 6, 6); } }
   else if (dr.kind === "rect" || dr.kind === "ellipse") { const pts = shapePts(dr.kind, dr.a, dr.b); c.beginPath(); pathOf(c, pts, true); c.stroke(); }
   c.restore();
@@ -189,6 +196,10 @@ function finishDraft() {
     if ((t === "fill" || t === "applique") && pts.length >= 3) addObject({type: t, rings: [pts]});
     else if (t === "satin" && pts.length >= 2) addObject({type: "satin", points: pts});
     else if (t === "run" && pts.length >= 2) addObject({type: "run", points: pts});
+    else if (t === "column" && pts.length >= 2) {
+      if (!S.colRail) { S.colRail = pts; S.draft = {kind: "poly", pts: []}; $("#hint").textContent = "Now draw the SECOND edge of the column."; draw(); return; }
+      addObject({type: "column", rail1: S.colRail, rail2: pts}); S.colRail = null;
+    }
   } else if (dr.kind === "rect" || dr.kind === "ellipse") {
     if (Math.abs(dr.a[0] - dr.b[0]) > 1 && Math.abs(dr.a[1] - dr.b[1]) > 1) addObject({type: "fill", rings: [shapePts(dr.kind, dr.a, dr.b)]});
   }
@@ -207,7 +218,7 @@ cv.addEventListener("pointerdown", e => {
   const t = S.tool;
   if (t === "select") {
     const o = selObj();
-    if (o && o.type !== "text") { const tolPx = 8 / S.view.z; for (let ri = 0; ri < (o.rings ? o.rings.length : 1); ri++) { const arr = o.rings ? o.rings[ri] : o.points; for (let i = 0; i < arr.length; i++) if (dist2(arr[i], w) < tolPx * tolPx) { drag = {type: "vertex", arr, i}; return; } } }
+    if (o && o.type !== "text") { const tolPx = 8 / S.view.z; const lists = o.rings ? o.rings : o.rail1 ? [o.rail1, o.rail2] : [o.points]; for (const arr of lists) { for (let i = 0; i < arr.length; i++) if (dist2(arr[i], w) < tolPx * tolPx) { drag = {type: "vertex", arr, i}; return; } } }
     const tol = 5 / S.view.z; let found = null;
     for (let i = S.doc.objects.length - 1; i >= 0; i--) if (hit(S.doc.objects[i], w, tol)) { found = S.doc.objects[i]; break; }
     S.sel = found ? found.id : null; renderAll();
@@ -221,7 +232,7 @@ cv.addEventListener("pointerdown", e => {
   if ((t === "fill" || t === "applique") && pts.length >= 3 && dist2(p, pts[0]) < (8 / S.view.z) ** 2) { finishDraft(); return; }
   if (!pts.length || dist2(p, pts[pts.length - 1]) > 1e-6) pts.push(p); draw();
 });
-cv.addEventListener("dblclick", e => { if (S.draft && S.draft.kind === "poly") { if (S.draft.pts.length > 1) S.draft.pts.pop(); finishDraft(); } });
+cv.addEventListener("dblclick", e => { if (S.draft && S.draft.kind === "poly") { finishDraft();  /* the 2nd click of a double-click is de-duplicated in pointerdown, so no point to drop */ } });
 cv.addEventListener("pointermove", e => {
   const [sx, sy] = evP(e); const w = toWorld(sx, sy); S.cursor = snapP(w, e.altKey);
   $("#hint").textContent = TOOLHINT[S.tool] + `   [${w[0].toFixed(1)}, ${w[1].toFixed(1)} mm]`;
@@ -245,10 +256,10 @@ addEventListener("keydown", e => {
   if ((e.ctrlKey || e.metaKey) && k === "y") { e.preventDefault(); redo(); return; }
   if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); saveProject(); return; }
   if ((e.ctrlKey || e.metaKey) && k === "d") { e.preventDefault(); duplicate(0, 0); return; }
-  if (e.key === "Escape") { S.draft = null; draw(); return; }
+  if (e.key === "Escape") { S.draft = null; S.colRail = null; draw(); return; }
   if (e.key === "Enter" && S.draft) { finishDraft(); return; }
   if ((e.key === "Delete" || e.key === "Backspace") && S.sel) { deleteSel(); return; }
-  const map = {v: "select", f: "fill", s: "satin", r: "run", t: "text", a: "applique"};
+  const map = {v: "select", f: "fill", s: "satin", c: "column", r: "run", t: "text", a: "applique"};
   if (map[k] && !e.ctrlKey) { setTool(map[k]); return; }
   if (k === "p") { togglePlay(); return; }
   if (e.key === "0") { fit(); return; }
@@ -339,7 +350,7 @@ async function viewDst(file) {
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 
 /* ---------------------------------------------------------------- panels */
-function setTool(t) { S.tool = t; S.draft = null; document.querySelectorAll("#tools [data-tool]").forEach(b => b.classList.toggle("on", b.dataset.tool === t)); $("#hint").textContent = TOOLHINT[t]; cv.style.cursor = t === "select" ? "default" : "crosshair"; draw(); }
+function setTool(t) { S.tool = t; S.draft = null; S.colRail = null; document.querySelectorAll("#tools [data-tool]").forEach(b => b.classList.toggle("on", b.dataset.tool === t)); $("#hint").textContent = TOOLHINT[t]; cv.style.cursor = t === "select" ? "default" : "crosshair"; draw(); }
 function renderAll() { if (document.activeElement !== $("#docName")) $("#docName").value = S.doc.name; renderPanels(); renderProps(); renderObjs(); draw(); }
 function renderPanels() { renderSeq(); renderStats(); renderDesign(); }
 function field(label, key, o, opts = {}) {
@@ -358,6 +369,7 @@ function renderProps() {
   if (o.type !== "text") h += field("Smooth curve", "smooth", o, {type: "check", direct: 1});
   if (o.type === "fill") h += field("Direction °", "angle", o, {step: 5, tip: "Stitch angle"}) + field("Row spacing mm", "spacing", o, {step: .05, min: .2, pro: 1, tip: "Smaller = denser"}) + field("Stitch length mm", "stitch_len", o, {step: .5, min: 1, pro: 1}) + field("Underlay", "underlay", o, {type: "check"}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1, tip: "Extra length to offset fabric pull-in"});
   if (o.type === "satin") h += field("Width mm", "width", o, {step: .25, min: .8}) + field("Underlay", "underlay", o, {options: ["auto", "center", "edge", "none"], pro: 1}) + field("Spacing mm", "spacing", o, {step: .05, min: .2, pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1});
+  if (o.type === "column") h += field("Underlay", "underlay", o, {options: ["auto", "center", "edge", "none"], pro: 1}) + field("Spacing mm", "spacing", o, {step: .05, min: .2, pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1}) + `<div class="note">Two-rail satin: stitches run edge to edge. Drag the rail points to reshape.</div>`;
   if (o.type === "run") h += field("Stitch length mm", "stitch_len", o, {step: .5, min: .5}) + field("Closed loop", "closed", o, {type: "check", direct: 1});
   if (o.type === "text") h += `<div class="row"><label>Text</label><input type="text" data-k="text" data-d=1 value="${esc(o.text)}"></div>` + field("Height mm", "height", o, {direct: 1, step: .5, min: 3}) + field("Letter spacing", "spacing", o, {step: .1, min: .5}) + field("Stroke width mm", "width", o, {step: .25, min: 1, tip: "Satin column width of each stroke"}) + `<div class="note">Built-in single-line satin font (A–Z, 0–9, - . !). Minimum practical height ≈ 5 mm.</div>`;
   if (o.type === "applique") h += field("Cover width mm", "width", o, {step: .25, min: 1.5}) + `<div class="note">Stitches: placement line → tack-down → satin cover. The machine pauses at the colour change so you can lay fabric.</div>`;
