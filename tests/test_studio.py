@@ -1115,3 +1115,52 @@ class PeacockSleeveTests(unittest.TestCase):
                 r = subprocess.run([sys.executable, str(self.root / "tools" / "make_peacock_panel.py"), t, "--scale", "0.65", "--name", name] + extra, capture_output=True, text=True)
                 self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
                 self.assertEqual((Path(t) / f"{name}.dst").read_bytes(), (self.root / "designs" / "peacock_sleeve" / sub / f"{name}.dst").read_bytes(), f"{name}.dst is stale: rerun tools/make_peacock_panel.py")
+
+
+class ThumbnailTests(unittest.TestCase):
+    def pat(self, **kw):
+        d = doc({"id": "a", "type": "fill", "color": "#c8102e", "rings": [SQ]}, {"id": "b", "type": "satin", "color": "#d4af37", "points": [[0, 30], [40, 35]], "params": {"width": 3}},
+                {"id": "c", "type": "run", "color": "#c8102e", "points": [[60, 0], [70, 10]]})
+        return generate(d)[0]
+    def test_valid_xml_square_viewbox_and_one_path_per_colour_run(self):
+        import xml.etree.ElementTree as ET
+        from stitchcraft_engine.preview import thumbnail_svg
+        p = self.pat(); svg = thumbnail_svg(p, 200)
+        root = ET.fromstring(svg); ns = {"s": "http://www.w3.org/2000/svg"}
+        vb = [float(v) for v in root.get("viewBox").split()]; self.assertAlmostEqual(vb[2], vb[3], places=2)
+        paths = root.findall(".//s:path", ns); self.assertEqual(len(paths), 3)                 # red, gold, red again (a colour is revisited)
+        self.assertEqual([x.get("stroke") for x in paths], ["#c8102e", "#d4af37", "#c8102e"])
+        self.assertTrue(all(x.get("d").startswith("M") for x in paths))
+        self.assertEqual(root.get("width"), "200")
+    def test_jumps_break_the_path_and_nothing_is_drawn_across_them(self):
+        from stitchcraft_engine.preview import thumbnail_svg
+        import re
+        svg = thumbnail_svg(self.pat()); d = re.findall(r'd="([^"]+)"', svg)
+        n_pen_ups = sum(x.count("M") for x in d)
+        self.assertGreater(n_pen_ups, 3)                                                       # several separate runs, not one continuous scribble
+    def test_all_points_lie_inside_the_viewbox(self):
+        from stitchcraft_engine.preview import thumbnail_svg
+        import re
+        svg = thumbnail_svg(self.pat()); vb = [float(v) for v in re.search(r'viewBox="([^"]+)"', svg).group(1).split()]
+        for d in re.findall(r'd="([^"]+)"', svg):
+            for x, y in re.findall(r"(-?\d+\.\d) (-?\d+\.\d)", d):
+                self.assertTrue(vb[0] <= float(x) <= vb[0] + vb[2] and vb[1] <= float(y) <= vb[1] + vb[3])
+    def test_much_smaller_than_the_full_preview_and_deterministic(self):
+        from stitchcraft_engine.preview import thumbnail_svg, preview_svg
+        d = doc({"id": "a", "type": "fill", "color": "#f00", "rings": [[[-45, -45], [45, -45], [45, 45], [-45, 45]]], "params": {"spacing": 0.3}})
+        p = generate(d)[0]
+        self.assertLess(len(thumbnail_svg(p)), len(preview_svg(p, 100, 100)) * 0.6); self.assertEqual(thumbnail_svg(p), thumbnail_svg(p))
+    def test_hostile_colours_cannot_break_out_of_the_svg(self):
+        import xml.etree.ElementTree as ET
+        from stitchcraft_engine.preview import thumbnail_svg, preview_svg
+        evil = '"><script>alert(1)</script><x a="'
+        d = doc({"id": "a", "type": "fill", "color": evil, "rings": [SQ]}, {"id": "b", "type": "run", "color": "red", "points": [[30, 0], [40, 0]]},
+                {"id": "c", "type": "run", "color": "#f00", "points": [[50, 0], [60, 0]]}, {"id": "d", "type": "run", "color": 12345, "points": [[70, 0], [80, 0]]})
+        p, notes, st = generate(d)
+        self.assertEqual(sum("invalid colour" in n for n in notes), 3)                          # the evil string, "red" and the number
+        self.assertEqual({t.hex for t in p.threads}, {"#000000", "#ff0000"})                    # only validated hex reaches the pattern; #f00 expanded
+        for svg in (thumbnail_svg(p), preview_svg(p, 100, 100)):
+            self.assertNotIn("script", svg); ET.fromstring(svg)
+        sheet_html = server.sheet.sheet_html(d)
+        self.assertNotIn("<script", sheet_html); self.assertIn("&lt;script&gt;", sheet_html)               # shown escaped in the notes, never as markup
+        with self.assertRaises(ValueError): thumbnail_svg(__import__("stitchcraft_engine.model", fromlist=["Pattern"]).Pattern("e", [], []))

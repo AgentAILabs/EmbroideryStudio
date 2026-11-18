@@ -111,8 +111,17 @@ def generate(design: dict, trim_distance: Optional[float] = None):
         trim_distance = machine(design)["trim_distance"]
     threads: List[ThreadColor] = []
 
+    import re as _re
+
     def tid(hexc: str) -> int:
-        hexc = (hexc or "#000000").lower()
+        h = hexc.strip() if isinstance(hexc, str) else None
+        if h is not None and _re.fullmatch(r"#[0-9a-fA-F]{3}", h):
+            h = "#" + "".join(c * 2 for c in h[1:])                      # #f00 -> #ff0000
+        if h is None or not _re.fullmatch(r"#[0-9a-fA-F]{6}", h):
+            if hexc is not None:
+                notes.append(f"invalid colour {str(hexc)[:20]!r} replaced by black")
+            h = "#000000"
+        hexc = h.lower()
         for i, t in enumerate(threads):
             if t.hex == hexc:
                 return i
