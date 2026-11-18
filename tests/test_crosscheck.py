@@ -36,6 +36,10 @@ class PyembroideryCrossCheck(unittest.TestCase):
             f = Path(t) / "x.dst"; f.write_bytes(data)
             return pyembroidery.read(str(f))
 
+    @staticmethod
+    def deltas(xy):
+        return [(b[0] - a[0], b[1] - a[1]) for a, b in zip(xy, xy[1:])]
+
     def test_stitch_positions_and_colour_changes_match(self):
         for name, d in designs().items():
             pat, _, st = generate(d); data = write_dst(pat).data
@@ -43,11 +47,19 @@ class PyembroideryCrossCheck(unittest.TestCase):
             ours = read_dst(data)
             our_xy = [p for (dx, dy, c), p in zip(ours.records, ours.positions) if c == "stitch"]
             their_xy = [(int(x), int(y)) for x, y, cmd in theirs.stitches if (cmd & pyembroidery.COMMAND_MASK) == pyembroidery.STITCH]
-            flipped = [(x, -y) for x, y in their_xy]                                    # y axis convention may differ between libraries
-            self.assertTrue(their_xy == our_xy or flipped == our_xy, f"{name}: stitch sequences differ ({len(their_xy)} vs {len(our_xy)})")
+            self.assertEqual(len(their_xy), len(our_xy), f"{name}: stitch count differs")
+            self.assertEqual(len(their_xy), st["stitches"], name)
+            od, td = self.deltas(our_xy), self.deltas(their_xy)
+            flipped = [(dx, -dy) for dx, dy in td]
+            if od != td and od != flipped:                    # origin-independent comparison; print enough to diagnose from CI logs
+                bad = next((i for i, (u, v) in enumerate(zip(od, td)) if u != v), -1)
+                self.fail(f"{name}: stitch DELTAS differ at index {bad}\n  ours  : {od[max(0, bad - 2):bad + 4]}\n  theirs: {td[max(0, bad - 2):bad + 4]}"
+                          f"\n  first abs ours {our_xy[:3]} theirs {their_xy[:3]}\n  last abs ours {our_xy[-2:]} theirs {their_xy[-2:]}"
+                          f"\n  their cmds around: {[(x, y, cmd) for x, y, cmd in theirs.stitches[max(0, 3):10]]}")
             their_cc = sum(1 for _, _, cmd in theirs.stitches if (cmd & pyembroidery.COMMAND_MASK) == pyembroidery.COLOR_CHANGE)
             self.assertEqual(their_cc, st["color_changes"], name)
-            self.assertEqual(len(their_xy), st["stitches"], name)
+            # informational only: where the two libraries put the origin (not asserted - DST has no absolute origin)
+            print(f"[crosscheck] {name}: ok; first stitch ours={our_xy[0]} theirs={their_xy[0]}")
 
 
 if __name__ == "__main__":
