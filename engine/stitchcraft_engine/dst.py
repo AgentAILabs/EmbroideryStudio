@@ -12,9 +12,15 @@ HEADER_SIZE = 512
 DEFAULT_TRIM_JUMPS = 3   # DST has no trim opcode; trims are emulated by consecutive jumps. MACHINE-DEPENDENT: verify.
 
 _WEIGHTS = (1, 3, 9, 27, 81)
-# (weight -> (byte, plus_bit, minus_bit)) per axis, per the published DST bit layout
-_X_BITS = {1: (0, 0x80, 0x40), 3: (1, 0x80, 0x40), 9: (0, 0x20, 0x10), 27: (1, 0x20, 0x10), 81: (2, 0x20, 0x10)}
-_Y_BITS = {1: (0, 0x01, 0x02), 3: (1, 0x01, 0x02), 9: (0, 0x04, 0x08), 27: (1, 0x04, 0x08), 81: (2, 0x04, 0x08)}
+# Tajima DST record layout (weight -> (byte, plus_bit, minus_bit)), +Y = up (north).
+#   byte 0: x+1 0x01  x-1 0x02  x+9 0x04  x-9 0x08  |  y-1 0x40  y+1 0x80  y-9 0x10  y+9 0x20
+#   byte 1: x+3 0x01  x-3 0x02  x+27 0x04 x-27 0x08 |  y-3 0x40  y+3 0x80  y-27 0x10 y+27 0x20
+#   byte 2: x+81 0x04 x-81 0x08 |  y-81 0x10 y+81 0x20 |  always 0x03 | 0x80 = jump, 0xC0 = colour change, 0xF0 = end
+# BUG HISTORY: the first version had the X and Y tables swapped (found only when CI compared our output with the
+# independent pyembroidery reader - our own reader used the same table, so round trips could not see it).
+# tests/test_engine.py now pins hand-written byte vectors that do not depend on these tables.
+_X_BITS = {1: (0, 0x01, 0x02), 3: (1, 0x01, 0x02), 9: (0, 0x04, 0x08), 27: (1, 0x04, 0x08), 81: (2, 0x04, 0x08)}
+_Y_BITS = {1: (0, 0x80, 0x40), 3: (1, 0x80, 0x40), 9: (0, 0x20, 0x10), 27: (1, 0x20, 0x10), 81: (2, 0x20, 0x10)}
 FLAG_JUMP, FLAG_COLOR, FLAG_END = 0x80, 0xC0, 0xF0
 
 

@@ -13,7 +13,7 @@ save/reopen, SVG + PNG import, versions) with zero page errors / HTTP 5xx.
 | 3 | Bead/stone/sequin = placeholders, on production sheet, not in DST | ✅ | DST bytes identical with/without them (test) |
 | 4 | Engine as separate service behind versioned JSON contract | ✅ | HTTP service, `schema_version` contract tests; ⏸ job queue (not needed at this scale) |
 | 5 | .NET / MediatR / Konva | ⏸ | replaced by Python stdlib service + canvas editor: no installs, same contract |
-| 6 | Independent DST reader + pyembroidery cross-check in CI | 🔬 | own reader ✅ (caught + fixed a long-jump bug); `tests/test_crosscheck.py` runs in CI only – **not yet run** |
+| 6 | Independent DST reader + pyembroidery cross-check in CI | ✅ | own reader fixed a long-jump bug; **the CI cross-check found that the writer had X and Y bit tables swapped (every DST was transposed) – fixed, pinned by hand-written byte vectors**; the cross-check runs in CI only (pyembroidery is not installed here) |
 | 7 | Fabric presets, flagged unverified | ✅ / 🧪 | six presets; values unverified until stitched |
 | 8 | FabricProfile, stabiliser, time estimate, trim rules | ✅ | stabiliser field → sheet; ⏸ thread brand charts (licensed data; generic hex palette) |
 | 9 | Indian-market: Maggam repeat, neckline templates, inch hoops | ✅ | repeat tool, border templates, neckline guides in inches (generic proportions); ⏸ Telugu/Hindi lettering (needs font files + Indic shaping) |
@@ -60,7 +60,7 @@ save/reopen, SVG + PNG import, versions) with zero page errors / HTTP 5xx.
 ## E. Sprint 2
 | Item | Status |
 |---|---|
-| pyembroidery cross-check | 🔬 CI only |
+| pyembroidery cross-check | ✅ ran in CI; found + fixed the X/Y swap |
 | Raster 5 test artworks | ✅ |
 | Satin-from-outline | ✅ (one column per shape; refuses branches/blobs/curls) |
 | Service + contract tests | ✅ |
@@ -76,6 +76,12 @@ save/reopen, SVG + PNG import, versions) with zero page errors / HTTP 5xx.
 | Bezier node handles | spline "Smooth curve" covers curves; handles are a UX upgrade |
 | Hoop split, stitch-level editing, gradient/stipple/motif fills | separate large features, not on the MVP gate |
 | Accounts, cloud library, Tauri shell | hosted/desktop product phase |
+
+## DST axis bug (found by the CI cross-check; fixed)
+The first DST writer used swapped X/Y bit tables. Our own reader used the same tables, so every round-trip test passed while a standard reader
+saw the design transposed (rotated 90° and mirrored). **Any `.dst` generated before this fix is wrong – delete it and regenerate** (the test pack,
+`engine/samples/flower.dst` and the zips sent earlier were regenerated). Guarded by byte vectors written by hand from the layout (not derived from
+the code's tables) and by `tests/test_crosscheck.py` in CI. What is still unproven: behaviour on a physical machine.
 
 ## Known limits (honest)
 * Nothing has been stitched on a machine; fabric presets, trim-jump default and time estimate are unverified.

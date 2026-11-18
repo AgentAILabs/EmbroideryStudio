@@ -1,4 +1,6 @@
-# Physical stitch-out test (required before any "production ready" claim)
+# Physical stitch-out test
+> **Use only test-pack files generated after the DST axis fix** (see `docs/status.md`). Earlier `.dst` files and zips have X/Y swapped - discard them.
+ (required before any "production ready" claim)
 
 Generate (or use the committed `testpack/`): `python3 tools/make_testpack.py`
 

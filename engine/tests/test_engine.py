@@ -20,8 +20,8 @@ class DstCodec(unittest.TestCase):
         with self.assertRaises(dst.DstError):
             dst.encode_record(122, 0)
     def test_known_bytes(self):
-        self.assertEqual(dst.encode_record(1, 0), bytes([0x80, 0x00, 0x03]))
-        self.assertEqual(dst.encode_record(0, 1), bytes([0x01, 0x00, 0x03]))
+        self.assertEqual(dst.encode_record(1, 0), bytes([0x01, 0x00, 0x03]))        # +X is byte0 bit0 (the old test pinned the swapped layout)
+        self.assertEqual(dst.encode_record(0, 1), bytes([0x80, 0x00, 0x03]))        # +Y (up) is byte0 bit7
         self.assertEqual(dst.encode_record(0, 0, dst.FLAG_END), bytes([0, 0, 0xF3]))
         self.assertEqual(dst.encode_record(0, 0, dst.FLAG_COLOR), bytes([0, 0, 0xC3]))
 
@@ -172,3 +172,44 @@ class LongJumpDecodeTest(unittest.TestCase):
         for dx, dy in [(89, 0), (121, -121), (-100, 81), (81, 81)]:
             self.assertEqual(decode_record(encode_record(dx, dy, FLAG_JUMP)), (dx, dy, "jump"))
             self.assertEqual(decode_record(encode_record(dx, dy, 0))[2], "stitch")
+
+
+class DstBytePinTests(unittest.TestCase):
+    """Hand-written expected bytes from the Tajima DST layout. Deliberately NOT derived from dst.py's tables:
+    writer and reader share those tables, so a swapped table passes every round-trip test (it did, once)."""
+    VECTORS = {   # (dx, dy_up): (b0, b1, b2)
+        (1, 0): (0x01, 0x00, 0x03), (-1, 0): (0x02, 0x00, 0x03), (0, 1): (0x80, 0x00, 0x03), (0, -1): (0x40, 0x00, 0x03),
+        (9, 0): (0x04, 0x00, 0x03), (-9, 0): (0x08, 0x00, 0x03), (0, 9): (0x20, 0x00, 0x03), (0, -9): (0x10, 0x00, 0x03),
+        (3, 0): (0x00, 0x01, 0x03), (-3, 0): (0x00, 0x02, 0x03), (0, 3): (0x00, 0x80, 0x03), (0, -3): (0x00, 0x40, 0x03),
+        (27, 0): (0x00, 0x04, 0x03), (-27, 0): (0x00, 0x08, 0x03), (0, 27): (0x00, 0x20, 0x03), (0, -27): (0x00, 0x10, 0x03),
+        (81, 0): (0x00, 0x00, 0x07), (-81, 0): (0x00, 0x00, 0x0B), (0, 81): (0x00, 0x00, 0x23), (0, -81): (0x00, 0x00, 0x13),
+        (2, 0): (0x02 | 0x00, 0x01, 0x03),           # +2 = +3 -1  (the sign-mix case)
+        (0, 0): (0x00, 0x00, 0x03),
+    }
+    def test_encode_matches_hand_written_vectors(self):
+        for (dx, dy), want in self.VECTORS.items():
+            self.assertEqual(tuple(dst.encode_record(dx, dy)), want, (dx, dy))
+    def test_axes_are_not_swapped(self):
+        self.assertEqual(dst.decode_record(bytes([0x01, 0x00, 0x03]))[:2], (1, 0))        # byte0 bit0 is X, not Y
+        self.assertEqual(dst.decode_record(bytes([0x80, 0x00, 0x03]))[:2], (0, 1))        # byte0 bit7 is +Y
+        self.assertEqual(dst.decode_record(bytes([0x00, 0x00, 0x0B]))[:2], (-81, 0))
+        self.assertEqual(dst.decode_record(bytes([0x00, 0x00, 0x13]))[:2], (0, -81))
+    def test_control_records(self):
+        self.assertEqual(tuple(dst.encode_record(0, 0, dst.FLAG_JUMP)), (0, 0, 0x83))
+        self.assertEqual(tuple(dst.encode_record(0, 0, dst.FLAG_COLOR)), (0, 0, 0xC3))
+        self.assertEqual(tuple(dst.encode_record(0, 0, dst.FLAG_END)), (0, 0, 0xF3))
+    def test_every_delta_in_range_survives_round_trip_with_the_pinned_layout(self):
+        for dx in range(-121, 122, 7):
+            for dy in range(-121, 122, 11):
+                self.assertEqual(dst.decode_record(dst.encode_record(dx, dy))[:2], (dx, dy))
+    def test_horizontal_line_is_horizontal_in_the_file(self):
+        """A pure-horizontal move in the SVG must be a pure-X record in the file (guards against the old swap)."""
+        p = Pattern("t", [Stitch(0, 0, Cmd.JUMP), Stitch(0, 0), Stitch(10, 0), Stitch(10, 0, Cmd.END)], T)
+        recs = dst.read_dst(dst.write_dst(p).data).records
+        moves = [(dx, dy) for dx, dy, c in recs if c == "stitch" and (dx or dy)]
+        self.assertTrue(moves and all(dy == 0 and dx != 0 for dx, dy in moves), moves)   # horizontal stays horizontal
+        raw = dst.write_dst(p).data[dst.HEADER_SIZE:]
+        for i in range(0, len(raw) - 3, 3):                       # every move record of a horizontal line sets only X bits (no Y bits)
+            b0, b1, b2 = raw[i], raw[i + 1], raw[i + 2]
+            if (b2 & 0xC0) == 0:
+                self.assertEqual((b0 & 0xF0, b1 & 0xF0, b2 & 0x30), (0, 0, 0), f"record {i // 3} sets Y bits for a horizontal move")
