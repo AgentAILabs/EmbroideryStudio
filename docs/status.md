@@ -82,7 +82,7 @@ Before: no lock stitches, no trim before a colour change or the end, and a satin
 Now: tie-off → trim → jump → tie-in at every thread cut, configurable (lock length, trim at colour change/end, trim jumps, trim distance, smart direction),
 appliqué passes staggered, runs started at the nearer end when that avoids a trim (test pack: 138 → 112 trims, never worse on any design). Pinned by exact-sequence
 tests, geometry tests (locks stay inside the stitched geometry, 0.3 mm to lock length), DST-level tests (exactly N trim jumps before colour change and end),
-and a CI cross-check that reads the same files with pyembroidery. 🧪 **Not yet proven on a machine** - design 12 in the test pack exists for that.
+and a CI cross-check that reads the same files with pyembroidery (it sees exactly one TRIM per trim we write, and identical stitch sequences including the lock stitches). 🧪 **Not yet proven on a machine** - design 12 in the test pack exists for that.
 
 ## DST axis bug (found by the CI cross-check; fixed)
 The first DST writer used swapped X/Y bit tables. Our own reader used the same tables, so every round-trip test passed while a standard reader

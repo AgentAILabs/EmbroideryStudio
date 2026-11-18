@@ -68,6 +68,9 @@ class PyembroideryCrossCheck(unittest.TestCase):
             their_trim = sum(1 for _, _, cmd in theirs.stitches if (cmd & pyembroidery.COMMAND_MASK) == pyembroidery.TRIM)
             their_jump = sum(1 for _, _, cmd in theirs.stitches if (cmd & pyembroidery.COMMAND_MASK) == pyembroidery.JUMP)
             print(f"[crosscheck] {name}: our trims={st['trims']} locks={st['lock_stitches']} | pyembroidery reads TRIM={their_trim} JUMP={their_jump}")
+            # Observed in CI: with the default 3 trim jumps pyembroidery reads exactly one TRIM per trim we write. Pin it, so a change
+            # to the trim encoding (or to how many trims we emit) is noticed. (Other jump counts are a machine convention, not asserted.)
+            self.assertEqual(their_trim, st["trims"], f"{name}: pyembroidery sees {their_trim} trims, we wrote {st['trims']}")
             # informational only: where the two libraries put the origin (not asserted - DST has no absolute origin)
             print(f"[crosscheck] {name}: ok; first stitch ours={our_xy[0]} theirs={their_xy[0]}")
 
