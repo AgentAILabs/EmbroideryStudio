@@ -37,5 +37,8 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 - No accounts / cloud; projects are local files + browser autosave.
 See `docs/roadmap.md`.
 
+## Stitch-out test pack
+`python3 tools/make_testpack.py` writes 10 ready-to-stitch designs (flower, lettering 5/8/12 mm, logo, border, 4-colour, satin widths, 30x30 fill, appliqué) to `testpack/` with a printable results sheet. Procedure: `docs/testing/README.md`.
+
 ## Tests
 `python3 -m unittest discover -s engine/tests` (27) and `python3 -m unittest discover -s tests` (26: engine features, HTTP round trips, safety limits, performance). CI runs both on every push.
