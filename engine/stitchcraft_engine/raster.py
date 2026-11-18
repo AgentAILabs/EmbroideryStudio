@@ -7,6 +7,7 @@ from collections import defaultdict
 from typing import List, Tuple
 
 MAX_PIXELS = 25_000_000
+MAX_COLORS = 8          # requirements A.2: flat artwork, <= 8 colours
 
 
 class RasterUnavailable(RuntimeError):
@@ -89,12 +90,13 @@ def digitize_raster(data: bytes, width_mm: float, max_colors: int = 6, min_area_
     scale_down = 320 / max(im.size)
     if scale_down < 1:
         im = im.resize((max(1, round(im.width * scale_down)), max(1, round(im.height * scale_down))), Image.LANCZOS)
-    q = im.quantize(colors=max(2, min(max_colors, 12)), method=Image.MEDIANCUT, dither=Image.NONE)
+    max_colors = max(2, min(int(max_colors), MAX_COLORS))
+    q = im.quantize(colors=max_colors, method=Image.MEDIANCUT, dither=Image.NONE)
     idx = np.asarray(q)
     pal = np.asarray(q.getpalette()[:3 * (idx.max() + 1)]).reshape(-1, 3)
     uniq = len(np.unique(idx))
-    if uniq >= max_colors and max_colors <= 12:
-        notes.append("Image may have more colours than the limit; shaded/photographic art digitizes poorly.")
+    if uniq >= max_colors:
+        notes.append(f"Image used the full {max_colors}-colour limit; shaded or photographic art digitizes poorly. Use flat-colour artwork.")
     corners = [idx[0, 0], idx[0, -1], idx[-1, 0], idx[-1, -1]]
     bg_i = max(set(int(c) for c in corners), key=[int(c) for c in corners].count)
     mm = width_mm / idx.shape[1]

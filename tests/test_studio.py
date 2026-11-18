@@ -252,5 +252,85 @@ class TestPackTests(unittest.TestCase):
             for r in rows:
                 self.assertTrue(read_dst((Path(t) / r["file"]).read_bytes()).ends_properly)
                 self.assertTrue((Path(t) / (r["design"] + ".esproj")).exists())
-            self.assertEqual(len(list(csv.DictReader(open(Path(t) / "RESULTS.csv")))), 10)
+            with open(Path(t) / "RESULTS.csv", encoding="utf-8") as fh: self.assertEqual(len(list(csv.DictReader(fh))), 10)
             self.assertIn("Thread breaks", (Path(t) / "RESULTS.html").read_text())
+
+
+class Step2Tests(unittest.TestCase):
+    def _png(self, draw, size=(160, 160), bg="white"):
+        from PIL import Image, ImageDraw
+        im = Image.new("RGB", size, bg); draw(ImageDraw.Draw(im)); b = io.BytesIO(); im.save(b, "PNG"); return b.getvalue()
+    def _import(self, png, w=60, colors=6):
+        return server.api_raster({"data": base64.b64encode(png).decode(), "width_mm": w, "colors": colors})
+
+    # --- E.2: five test artworks through the raster pipeline, each must give a valid DST
+    def _valid(self, objs):
+        d = doc(*objs); p, _, st = generate(d)
+        self.assertTrue(run_checks(d, p).ok, [i.message for i in run_checks(d, p).errors][:2])
+        self.assertTrue(read_dst(write_dst(p).data).ends_properly); return st
+
+    def test_art1_circle(self):
+        r = self._import(self._png(lambda d: d.ellipse((20, 20, 140, 140), fill=(200, 0, 0))))
+        self.assertEqual(len(r["objects"]), 1); self.assertGreater(self._valid(r["objects"])["stitches"], 300)
+    def test_art2_ring_keeps_hole_empty(self):
+        r = self._import(self._png(lambda d: (d.ellipse((10, 10, 150, 150), fill=(0, 0, 160)), d.ellipse((50, 50, 110, 110), fill="white"))), w=80)
+        d = doc(*r["objects"]); p, _, _ = generate(d)
+        from stitchcraft_engine.model import Cmd
+        cx = cy = 0.0                            # imported art is centred at the origin
+        inside = [s for s in p.stitches if s.cmd == Cmd.STITCH and (s.x - cx) ** 2 + (s.y - cy) ** 2 < 8 ** 2]   # hole radius = 15 mm
+        self.assertEqual(inside, []); self._valid(r["objects"])
+    def test_art3_two_colours_two_objects(self):
+        r = self._import(self._png(lambda d: (d.rectangle((10, 10, 90, 150), fill=(200, 0, 0)), d.rectangle((100, 10, 150, 150), fill=(0, 120, 0)))))
+        self.assertEqual(len({o["color"] for o in r["objects"]}), 2)          # two distinct thread colours
+        self.assertEqual(len(r["objects"]), 2); self.assertEqual(self._valid(r["objects"])["color_changes"], 1)
+    def test_art4_text_like_bars_many_regions(self):
+        def bars(d):
+            for i in range(6): d.rectangle((15 + i * 22, 30, 25 + i * 22, 130), fill=(20, 20, 20))
+        r = self._import(self._png(bars)); self.assertEqual(len(r["objects"]), 1)
+        self.assertEqual(len(r["objects"][0]["rings"]), 6); self._valid(r["objects"])
+    def test_art5_tiny_specks_are_dropped(self):
+        def specks(d):
+            d.ellipse((20, 20, 140, 140), fill=(200, 0, 0))
+            for i in range(5): d.point((5 + i * 3, 150), fill=(0, 0, 0))
+        r = self._import(self._png(specks), w=60); self.assertEqual(len(r["objects"]), 1)
+    def test_colour_cap_is_8(self):
+        def many(d):
+            for i in range(12): d.rectangle((i * 13, 0, i * 13 + 12, 159), fill=(i * 20, 255 - i * 15, (i * 70) % 255))
+        r = self._import(self._png(many), colors=12)
+        self.assertLessEqual(len(r["objects"]), 8)
+
+    # --- C: no stitches outside source geometry (beyond pull-comp tolerance)
+    def test_fill_stays_inside_source_bounds(self):
+        import math
+        star = [[(25 if k % 2 == 0 else 11) * math.cos(k * math.pi / 5), (25 if k % 2 == 0 else 11) * math.sin(k * math.pi / 5)] for k in range(10)]
+        for ang in (0, 30, 45, 90):
+            for pc in (0.0, 0.4):
+                d = doc({"id": "s", "type": "fill", "color": "#f00", "rings": [star], "params": {"angle": ang, "pull_comp": pc, "underlay": "tatami"}})
+                p, _, _ = generate(d); b = p.bbox()
+                xs = [q[0] for q in star]; ys = [q[1] for q in star]; tol = pc / 2 + 1e-6
+                self.assertGreaterEqual(b[0], min(xs) - tol); self.assertLessEqual(b[2], max(xs) + tol)
+                self.assertGreaterEqual(b[1], min(ys) - tol); self.assertLessEqual(b[3], max(ys) + tol)
+
+    # --- C: sequence rule
+    def test_order_warning_when_outline_stitched_before_fill(self):
+        o = {"id": "o", "type": "run", "color": "#000", "closed": True, "points": SQ}
+        f = {"id": "f", "type": "fill", "color": "#f00", "rings": [SQ]}
+        self.assertTrue(any("stitched before fill" in n for n in generate(doc(o, f))[1]))
+        self.assertFalse(any("stitched before fill" in n for n in generate(doc(f, o))[1]))
+    def test_no_order_warning_for_non_overlapping(self):
+        o = {"id": "o", "type": "run", "color": "#000", "points": [[50, 50], [60, 60]]}
+        self.assertFalse(any("stitched before" in n for n in generate(doc(o, {"id": "f", "type": "fill", "color": "#f00", "rings": [SQ]}))[1]))
+
+    # --- C: short-stitch threshold now 0.3 mm
+    def test_short_stitch_threshold(self):
+        from stitchcraft_engine.model import Pattern, Stitch, ThreadColor, Cmd
+        def pat(step):
+            return Pattern("t", [Stitch(0, 0, Cmd.JUMP), Stitch(0, 0), Stitch(step, 0), Stitch(step * 2 + 5, 0), Stitch(step * 2 + 5, 0, Cmd.END)], [ThreadColor("a", "#000")])
+        from stitchcraft_engine.validate import validate
+        self.assertTrue(any(i.code == "STITCH_SHORT" for i in validate(pat(0.25)).issues))
+        self.assertFalse(any(i.code == "STITCH_SHORT" for i in validate(pat(0.35)).issues))
+
+    # --- A.8: stabiliser travels with the design into stats
+    def test_stabiliser_in_stats(self):
+        d = doc({"id": "f", "type": "fill", "color": "#f00", "rings": [SQ]}); d["stabiliser"] = "tear-away"
+        self.assertEqual(generate(d)[2]["stabiliser"], "tear-away")

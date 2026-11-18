@@ -142,6 +142,7 @@ function drawObjects(c) {
 function drawStitches(c, upto, thick) {
   const g = S.gen; if (!g || !g.stitches) return; const st = g.stitches; let prev = null, th = st.length ? st[0][3] : 0;
   const lw = Math.max(thick ? 1.2 : .7, .3 * S.view.z); c.lineWidth = lw; c.lineCap = "round"; c.lineJoin = "round";
+  const showJumps = $("#sJumps") ? $("#sJumps").checked : true, jumps = new Path2D();
   let batch = [], bcol = null;
   const flush = () => { if (batch.length) { c.strokeStyle = bcol; c.stroke(batch.path); } batch = []; };
   const mk = col => { flush(); bcol = col; batch = []; batch.path = new Path2D(); };
@@ -151,12 +152,13 @@ function drawStitches(c, upto, thick) {
     const [x, y, cmd, t] = st[i]; const q = toScreen([x, y]);
     if (cmd === 3) { th = t; prev = prev; mk(g.threads[t] || "#000"); continue; }
     if (cmd === 2 || cmd === 4) continue;
-    if (cmd === 1) { prev = q; continue; }
+    if (cmd === 1) { if (prev && showJumps) { jumps.moveTo(prev[0], prev[1]); jumps.lineTo(q[0], q[1]); } prev = q; continue; }
     if (t !== th) { th = t; mk(g.threads[t]); }
     if (prev) { batch.path.moveTo(prev[0], prev[1]); batch.path.lineTo(q[0], q[1]); batch.push(1); }
     prev = q; last = q;
   }
   flush();
+  if (showJumps) { c.save(); c.strokeStyle = "#9ca3af"; c.lineWidth = 1; c.setLineDash([4, 3]); c.stroke(jumps); c.restore(); }
   return n > 0 && n <= st.length ? toScreen([st[Math.min(n, st.length) - 1][0], st[Math.min(n, st.length) - 1][1]]) : null;
 }
 function draw() {
@@ -320,7 +322,7 @@ async function importFile(file) {
     if (/\.svg$/i.test(file.name)) { res = await post("/api/import/svg", {svg: await file.text()}); }
     else {
       const w = parseFloat(prompt("Real-world width of the artwork in mm (flat colours work best; photos digitize poorly):", String(Math.round(S.doc.hoop.w * .7))));
-      if (!w) return; const cols = parseInt(prompt("Maximum number of thread colours (2–12):", "6")) || 6;
+      if (!w) return; const cols = parseInt(prompt("Maximum number of thread colours (2–8):", "6")) || 6;
       const buf = new Uint8Array(await file.arrayBuffer()); let bin = ""; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
       res = await post("/api/import/raster", {data: btoa(bin), width_mm: w, colors: cols});
     }
@@ -365,7 +367,7 @@ function productionSheet() {
   const emb = S.doc.objects.filter(o => o.type === "applique").length;
   const html = `<!doctype html><title>Production sheet – ${esc(S.doc.name)}</title><style>body{font:14px system-ui;margin:24px;max-width:820px}table{border-collapse:collapse}td,th{border:1px solid #999;padding:4px 10px;text-align:left}h1{margin:0}.m{color:#555}</style>
 <h1>${esc(S.doc.name)}</h1><p class="m">EmbroideryStudio production sheet · ${new Date().toLocaleString()}</p><img src="${img}" width="420" style="float:right;border:1px solid #ccc">
-<p><b>Design size:</b> ${st.width_mm} × ${st.height_mm} mm<br><b>Hoop:</b> ${h.w} × ${h.h} mm (margin ${h.margin} mm)<br><b>Fabric preset:</b> ${S.doc.fabric} (unverified starting values)<br><b>Stitches:</b> ${st.stitches}<br><b>Colour changes:</b> ${st.color_changes} · <b>Trims:</b> ${st.trims} · <b>Jumps:</b> ${st.jumps}<br><b>Estimated run time:</b> ~${st.est_minutes} min at ${st.assumed_spm} spm (assumed)</p>
+<p><b>Design size:</b> ${st.width_mm} × ${st.height_mm} mm<br><b>Hoop:</b> ${h.w} × ${h.h} mm (margin ${h.margin} mm)<br><b>Fabric preset:</b> ${S.doc.fabric} (unverified starting values) · <b>Stabiliser:</b> ${S.doc.stabiliser || "cut-away"}<br><b>Stitches:</b> ${st.stitches}<br><b>Colour changes:</b> ${st.color_changes} · <b>Trims:</b> ${st.trims} · <b>Jumps:</b> ${st.jumps}<br><b>Estimated run time:</b> ~${st.est_minutes} min at ${st.assumed_spm} spm (assumed)</p>
 <h3>Colour order</h3><table><tr><th>#</th><th>Thread</th><th>Stitches</th></tr>${rows}</table>
 ${emb ? `<p><b>Appliqué:</b> ${emb} patch(es). At the placement→tack-down colour change, place fabric; trim after tack-down.</p>` : ""}
 <div style="clear:both"></div><p class="m">Not machine-tested. Stitch a sample on matching fabric and stabiliser before production use.</p>`;
@@ -447,6 +449,7 @@ function renderDesign() {
   const html = `<div class="row"><label>Hoop</label><select id="hoopSel">${Object.keys(HOOPS).map(k => `<option ${(Math.abs(HOOPS[k][0] - d.hoop.w) < .2 && Math.abs(HOOPS[k][1] - d.hoop.h) < .2) ? "selected" : ""}>${k}</option>`).join("")}<option ${Object.values(HOOPS).some(h => Math.abs(h[0] - d.hoop.w) < .2 && Math.abs(h[1] - d.hoop.h) < .2) ? "" : "selected"}>Custom</option></select></div>
   <div class="row"><label>Hoop W × H mm</label><span style="display:flex;gap:4px"><input type="number" id="hw" value="${d.hoop.w}" style="width:50%"><input type="number" id="hh" value="${d.hoop.h}" style="width:50%"></span></div>
   <div class="row"><label>Safe margin mm</label><input type="number" id="hm" value="${d.hoop.margin}" step=".5" min="0"></div>
+  <div class="row"><label>Stabiliser</label><select id="stab">${["cut-away", "tear-away", "wash-away", "none"].map(k => `<option ${k === (d.stabiliser || "cut-away") ? "selected" : ""}>${k}</option>`).join("")}</select></div>
   <div class="row"><label>Fabric preset</label><select id="fab">${Object.keys(FABRICS).map(k => `<option ${k === d.fabric ? "selected" : ""}>${k}</option>`).join("")}</select></div>
   <div class="note">Fabric values are unverified starting points; they apply to new objects. <button id="fabApply" style="padding:1px 6px">Apply to all</button></div>
   <div class="row"><label>Max stitch mm</label><input type="number" id="mMax" value="${(d.machine || {}).max_stitch ?? 7}" step=".5" min="1" max="12.1"></div>
@@ -456,21 +459,22 @@ function renderDesign() {
   const sig = html.replace(/ value="[^"]*"/g, "").replace(/ selected/g, "");
   if (el.dataset.sig === sig) {   // same structure: sync values in place so a click in progress is never lost to a rebuild
     const sync = (id, v) => { const x = $("#" + id); if (x && document.activeElement !== x) x.value = v; };
-    sync("hw", d.hoop.w); sync("hh", d.hoop.h); sync("hm", d.hoop.margin); sync("fab", d.fabric);
+    sync("stab", d.stabiliser || "cut-away"); sync("hw", d.hoop.w); sync("hh", d.hoop.h); sync("hm", d.hoop.margin); sync("fab", d.fabric);
     sync("mMax", (d.machine || {}).max_stitch ?? 7); sync("mTrim", (d.machine || {}).trim_distance ?? 3); sync("mJ", (d.machine || {}).trim_jumps ?? 3);
     const hs = $("#hoopSel"); if (hs && document.activeElement !== hs) { const k = Object.keys(HOOPS).find(k => Math.abs(HOOPS[k][0] - d.hoop.w) < .2 && Math.abs(HOOPS[k][1] - d.hoop.h) < .2); hs.value = k || "Custom"; }
     renderVersions(); return;
   }
   el.dataset.sig = sig; el.innerHTML = html;
-  const mset = (k, el) => el.onchange = () => { d.machine = d.machine || {}; const v = parseFloat(el.value); if (!isNaN(v)) d.machine[k] = v; commit(); renderAll(); };
+  const mset = (k, el) => el.onchange = () => { S.doc.machine = S.doc.machine || {}; const v = parseFloat(el.value); if (!isNaN(v)) S.doc.machine[k] = v; commit(); renderAll(); };
   mset("max_stitch", $("#mMax")); mset("trim_distance", $("#mTrim")); mset("trim_jumps", $("#mJ"));
   $("#bOpt").onclick = optimiseColours; $("#bVer").onclick = saveVersion; renderVersions();
-  const setH = (w, h) => { d.hoop.w = w; d.hoop.h = h; commit(); fit(); renderAll(); };
+  const setH = (w, h) => { S.doc.hoop.w = w; S.doc.hoop.h = h; commit(); fit(); renderAll(); };
   $("#hoopSel").onchange = e => { const v = HOOPS[e.target.value]; if (v) setH(v[0], v[1]); };
-  $("#hw").onchange = () => setH(+$("#hw").value || 100, d.hoop.h); $("#hh").onchange = () => setH(d.hoop.w, +$("#hh").value || 100);
-  $("#hm").onchange = () => { d.hoop.margin = +$("#hm").value || 0; commit(); renderAll(); };
-  $("#fab").onchange = e => { d.fabric = e.target.value; commit(); };
-  $("#fabApply").onclick = () => { const f = FABRICS[d.fabric]; d.objects.forEach(o => { if (o.type === "fill" || o.type === "satin") o.params = Object.assign(o.params || {}, f); }); commit(); renderAll(); };
+  $("#hw").onchange = () => setH(+$("#hw").value || 100, S.doc.hoop.h); $("#hh").onchange = () => setH(S.doc.hoop.w, +$("#hh").value || 100);
+  $("#hm").onchange = () => { S.doc.hoop.margin = +$("#hm").value || 0; commit(); renderAll(); };
+  $("#stab").onchange = e => { S.doc.stabiliser = e.target.value; commit(); };
+  $("#fab").onchange = e => { S.doc.fabric = e.target.value; commit(); };
+  $("#fabApply").onclick = () => { const f = FABRICS[S.doc.fabric]; S.doc.objects.forEach(o => { if (o.type === "fill" || o.type === "satin") o.params = Object.assign(o.params || {}, f); }); commit(); renderAll(); };
   $("#bCenter").onclick = centerAll;
 }
 function renderSeq() {
@@ -512,7 +516,7 @@ $("#bOpen").onclick = () => $("#fileOpen").click(); $("#bImport").onclick = () =
 $("#fileOpen").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); if (!j.doc || !Array.isArray(j.doc.objects)) throw new Error("not an EmbroideryStudio project"); loadDoc(j.doc); } catch (err) { alert("Could not open: " + err.message); } e.target.value = ""; };
 $("#fileImport").onchange = e => { const f = e.target.files[0]; if (f) importFile(f); e.target.value = ""; };
 $("#docName").oninput = e => { S.doc.name = e.target.value; }; $("#docName").onchange = () => commit();
-$("#sPlay").onclick = togglePlay; $("#sStep").onclick = () => { S.sim.playing = false; setView("stitch"); if (S.gen) S.sim.i = Math.min(S.gen.stitches.length, S.sim.i + 1); draw(); };
+$("#sJumps").onchange = draw; $("#sPlay").onclick = togglePlay; $("#sStep").onclick = () => { S.sim.playing = false; setView("stitch"); if (S.gen) S.sim.i = Math.min(S.gen.stitches.length, S.sim.i + 1); draw(); };
 $("#sReset").onclick = () => { S.sim.playing = false; $("#sPlay").textContent = "▶"; setView("stitch"); S.sim.i = 0; draw(); };
 $("#sPos").oninput = e => { S.sim.playing = false; $("#sPlay").textContent = "▶"; setView("stitch"); S.sim.i = +e.target.value; draw(); };
 addEventListener("resize", resize);

@@ -84,7 +84,7 @@ def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0):
     return StitchObject(oid, "satin", th, [satin_from_rails(a, b, spacing, split)], under)
 
 
-MACHINE_DEFAULTS = {"max_stitch": 7.0, "min_stitch": 0.2, "trim_distance": 3.0, "trim_jumps": 3}
+MACHINE_DEFAULTS = {"max_stitch": 7.0, "min_stitch": 0.3, "trim_distance": 3.0, "trim_jumps": 3}
 
 
 def machine(design: dict) -> dict:
@@ -182,8 +182,37 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                 notes.append(f"{oid}: unknown type {typ!r} skipped")
         except (DigitizingError, KeyError, TypeError, ValueError) as e:
             notes.append(f"{oid}: skipped ({e})")
+    notes += _order_notes(design)
     pattern = build_pattern(objs, threads, design.get("name", "design"), trim_distance)
     return pattern, notes, stats(pattern, design)
+
+
+def _bbox(ob: dict):
+    pts = [p for r in ob.get("rings", []) for p in r] + list(ob.get("points", [])) + list(ob.get("rail1", [])) + list(ob.get("rail2", []))
+    if ob.get("type") == "text":
+        h = float(ob.get("height", 10)); pts = [(ob.get("x", 0), ob.get("y", 0)), (ob.get("x", 0) + max(2, len(ob.get("text", "")) * 0.9 * h), ob.get("y", 0) + h)]
+    if not pts:
+        return None
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _order_notes(design: dict) -> List[str]:
+    """Rule C: underlay -> fill -> satin borders -> details. Warn when a satin/run/column/text is stitched BEFORE a
+    fill it overlaps (the fill will bury it)."""
+    objs = [o for o in design.get("objects", []) if not o.get("hidden") and not o.get("guide")]
+    out = []
+    for i, f in enumerate(objs):
+        if f.get("type") != "fill":
+            continue
+        fb = _bbox(f)
+        for e in objs[:i]:
+            if e.get("type") not in ("satin", "run", "column", "text"):
+                continue
+            eb = _bbox(e)
+            if fb and eb and min(fb[2], eb[2]) > max(fb[0], eb[0]) and min(fb[3], eb[3]) > max(fb[1], eb[1]):
+                out.append(f"{e['id']}: stitched before fill {f['id']} which overlaps it - the fill will cover it. Move it after the fill.")
+    return out
 
 
 def stats(p: Pattern, design: Optional[dict] = None) -> dict:
@@ -201,6 +230,7 @@ def stats(p: Pattern, design: Optional[dict] = None) -> dict:
         if s.cmd == Cmd.STITCH:
             sequence[-1][1] += 1
     return {
+        "fabric": (design or {}).get("fabric"), "stabiliser": (design or {}).get("stabiliser"),
         "stitches": c["stitch"], "jumps": c["jump"], "trims": c["trim"], "color_changes": c["color_change"],
         "width_mm": round(bb[2] - bb[0], 2) if bb else 0, "height_mm": round(bb[3] - bb[1], 2) if bb else 0,
         "est_minutes": round(seconds / 60, 1), "assumed_spm": SPM,
