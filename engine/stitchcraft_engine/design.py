@@ -44,7 +44,7 @@ def _pts(v, ob: Optional[dict] = None, closed: bool = False) -> list:
     return smooth(pts, closed) if ob and ob.get("smooth") else pts
 
 
-def _satin_objs(oid, th, path, width, spacing, pull, underlay):
+def _satin_objs(oid, th, path, width, spacing, pull, underlay, split=0.0):
     if underlay == "auto":
         underlay = "center" if width >= 2.0 else "none"
     under = []
@@ -52,10 +52,10 @@ def _satin_objs(oid, th, path, width, spacing, pull, underlay):
         under = [center_walk_underlay(path)]
     elif underlay == "edge" and width > 1.0:
         under = [edge_walk_underlay(path, width)]
-    return StitchObject(oid, "satin", th, [satin_stitch(path, width, spacing, pull)], under)
+    return StitchObject(oid, "satin", th, [satin_stitch(path, width, spacing, pull, split)], under)
 
 
-def _column(oid, th, r1, r2, spacing, pull, underlay, notes):
+def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0):
     """Two-rail satin: stitches zig-zag between the rails. Rails are resampled by arc length, so
     unequal rail lengths simply stretch the stitch angle. pull_comp pushes each rail outwards."""
     from .geometry import dist, polyline_length, resample_n
@@ -69,8 +69,10 @@ def _column(oid, th, r1, r2, spacing, pull, underlay, notes):
     width = sum(dist(p, q) for p, q in zip(a, b)) / len(a)
     if width < 1.0:
         notes.append(f"{oid}: column is very narrow ({width:.1f} mm)")
-    elif width > 7.0:
-        notes.append(f"{oid}: column averages {width:.1f} mm wide - loose satin, consider splitting")
+    elif width > split > 0:
+        notes.append(f"{oid}: column averages {width:.1f} mm wide - long stitches were split automatically")
+    elif width > 7.0 and not split:
+        notes.append(f"{oid}: column averages {width:.1f} mm wide - loose satin, enable auto-split or use a fill")
     if pull:
         a, b = [(p[0] + (p[0] - q[0]) / max(dist(p, q), 1e-9) * pull / 2, p[1] + (p[1] - q[1]) / max(dist(p, q), 1e-9) * pull / 2) for p, q in zip(a, b)], \
                [(q[0] + (q[0] - p[0]) / max(dist(p, q), 1e-9) * pull / 2, q[1] + (q[1] - p[1]) / max(dist(p, q), 1e-9) * pull / 2) for p, q in zip(a, b)]
@@ -79,7 +81,7 @@ def _column(oid, th, r1, r2, spacing, pull, underlay, notes):
         underlay = "center" if width >= 2.0 else "none"
     under = [center_walk_underlay(mid)] if underlay == "center" else \
             [running_stitch(a, 2.5), running_stitch(b[::-1], 2.5)] if underlay == "edge" else []
-    return StitchObject(oid, "satin", th, [satin_from_rails(a, b, spacing)], under)
+    return StitchObject(oid, "satin", th, [satin_from_rails(a, b, spacing, split)], under)
 
 
 MACHINE_DEFAULTS = {"max_stitch": 7.0, "min_stitch": 0.2, "trim_distance": 3.0, "trim_jumps": 3}
@@ -112,6 +114,8 @@ def generate(design: dict, trim_distance: Optional[float] = None):
 
     objs: List[StitchObject] = []
     notes: List[str] = []
+    mach = machine(design)
+    split_of = lambda ob: (mach["max_stitch"] if ob.get("params", {}).get("auto_split", True) else 0.0)
     for ob in design.get("objects", []):
         if ob.get("hidden"):
             continue
@@ -139,13 +143,15 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                 w = _p(ob, "width")
                 if w < 1.0:
                     notes.append(f"{oid}: satin {w:g} mm is too narrow (< 1 mm); use a running stitch")
+                elif w > split_of(ob) > 0:
+                    notes.append(f"{oid}: satin {w:g} mm is wider than the max stitch - long stitches split automatically")
                 elif w > 7.0:
-                    notes.append(f"{oid}: satin {w:g} mm is loose (> 7 mm); split it into narrower columns or use a fill")
+                    notes.append(f"{oid}: satin {w:g} mm is loose (> 7 mm); enable auto-split, narrow it, or use a fill")
                 objs.append(_satin_objs(oid, th, _pts(ob["points"], ob, bool(ob.get("closed"))), _p(ob, "width"), _p(ob, "spacing"),
-                                        _p(ob, "pull_comp") or 0.0, _p(ob, "underlay")))
+                                        _p(ob, "pull_comp") or 0.0, _p(ob, "underlay"), split_of(ob)))
             elif typ == "column":
                 objs.append(_column(oid, th, _pts(ob["rail1"], ob), _pts(ob["rail2"], ob), _p(ob, "spacing"),
-                                    _p(ob, "pull_comp") or 0.0, _p(ob, "underlay"), notes))
+                                    _p(ob, "pull_comp") or 0.0, _p(ob, "underlay"), notes, split_of(ob)))
             elif typ == "run":
                 pts = _pts(ob["points"], ob, bool(ob.get("closed")))
                 objs.append(StitchObject(oid, "running", th,
@@ -159,7 +165,7 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                     if len(path) == 2 and abs(path[0][0] - path[1][0]) + abs(path[0][1] - path[1][1]) < 0.5:
                         continue  # dots handled as tiny satin below
                     objs.append(_satin_objs(f"{oid}.{k}", th, path, width, 0.4, _p(ob, "pull_comp") or 0.0,
-                                            _p(ob, "underlay")))
+                                            _p(ob, "underlay"), split_of(ob)))
             elif typ == "applique":
                 rings = [_pts(r, ob, True) for r in ob["rings"]]
                 ring = rings[0] + [rings[0][0]]

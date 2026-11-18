@@ -138,7 +138,9 @@ class MvpGapTests(unittest.TestCase):
     def test_satin_width_notes(self):
         notes = lambda w: generate(doc({"id": "s", "type": "satin", "color": "#f00", "points": [[0, 0], [20, 0]], "params": {"width": w}}))[1]
         self.assertTrue(any("narrow" in n for n in notes(0.5)))
-        self.assertTrue(any("loose" in n for n in notes(9)))
+        self.assertTrue(any("split automatically" in n for n in notes(9)))        # default: auto-split on
+        off = generate(doc({"id": "s", "type": "satin", "color": "#f00", "points": [[0, 0], [20, 0]], "params": {"width": 9, "auto_split": False}}))[1]
+        self.assertTrue(any("loose" in n for n in off))
         self.assertEqual(notes(3), [])
 
     def test_upload_safety(self):
@@ -204,3 +206,36 @@ class PerformanceTests(unittest.TestCase):
                  "params": {"spacing": 0.25, "stitch_len": 1.2}})
         t = time.time(); r = server.api_generate(d); dt = time.time() - t
         self.assertGreater(len(r["stitches"]), 20000); self.assertLess(dt, 15)
+
+
+class SatinSplitTests(unittest.TestCase):
+    def longest(self, pat):
+        from stitchcraft_engine.model import Cmd
+        pts = [(s.x, s.y) for s in pat.stitches if s.cmd == Cmd.STITCH]
+        return max(((a[0]-b[0])**2 + (a[1]-b[1])**2) ** .5 for a, b in zip(pts, pts[1:]))
+    def satin(self, w, **params):
+        return doc({"id": "s", "type": "satin", "color": "#f00", "points": [[0, 0], [25, 0]],
+                    "params": dict({"width": w, "underlay": "none", "pull_comp": 0}, **params)})
+    def test_wide_satin_stitches_are_split_to_max(self):
+        d = self.satin(10); p, _, _ = generate(d)
+        self.assertLessEqual(self.longest(p), 7.0 + 1e-6)
+        self.assertTrue(run_checks(d, p).ok)
+    def test_without_split_long_stitches_remain(self):
+        p, _, _ = generate(self.satin(10, auto_split=False)); self.assertGreater(self.longest(p), 9.5)
+    def test_machine_max_stitch_drives_split_length(self):
+        d = self.satin(10); d["machine"] = {"max_stitch": 4}; p, _, _ = generate(d)
+        self.assertLessEqual(self.longest(p), 4.0 + 1e-6)
+    def test_split_points_lie_on_the_stitch_and_are_staggered(self):
+        from stitchcraft_engine.stitches import split_long
+        a, b = (0.0, -5.0), (0.0, 5.0)
+        xs = {round(split_long(a, b, 6.0, k)[0][1], 3) for k in range(5)}
+        self.assertGreater(len(xs), 2)                                   # staggered, not one ridge
+        for k in range(5):
+            for q in split_long(a, b, 6.0, k): self.assertEqual(q[0], 0.0); self.assertTrue(-5 < q[1] < 5)
+    def test_narrow_satin_unchanged_by_split(self):
+        a = generate(self.satin(3))[0].counts(); b = generate(self.satin(3, auto_split=False))[0].counts()
+        self.assertEqual(a, b)
+    def test_very_wide_column_beyond_dst_limit_is_exportable(self):   # 16 mm > 12.1 mm DST record limit
+        d = doc({"id": "c", "type": "column", "color": "#f00", "rail1": [[0, 0], [20, 0]], "rail2": [[0, 16], [20, 16]],
+                 "params": {"underlay": "none", "pull_comp": 0}})
+        res, err = server.api_dst(d); self.assertIsNone(err); self.assertTrue(read_dst(res.data).ends_properly)

@@ -48,19 +48,45 @@ def rails_from_centerline(path: Sequence[Point], width: float, step: float = 0.5
     return left, right
 
 
-def satin_from_rails(left: Sequence[Point], right: Sequence[Point], spacing: float = 0.4) -> List[Point]:
-    """Zigzag: one needle penetration every `spacing` mm along the column, alternating rails."""
+_SPLIT_PHASE = (0.0, 0.3, -0.3, 0.15, -0.15)
+
+
+def split_long(a: Point, b: Point, max_len: float, k: int) -> List[Point]:
+    """Interior needle points that cut one over-long satin stitch a->b into pieces <= max_len.
+    Split points are staggered from stitch to stitch (by k) so they do not line up into a visible ridge."""
+    d = dist(a, b)
+    if max_len <= 0 or d <= max_len:
+        return []
+    # staggering stretches the first/last piece by up to (1 + max|phase|) x the even piece, so size for that
+    m = math.ceil(d * (1 + max(abs(x) for x in _SPLIT_PHASE)) / max_len - 1e-9)
+    ph = _SPLIT_PHASE[k % len(_SPLIT_PHASE)]
+    ts = [(j + ph) / m for j in range(1, m)]
+    return [(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t) for t in ts]
+
+
+def satin_from_rails(left: Sequence[Point], right: Sequence[Point], spacing: float = 0.4,
+                     max_len: float = 0.0) -> List[Point]:
+    """Zigzag: one needle penetration every `spacing` mm along the column, alternating rails.
+    max_len > 0 enables satin splitting: stitches longer than max_len get staggered interior points."""
     if spacing <= 0:
         raise DigitizingError("satin spacing must be > 0")
     n = max(1, round(max(polyline_length(left), polyline_length(right)) / spacing))
     lp, rp = resample_n(left, n), resample_n(right, n)
-    return [lp[k] if k % 2 == 0 else rp[k] for k in range(n + 1)]
+    base = [lp[k] if k % 2 == 0 else rp[k] for k in range(n + 1)]
+    if max_len <= 0:
+        return base
+    out = [base[0]]
+    for k in range(1, len(base)):
+        out += split_long(base[k - 1], base[k], max_len, k)
+        out.append(base[k])
+    return out
 
 
-def satin_stitch(path: Sequence[Point], width: float, spacing: float = 0.4, pull_comp: float = 0.0) -> List[Point]:
+def satin_stitch(path: Sequence[Point], width: float, spacing: float = 0.4, pull_comp: float = 0.0,
+                 max_len: float = 0.0) -> List[Point]:
     """pull_comp widens the column (total mm) to offset fabric pull-in; default 0 until machine-tested."""
     left, right = rails_from_centerline(path, width + pull_comp)
-    return satin_from_rails(left, right, spacing)
+    return satin_from_rails(left, right, spacing, max_len)
 
 
 def center_walk_underlay(path: Sequence[Point], stitch_len: float = 2.5) -> List[Point]:

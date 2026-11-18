@@ -23,6 +23,7 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 | Checks | Hoop fit, long/short/duplicate stitches, density, DST limits; export is **blocked on errors** |
 | Output | **Tajima DST** (round-trip verified on every export), project `.esproj`, **production sheet** (colour order, stitch count, size, est. time, preview) |
 | Sizing & transforms | Set exact width/height in mm (proportional or free), free rotation, flip, 90° rotate, scale %, convert stitch type (fill ↔ satin ↔ run), optimise colour order |
+| Satin splitting | Stitches longer than the machine max stitch are split with staggered points (satin, column, lettering), so wide columns up to and beyond the 12.1 mm DST limit stay valid; toggle per object |
 | Machine profile | Max stitch, trim distance, trim-jump count (DST has no trim code, so confirm on your machine) |
 | Safety | SVG DOCTYPE/entity rejected, PNG/JPEG type sniffing, size/pixel/complexity limits, low-DPI warning, PDF rejected with a clear message |
 | Exports | DST, project, preview **SVG + PNG**, production sheet, saved **versions** (browser) |
