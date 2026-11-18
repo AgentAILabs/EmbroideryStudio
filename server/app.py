@@ -223,7 +223,19 @@ class H(BaseHTTPRequestHandler):
         pass
 
 
+def serve_args(argv, env):
+    """(host, port). Default is localhost-only: the app has no login, so only bind wider (ES_HOST=0.0.0.0) inside a
+    container that publishes the port to 127.0.0.1, or behind your own authenticated proxy."""
+    host = env.get("ES_HOST", "127.0.0.1")
+    port = int(argv[1]) if len(argv) > 1 else int(env.get("ES_PORT", 8765))
+    if not 1 <= port <= 65535:
+        raise ValueError("port must be 1-65535")
+    return host, port
+
+
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
-    print(f"EmbroideryStudio on http://127.0.0.1:{port}")
-    ThreadingHTTPServer(("127.0.0.1", port), H).serve_forever()
+    host, port = serve_args(sys.argv, os.environ)
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        print(f"WARNING: listening on {host}. EmbroideryStudio has no login - expose it only through an authenticated proxy or a localhost-published container port.")
+    print(f"EmbroideryStudio on http://{host}:{port}")
+    ThreadingHTTPServer((host, port), H).serve_forever()

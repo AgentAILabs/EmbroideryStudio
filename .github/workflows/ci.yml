@@ -7,7 +7,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install pillow numpy      # only for the optional image-import tests
+      - run: pip install pillow numpy pyembroidery   # pillow/numpy: image-import tests; pyembroidery: independent DST reader cross-check
       - run: python -m unittest discover -s engine/tests -v
       - run: python -m unittest discover -s tests -v
       - uses: actions/setup-node@v4

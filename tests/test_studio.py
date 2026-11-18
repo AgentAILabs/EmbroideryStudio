@@ -681,3 +681,41 @@ class ContourRoundShapeTests(unittest.TestCase):
     def test_thin_keeps_a_closed_ring_of_at_least_three_points(self):
         from stitchcraft_engine.stitches import _thin
         r = _thin([(0, 0), (0.01, 0), (0.02, 0.01), (5, 0), (5, 5)], 0.4); self.assertGreaterEqual(len(r), 3)
+
+
+class ServeArgsTests(unittest.TestCase):
+    def test_defaults_env_and_validation(self):
+        self.assertEqual(server.serve_args(["x"], {}), ("127.0.0.1", 8765))                      # localhost-only by default
+        self.assertEqual(server.serve_args(["x", "9000"], {"ES_HOST": "0.0.0.0"}), ("0.0.0.0", 9000))
+        self.assertEqual(server.serve_args(["x"], {"ES_PORT": "8000"}), ("127.0.0.1", 8000))
+        for bad in ("0", "70000", "abc"):
+            with self.assertRaises(ValueError): server.serve_args(["x", bad], {})
+    def test_container_files_are_consistent_with_the_app(self):
+        root = Path(__file__).resolve().parent.parent
+        df, dc = (root / "Dockerfile").read_text(), (root / "docker-compose.yml").read_text()
+        self.assertIn("ES_HOST=0.0.0.0", df); self.assertIn("server/app.py", df); self.assertIn("USER studio", df)
+        self.assertIn("127.0.0.1:8765:8765", dc)                                               # published to localhost only
+        for d in ("engine", "server", "web"): self.assertTrue((root / d).is_dir() and f"COPY {d} " in df)
+
+
+class DocsConsistencyTests(unittest.TestCase):
+    ROOT = Path(__file__).resolve().parent.parent
+    def test_relative_links_resolve(self):
+        import re
+        for md in [self.ROOT / "README.md"] + sorted((self.ROOT / "docs").rglob("*.md")):
+            for target in re.findall(r"\]\(([^)#\s]+)\)", md.read_text(encoding="utf-8")):
+                if target.startswith(("http://", "https://", "mailto:")): continue
+                self.assertTrue((md.parent / target).exists(), f"{md.name}: broken link {target}")
+    def test_documented_endpoints_exist_in_the_server(self):
+        import re
+        src = (self.ROOT / "server" / "app.py").read_text(encoding="utf-8")
+        arch = (self.ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+        for ep in sorted(set(re.findall(r"/api/[a-z\-/]+", arch))):
+            for part in [p for p in ep.split("·") if p]:
+                self.assertIn(part.rstrip("/"), src, f"documented endpoint {part} not found in server/app.py")
+    def test_documented_object_types_are_handled_by_the_engine(self):
+        eng = (self.ROOT / "engine" / "stitchcraft_engine" / "design.py").read_text(encoding="utf-8")
+        for t in ("fill", "satin", "column", "run", "text", "applique", "embellishment"): self.assertIn(f'"{t}"', eng, t)
+    def test_documented_shortcuts_are_bound(self):
+        js = (self.ROOT / "web" / "app.js").read_text(encoding="utf-8")
+        for key in ('v: "select"', 'f: "fill"', 's: "satin"', 'c: "column"', 'r: "run"', 't: "text"', 'a: "applique"', 'e: "bead"'): self.assertIn(key, js, key)

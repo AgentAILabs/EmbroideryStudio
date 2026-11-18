@@ -4,6 +4,9 @@ A web-based embroidery digitizing studio in the spirit of Wilcom EmbroideryStudi
 Built on the StitchCraft engine from your zip (pure Python, 26 original tests kept), now with an editor UI.
 **Zero third-party runtime dependencies** (Pillow + NumPy only for optional image import).
 
+## Docs
+[User guide](docs/user-guide.md) · [Architecture](docs/architecture.md) · [Status audit](docs/status.md) · [Roadmap](docs/roadmap.md) · [Stitch-out test](docs/testing/README.md)
+
 ## Run
     python3 server/app.py 8765        # then open http://127.0.0.1:8765
     python3 -m unittest discover -s tests && python3 -m unittest discover -s engine/tests
