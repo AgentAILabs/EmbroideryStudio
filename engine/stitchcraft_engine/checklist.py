@@ -11,6 +11,7 @@ from .dst import read_dst, write_dst
 from .geometry import polygon_area
 from .model import Cmd
 from . import dst_analyze, dst_verify
+from .profiles import underlay_shift
 
 PRODUCTION_STITCH_LIMIT = 150_000        # a single garment design above this is unusual; machine memory is far larger
 
@@ -88,14 +89,16 @@ def evaluate(design: dict) -> dict:
                        f"target ~{target:.2f} mm line spacing for this fabric + thread" + (f"; outside 0.75-1.35x: {', '.join(off[:5])}" if off else f"; {len(fills)} fill(s) in range")))
     # 5 underlay where required
     need = []
+    light = underlay_shift(design) < 0
+    fill_min = 60 if light else 25                      # light fabric / saree profile: minimal underlay by design (spec section 3)
     for o in objs:
         p = o.get("params") or {}
         if o["type"] in ("satin", "column") and _width(o) >= 2.0 and p.get("underlay", "auto") == "none":
             need.append(o.get("name") or o["id"])
-        if o["type"] == "fill" and o.get("rings") and abs(polygon_area(o["rings"][0])) >= 25 and p.get("underlay", "tatami") in ("none", False):
+        if o["type"] == "fill" and o.get("rings") and abs(polygon_area(o["rings"][0])) >= fill_min and p.get("underlay", "tatami") in ("none", False):
             need.append(o.get("name") or o["id"])
     items.append(_item(5, "Underlay generated where required", "WARN" if need else "PASS",
-                       f"missing on: {', '.join(need[:6])}" if need else "every satin >= 2 mm and fill >= 25 mm2 has underlay"))
+                       f"missing on: {', '.join(need[:6])}" if need else f"every satin >= 2 mm and fill >= {fill_min} mm2 has underlay"))
     # 6 pull compensation
     nopc = [o.get("name") or o["id"] for o in objs if o["type"] in ("fill", "satin", "column") and not float((o.get("params") or {}).get("pull_comp", DEFAULTS[o["type"]].get("pull_comp", 0)) or 0)]
     items.append(_item(6, "Pull compensation configured", "WARN" if nopc else "PASS",

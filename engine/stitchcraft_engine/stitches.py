@@ -198,7 +198,7 @@ def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spaci
                 stitch_len: float = 3.5, stagger: int = 3, min_stitch: float = 0.3,
                 max_connect: float = 3.0, pull_comp: float = 0.0, regions: bool = False,
                 exclude: Sequence[Sequence[Sequence[Point]]] = (), exclude_margin: float = 0.6,
-                push_comp: float = 0.0) -> List[List[Point]]:
+                push_comp: float = 0.0, min_row: float = 0.0) -> List[List[Point]]:
     """Scanline fill with even-odd holes. Returns a list of runs; consecutive runs need a JUMP.
     Needle penetrations are staggered row to row (`stagger` phases) for the classic tatami texture.
     exclude: shapes (each a list of rings, even-odd) stitched ON TOP later - the part of this fill hidden under them is not sewn,
@@ -232,7 +232,7 @@ def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spaci
         if ex_rot:
             intervals = _subtract(intervals, [iv for sh in ex_rot for iv in _scan(sh, y, -exclude_margin)])
             intervals = [iv for iv in intervals if iv[1] - iv[0] >= 1.0]        # no slivers left beside a cut-out
-        intervals = [iv for iv in intervals if iv[1] - iv[0] >= min_stitch]      # a row shorter than the minimum stitch (a pointed tip) adds nothing: neighbours cover it
+        intervals = [iv for iv in intervals if iv[1] - iv[0] >= max(min_stitch, min_row)]      # a row shorter than the minimum stitch (a pointed tip) adds nothing: neighbours cover it
         forward = j % 2 == 0
         phase = (j % max(stagger, 1)) / max(stagger, 1) * stitch_len
         row = []

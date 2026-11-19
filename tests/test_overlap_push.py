@@ -93,3 +93,38 @@ class DeliveredFilesUnchanged(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExpansionAndAxisCompTests(unittest.TestCase):
+    def bbox(self, **params):
+        d = doc({"id": "f", "type": "fill", "color": "#f00", "rings": [[[0, 0], [20, 0], [20, 10], [0, 10]]], "params": dict({"angle": 0, "pull_comp": 0, "underlay": "none"}, **params)})
+        p = generate(d)[0]; self.assertTrue(run_checks(d, p).ok); return p.bbox()
+    def test_fill_expansion_grows_outline(self):
+        a, b = self.bbox(), self.bbox(expand_mm=0.3)
+        self.assertAlmostEqual(a[0] - b[0], 0.3, delta=0.05); self.assertAlmostEqual(b[2] - a[2], 0.3, delta=0.05)
+        self.assertLessEqual(b[1], a[1] - 0.1)
+    def test_expansion_shrinks_holes(self):
+        from stitchcraft_engine.geometry import point_in_ring
+        hole = [[8, 3], [8, 7], [12, 7], [12, 3]]
+        def reach(e):
+            d = doc({"id": "f", "type": "fill", "color": "#f00", "rings": [[[0, 0], [20, 0], [20, 10], [0, 10]], hole], "params": {"angle": 0, "expand_mm": e, "underlay": "none"}})
+            return max(x for x, y in stitched(generate(d)[0]) if x < 10 and 4 < y < 6)       # right end of the rows left of the hole
+        self.assertAlmostEqual(reach(0.4) - reach(0), 0.4, delta=0.05)                    # the fill now reaches 0.4 mm further into the hole
+    def test_axis_compensation_is_independent_of_direction(self):
+        for ang in (0, 45, 90):
+            a, b = self.bbox(angle=ang), self.bbox(angle=ang, comp_x=0.8, comp_y=0.8)
+            # rows are 0.4 mm apart, so the dimension across the rows moves in 0.4 mm steps: tolerance 0.41
+            self.assertAlmostEqual((b[2] - b[0]) - (a[2] - a[0]), 0.8, delta=0.41, msg=ang)
+            self.assertAlmostEqual((b[3] - b[1]) - (a[3] - a[1]), 0.8, delta=0.41, msg=ang)
+    def test_column_axis_comp(self):
+        c = {"id": "c", "type": "column", "color": "#c00", "rail1": [[0, 0], [30, 0]], "rail2": [[0, 3], [30, 3]], "params": {"underlay": "none", "pull_comp": 0}}
+        h0 = generate(doc(c))[0].bbox(); c["params"]["comp_y"] = 0.4; h1 = generate(doc(c))[0].bbox()
+        self.assertAlmostEqual((h1[3] - h1[1]) - (h0[3] - h0[1]), 0.4, delta=0.05)
+    def test_sharp_shape_falls_back_safely(self):
+        spike = [[0, 0], [30, 0.2], [0, 0.4], [-1, 0.2]]
+        d = doc({"id": "f", "type": "fill", "color": "#f00", "rings": [spike], "params": {"expand_mm": 1.0}})
+        try:
+            p, notes, _ = generate(d)
+        except ValueError:
+            return
+        self.assertTrue(run_checks(d, p).ok)

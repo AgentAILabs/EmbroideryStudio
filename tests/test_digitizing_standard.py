@@ -167,3 +167,40 @@ class AutoDigitizeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SpecComplianceAuditTests(unittest.TestCase):
+    """Regression guard for the section-by-section audit against the specification (docs/digitizing-standard.md)."""
+    def img(self):
+        try:
+            from PIL import Image, ImageDraw
+            import numpy  # noqa: F401
+        except Exception:
+            self.skipTest("Pillow/NumPy not available")
+        im = Image.new("RGB", (800, 600), "white"); d = ImageDraw.Draw(im)
+        d.ellipse((60, 60, 420, 540), fill=(170, 20, 40)); d.ellipse((180, 200, 300, 400), fill=(230, 180, 30))
+        d.rectangle((470, 60, 520, 540), fill=(20, 110, 60)); d.line((560, 80, 760, 520), fill=(20, 20, 120), width=5)
+        b = io.BytesIO(); im.save(b, "PNG"); return base64.b64encode(b.getvalue()).decode()
+    def run_ad(self, fabric, category, data):
+        return server.api_autodigitize({"data": data, "width_mm": 80, "colors": 5, "fabric": fabric, "category": category, "thread": "40wt", "hoop_w": 130, "hoop_h": 180})
+    def test_profile_really_applies_in_auto_digitize(self):
+        data = self.img()
+        silk, denim = self.run_ad("silk", "blouse_neck", data)["design"], self.run_ad("denim", "logo", data)["design"]
+        pc = lambda d: {o["params"].get("pull_comp") for o in d["objects"] if o["type"] == "fill"}
+        self.assertEqual(pc(silk), {0.25}); self.assertEqual(pc(denim), {0.15})
+        runs = lambda d: {o["params"].get("stitch_len") for o in d["objects"] if o["type"] == "run"}
+        self.assertEqual(runs(silk), {2.0}); self.assertEqual(runs(denim), {2.5})
+        self.assertTrue(all(o["params"].get("min_row") == 0.8 for o in silk["objects"] if o["type"] == "fill"))
+    def test_cotton_40wt_densities_inside_spec_range(self):
+        d = self.run_ad("cotton", "blouse_neck", self.img())["design"]
+        for o in d["objects"]:
+            if o["type"] in ("fill", "satin", "column"):
+                self.assertTrue(0.40 <= o["params"]["spacing"] <= 0.45, (o["type"], o["params"]["spacing"]))
+    def test_light_fabric_never_drops_satin_underlay(self):
+        self.assertEqual(PR.satin_underlay(2.5, -1), "center"); self.assertEqual(PR.satin_underlay(1.6, -1), "none")
+    def test_matrix_all_fifteen_checks_pass(self):
+        data = self.img()
+        for fab in ("cotton", "silk", "velvet", "stretch"):
+            for cat in ("blouse_neck", "saree_border"):
+                c = self.run_ad(fab, cat, data)["checklist"]
+                self.assertTrue(c["export_allowed"], (fab, cat)); self.assertEqual(c["passed"], 15, (fab, cat, [(i["n"], i["evidence"]) for i in c["items"] if i["level"] != "PASS"]))
