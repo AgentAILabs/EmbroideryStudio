@@ -92,19 +92,26 @@ def _compensate_rings(rings, ob, notes, oid):
 
 
 def _covering_shapes(objs, idx):
-    """Outlines of the stitched objects sewn AFTER objs[idx] (they lie on top of it): fills / appliqué as their rings,
-    columns as rail1 + reversed rail2, satins as their stitched band."""
-    out = []
+    """Outlines of the stitched objects sewn AFTER objs[idx] (they lie on top of it), built from the same geometry that is stitched
+    (smoothing, expansion and horizontal/vertical compensation included): fills / appliqué as their rings, columns as rail1 +
+    reversed rail2, satins as their stitched band."""
+    out, scratch = [], []
     for o in objs[idx + 1:]:
         if o.get("hidden") or o.get("guide") or o.get("type") in ("embellishment", "run", "text"):
             continue
         try:
-            if o["type"] in ("fill", "applique"):
-                out.append([[(float(a), float(b)) for a, b in r] for r in o["rings"]])
+            if o["type"] == "fill":
+                out.append(_compensate_rings([_pts(r, o, True) for r in o["rings"]], o, scratch, o.get("id")))
+            elif o["type"] == "applique":
+                out.append([_pts(r, o, True) for r in o["rings"]])
             elif o["type"] == "column":
-                out.append([[(float(a), float(b)) for a, b in o["rail1"]] + [(float(a), float(b)) for a, b in o["rail2"]][::-1]])
+                r1, r2 = _pts(o["rail1"], o), _pts(o["rail2"], o)
+                kx, ky = _axis_comp(r1 + r2, o)
+                if kx != 1.0 or ky != 1.0:
+                    c0 = _centre(r1 + r2); r1, r2 = scale_axes(r1, *c0, kx, ky), scale_axes(r2, *c0, kx, ky)
+                out.append([list(r1) + list(r2)[::-1]])
             elif o["type"] == "satin" and not o.get("closed"):
-                l, r = rails_from_centerline([(float(a), float(b)) for a, b in o["points"]], float(_p(o, "width")))
+                l, r = rails_from_centerline(_pts(o["points"], o), float(_p(o, "width")))
                 out.append([l + r[::-1]])
         except (KeyError, TypeError, ValueError, DigitizingError):
             continue
@@ -125,12 +132,29 @@ def _satin_objs(oid, th, path, width, spacing, pull, underlay, split=0.0, shorte
     if underlay in ("zigzag", "edge+zigzag") and width > 2.0:
         l, r = rails_from_centerline(path, width)
         under.append(zigzag_underlay(l, r))
-    top = satin_stitch(path[::-1] if end_at_start and under else path, width, spacing, pull, split, shorten)
-    if end_at_start and under and dist(under[-1][-1], top[0]) > 1e-6:
-        top = [tuple(under[-1][-1])] + top
-    if end_at_start and under and 1e-6 < dist(top[-1], under[0][0]) <= 1.5:
-        top = top + [tuple(under[0][0])]
+    back = bool(end_at_start and under and _underlay_ends_far(under, path[0], path[-1]))
+    top = satin_stitch(path[::-1] if back else path, width, spacing, pull, split, shorten)
+    if back:
+        top = _join_return(top, under)
     return StitchObject(oid, "satin", th, [top], under)
+
+
+def _underlay_ends_far(under, start, end) -> bool:
+    """end_at_start only makes sense when the underlay left the needle at the FAR end (centre run, zig-zag): then the satin comes
+    back. An edge-run underlay already returns to the start - reversing the satin there would add a stitch the whole object long."""
+    tail = under[-1][-1]
+    return dist(tail, end) < dist(tail, start)
+
+
+def _join_return(top, under, limit=1.5):
+    """Short joining stitches (<= limit mm, inside the object) from the underlay end to the satin start and from the satin end back to
+    the object's start point. Never adds a long stitch."""
+    tail, home = under[-1][-1], under[0][0]
+    if 1e-6 < dist(tail, top[0]) <= limit:
+        top = [tuple(tail)] + top
+    if 1e-6 < dist(top[-1], home) <= limit:
+        top = top + [tuple(home)]
+    return top
 
 
 def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0, shorten=False, end_at_start=False):
@@ -161,14 +185,9 @@ def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0, shorten=
             [running_stitch(underlay_path(a), 2.5), running_stitch(underlay_path(b[::-1]), 2.5)] if underlay in ("edge", "edge+zigzag") else []
     if underlay in ("zigzag", "edge+zigzag") and width > 2.0:
         under.append(zigzag_underlay(a, b))
-    if end_at_start and under:          # underlay travels out, the satin comes back: the object ends where it started (no trim to the next)
-        top = satin_from_rails(a[::-1], b[::-1], spacing, split, shorten)
-        tail, home = under[-1][-1], under[0][0]
-        if dist(tail, top[0]) > 1e-6:
-            top = [tuple(tail)] + top     # one short stitch inside the tip instead of a jump + duplicate needle drop
-        if 1e-6 < dist(top[-1], home) <= 1.5:
-            top = top + [tuple(home)]     # finish exactly where the object started (centre of the base), not on a rail corner
-        return StitchObject(oid, "satin", th, [top], under)
+    if end_at_start and under and _underlay_ends_far(under, mid[0], mid[-1]):
+        # underlay travels out, the satin comes back: the object ends where it started (no trim to the next)
+        return StitchObject(oid, "satin", th, [_join_return(satin_from_rails(a[::-1], b[::-1], spacing, split, shorten), under)], under)
     return StitchObject(oid, "satin", th, [satin_from_rails(a, b, spacing, split, shorten)], under)
 
 
