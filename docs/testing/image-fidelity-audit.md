@@ -27,3 +27,15 @@ A 1600 px source gives the same result as a 400 px one: the source resolution is
 | F9 | Info | Photographs become flat regions and cannot match | by nature (shading, texture) | blue blouse photos | detection + explicit limitation + review flags (P4/P6) | same | **Documented**: photographs are detected, listed as a remaining risk and processed best-effort to flat regions; no invented detail |
 
 | F10 | Med | Antialiasing blends (e.g. pink between red and white) formed many tiny false objects once small details were no longer dropped | the fringe test compared Lab distance to a straight Lab line; resamplers blend in sRGB or linear light, so real blends were 24 dE away | standard, 1600 px source: 63 objects instead of 37 | `_is_mix` tests both blend spaces | `DetailInventory` tests | **Fixed - verified** |
+| F11 | High | Digitizing a 2,400 px artwork at `maximum` took 244 s | `_nest` recomputed every ring area for every pair of rings (54 M area sums for 1,600 rings) | bird-pair artwork, maximum | areas once + numpy bounding-box candidates | `MixedShapes::test_nesting_thousands_of_rings_is_fast`, `ComplexArtworkBudget` | **Fixed - verified**: 2.8 s |
+| F12 | High | A bead on the end of a line, and thin lines touching a leaf, lost part of the artwork | the component was classed as one line / fill by its average width | complex-artwork overlay: crest beads and the copper swirl line tips were red in the difference map | coverage check + residual pieces; thick / thin split | `MixedShapes` | **Fixed - verified**: ink recall 99.2 -> 99.95 %, worst colour 90.5 -> 94 % |
+| F13 | Med | auto-fix removed fills under 1 mm2 (20 objects at `maximum`) although micro strategies exist | `placements.autofix` speck rule vs the 0.25 mm2 fill threshold | maximum run: pass 5 WARNING + pass 8 FAILED | the fill threshold is never below 1 mm2; smaller shapes get a micro strategy | validation passes on the demo | **Fixed - verified** |
+| F14 | Low | `test_logs_never_contain_request_bodies` was racy (access line written after the response) | test | one failure in a full run | wait for the line | `tests/test_ops.py` | **Fixed** |
+
+## Result (benchmark, 52 exact-truth elements, 1000 px source)
+| Quality | Before | After |
+|---|---|---|
+| standard | 37 / 52 | **51 / 52** |
+| high | 48 / 52 | **51 / 52** |
+| maximum | (not available) | **51 / 52** |
+The one element not reproduced (a 0.5 mm dot) is listed as `not_stitchable` with its reason. One-pixel lines: 0 of 13 objects before (standard, high), 13 of 13 after.

@@ -108,4 +108,54 @@ class DetailInventory(unittest.TestCase):
         r = self.run_bench("high"); d = {"name": "inv", "hoop": {"w": 120, "h": 120, "margin": 3}, "objects": [dict(o) for o in r["objects"]]}
         EP.export_dst(d)
 
+
+def _ink_recall(png, objs, width_mm, tol_mm=0.3):
+    """Share of the artwork's non-white pixels covered by the stitched shapes (0.3 mm tolerance)."""
+    import numpy as np
+    from PIL import Image, ImageDraw, ImageFilter
+    import detail_bench as D
+    im = Image.open(io.BytesIO(png)).convert("RGB"); a = np.asarray(im); ink = ~np.all(a > 235, axis=2)
+    H, W = ink.shape; ppm = W / width_mm
+    got, (gw, gh) = D.stitched_masks(objs, width_mm, H / ppm, ppm)
+    allm = np.zeros((gh, gw), bool)
+    for m in got.values(): allm |= m
+    k = 2 * max(1, round(tol_mm * ppm)) + 1
+    allm = np.asarray(Image.fromarray(allm.astype(np.uint8) * 255).filter(ImageFilter.MaxFilter(k))) > 0
+    ink = ink[:allm.shape[0], :allm.shape[1]]; allm = allm[:ink.shape[0], :ink.shape[1]]
+    return float((ink & allm).sum() / max(1, ink.sum()))
+
+@unittest.skipUnless(HAVE, "Pillow/NumPy not installed")
+class MixedShapes(unittest.TestCase):
+    """Defects found by the complex-artwork run: a bead on the end of a line, and thin lines touching a leaf, lost part of the artwork."""
+    def png(self, draw, size=(800, 400)):
+        from PIL import Image, ImageDraw
+        im = Image.new("RGB", size, "white"); draw(ImageDraw.Draw(im)); b = io.BytesIO(); im.save(b, "PNG"); return b.getvalue()
+    def test_a_bead_on_the_end_of_a_line_is_not_lost(self):
+        png = self.png(lambda d: (d.line((60, 200, 600, 200), fill=(184, 89, 42), width=4), d.ellipse((590, 175, 640, 225), fill=(184, 89, 42))))
+        r = server.api_raster({"data": base64.b64encode(png).decode(), "width_mm": 80, "colors": 4, "quality": "high"})
+        self.assertGreater(_ink_recall(png, r["objects"], 80), 0.97)
+    def test_thin_lines_joined_to_a_broad_leaf_are_stitched_not_left_empty_inside_a_fill(self):
+        def draw(d):
+            d.polygon([(60, 200), (200, 120), (340, 200), (200, 280)], fill=(46, 158, 68))
+            for dy in (-12, 0, 12): d.line((330, 200 + dy, 760, 200 + dy * 6), fill=(46, 158, 68), width=4)
+        png = self.png(draw); r = server.api_raster({"data": base64.b64encode(png).decode(), "width_mm": 80, "colors": 4, "quality": "high"})
+        self.assertGreater(_ink_recall(png, r["objects"], 80), 0.97)
+    def test_nesting_thousands_of_rings_is_fast(self):
+        """Regression: _nest summed every ring area for every pair of rings (244 s for 1,600 tiny rings)."""
+        import time
+        from stitchcraft_engine.raster import _nest
+        rings = [[(x, y), (x + 0.4, y), (x + 0.4, y + 0.4), (x, y + 0.4)] for x in range(0, 60) for y in range(0, 40)] + [[(0, 0), (100, 0), (100, 80), (0, 80)]]
+        t = time.time(); comps = _nest(rings); self.assertLess(time.time() - t, 5.0); self.assertTrue(comps)
+
+@unittest.skipUnless(HAVE, "Pillow/NumPy not installed")
+class ComplexArtworkBudget(unittest.TestCase):
+    def test_2400px_artwork_high_and_maximum_stay_within_budget_and_lose_nothing_silently(self):
+        import time
+        import detail_bench as D
+        data = D.encode(D.plate(D.elements()), 2400)
+        for q, budget in (("high", 30), ("maximum", 45)):
+            t = time.time(); r = server.api_raster({"data": base64.b64encode(data).decode(), "width_mm": 80, "colors": 8, "quality": q}); dt = time.time() - t
+            self.assertLess(dt, budget, (q, dt)); self.assertEqual(r["report"]["work_px"][0], 1000)           # 80 mm / 0.08 mm per px
+            self.assertEqual(sum(r["report"]["inventory_status"].values()), len(r["inventory"]))
+
 if __name__ == "__main__": unittest.main()

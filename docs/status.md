@@ -47,6 +47,18 @@ save/reopen, SVG + PNG import, versions) with zero page errors / HTTP 5xx.
 | React/TS + ASP.NET + PostgreSQL | ❌ roadmap (stage 1 contract done; stages 2-5 not started) | `docs/architecture/enterprise-architecture.md` |
 Audit register: `docs/testing/technical-audit-report.md`. Roadmap: `docs/roadmap/enterprise-feature-roadmap.md`.
 
+## Image-to-DST fidelity (2026-11-19)
+| Statement | Status | Note |
+|---|---|---|
+| Original image preserved (hash, byte-identical bundle) | ✅ | `fidelity.py`, `POST /api/image/bundle` |
+| No silently dropped detail: inventory with status / reason / stitchability; micro strategies; `not_stitchable` flagged | ✅ software | `raster.py`; benchmark 37 -> 51 of 52 (standard) |
+| Thin ink (1-px lines) preserved | ✅ fixed | 13 lines -> 0 objects before, 13 after |
+| Nine-pass image-to-DST validation with overlay / difference | ✅ software | `image_validation.py`; mutation-tested |
+| Comparison workspace (original / decoded-DST / difference / slider / inventory) | ✅ | "Image fidelity" button |
+| Photographs | ⚠ limitation | flat regions at best effort, reported as a risk |
+| Physical machine validation | 🧪 PENDING | nothing stitched |
+Docs: `docs/embroidery/image-to-dst-validation.md`, `docs/testing/image-fidelity-audit.md`.
+
 ## A. Review decisions (requirements §A)
 | # | Item | Status | Evidence / note |
 |---|---|---|---|

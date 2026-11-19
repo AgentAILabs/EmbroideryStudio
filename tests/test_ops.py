@@ -49,7 +49,11 @@ class Http(unittest.TestCase):
         rec = [l for l in lines if l["event"] == "unhandled_exception"]; self.assertTrue(rec); self.assertEqual(rec[0]["rid"], rid); self.assertEqual(rec[0]["error_type"], "RuntimeError"); self.assertIn("synthetic failure", rec[0]["error"])
     def test_logs_never_contain_request_bodies(self):
         err = io.StringIO()
-        with contextlib.redirect_stderr(err): self.call("/api/generate", {"name": "SECRET-CUSTOMER-NAME", "hoop": {"w": 100, "h": 100}, "objects": []})
+        with contextlib.redirect_stderr(err):
+            self.call("/api/generate", {"name": "SECRET-CUSTOMER-NAME", "hoop": {"w": 100, "h": 100}, "objects": []})
+            for _ in range(100):                                   # the access line is written after the response is sent: wait for it (was a race)
+                if '"event": "request"' in err.getvalue(): break
+                time.sleep(0.02)
         self.assertNotIn("SECRET-CUSTOMER-NAME", err.getvalue()); self.assertIn('"event": "request"', err.getvalue())
     def test_rate_limit_returns_429_with_retry_after(self):
         real = server.LIMITER; server.LIMITER = ops.RateLimiter(60, 2)

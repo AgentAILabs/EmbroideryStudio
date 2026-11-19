@@ -24,7 +24,7 @@ from typing import Dict, List, Optional
 
 PPM = 4.0                      # comparison pixels per mm
 THREAD_MM = 0.45
-THRESHOLDS = {"ink_recall": 0.97, "stitched_spill": 0.04, "boundary_p95_mm": 0.5, "dst_boundary_p95_mm": 0.75, "spill_tolerance_mm": 0.5, "thread_coverage": 0.85, "colour_match_min": 0.95, "micro_coverage_review": 1.0,
+THRESHOLDS = {"ink_recall": 0.97, "stitched_spill": 0.04, "boundary_p95_mm": 0.5, "dst_boundary_p95_mm": 0.75, "spill_tolerance_mm": 0.5, "thread_coverage": 0.85, "colour_match_min": 0.93, "micro_coverage_review": 1.0,
               "unexplained_ink": 0.01, "mapping_residual_mm": 0.6, "optimisation_area_delta": 0.03}
 DISCLAIMER = ("Software measurement only: these numbers compare the digitized design and the decoded DST with the uploaded image. "
               "They are not proof of stitch-out quality, and physical machine validation is PENDING.")

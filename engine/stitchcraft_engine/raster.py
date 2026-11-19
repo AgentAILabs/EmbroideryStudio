@@ -145,8 +145,10 @@ QUALITY = {
 SAFE_MIN_FEATURE_MM = 0.75   # an isolated mark smaller than this cannot be stitched safely (needle + thread ~0.4 mm, stitches >= 0.4 mm): listed as not_stitchable
 NOISE_FLOOR_MM = 0.30        # below one thread width a blob is image noise / antialiasing dust: counted (count + area), not listed one by one
 NOISE_AREA_MM2 = 0.15        # ... and so is anything with less area than this (a 0.45 mm dot is 0.16 mm2)
+MIN_FILL_MM2 = 1.0          # below this a tatami fill cannot form rows (auto-fix removes fills under 1 mm2): smaller shapes get a micro strategy instead
 TACK_MAX_EQ_DIAMETER_MM = 2.2   # small blobs up to this equivalent diameter become a tack dot (3-stitch star) instead of a fill
 INVENTORY_LIMIT = 2500
+MAX_HIRES_PX = 3300          # longest side of the up-sampled mask used for contour tracing (time / memory budget)
 MAX_WORK_PX = 1600          # memory / time budget for the working image (longest side)
 DETAIL_MM_PER_PX = 0.08     # adaptive working resolution aims for <= this many mm per working pixel
 THIN_MM = 1.0            # estimated width below this -> running stitch along the middle
@@ -402,12 +404,23 @@ def _contours_mm(mask, up, blur, tol_mm, width_mm):
 
 
 def _nest(rings):
-    """Group rings into outers with their holes (even-odd depth); returns [(outer, [holes])]."""
+    """Group rings into outers with their holes (even-odd depth); returns [(outer, [holes])].
+    Areas are computed once and a bounding-box test (numpy) selects the few candidate containers, so thousands of rings stay fast (was O(n^2) area sums:
+    244 s for 1,600 tiny rings of a 2,400 px artwork)."""
+    import numpy as np
     from .geometry import point_in_ring
     n = len(rings)
+    if n == 0:
+        return []
+    areas = [_area(r) for r in rings]
+    bb = np.array([[min(p[0] for p in r), min(p[1] for p in r), max(p[0] for p in r), max(p[1] for p in r)] for r in rings])
+    ar = np.array(areas)
     parent = [None] * n
     depth = [0] * n
-    contain = [[j for j in range(n) if j != i and _area(rings[j]) > _area(rings[i]) and point_in_ring(rings[i][0], rings[j])] for i in range(n)]
+    contain = []
+    for i in range(n):
+        cand = np.nonzero((ar > ar[i]) & (bb[:, 0] <= bb[i, 0]) & (bb[:, 1] <= bb[i, 1]) & (bb[:, 2] >= bb[i, 2]) & (bb[:, 3] >= bb[i, 3]))[0]
+        contain.append([int(j) for j in cand if j != i and point_in_ring(rings[i][0], rings[int(j)])])
     for i in range(n):
         depth[i] = len(contain[i])
         if contain[i]:
@@ -450,6 +463,95 @@ def _make_object(outer, holes, color, quality_cfg, report):
     xs, ys = [p[0] for p in outer], [p[1] for p in outer]
     ang = _major_axis_deg(outer) if (max(xs) - min(xs) > 0 and (max(xs) - min(xs)) / max(1e-9, max(ys) - min(ys)) > 2.0 or max(ys) - min(ys) > 2.0 * (max(xs) - min(xs))) else 45.0
     return {"type": "fill", "color": color, "rings": [_round(outer)] + [_round(h) for h in holes], "params": {"angle": round(ang, 1), "pull_comp": 0.2}}, "fill"
+
+
+def _shape_coverage(outer, holes, obj, width_mm=0.45):
+    """-> (coverage, residual_components). Coverage = share of the component's area that the generated line / column covers; a thin line with a bead on its
+    end (or two lines that touch at a tip) is classed as one line by its average width and would lose part of the shape. The residual (the uncovered part,
+    after removing slivers thinner than 0.3 mm) is returned as components so it can be stitched too. Rasterised locally at 10 px/mm; (1.0, []) if unmeasurable."""
+    try:
+        import numpy as np
+        from PIL import Image, ImageDraw, ImageFilter
+    except ImportError:
+        return 1.0, []
+    x0, y0, x1, y1 = _bbox_mm(outer); k = 10.0; pad = 1.0
+    W, H = int((x1 - x0 + 2 * pad) * k) + 2, int((y1 - y0 + 2 * pad) * k) + 2
+    if W * H > 4_000_000:
+        return 1.0, []
+    P = lambda pts: [((x - x0 + pad) * k, (y - y0 + pad) * k) for x, y in pts]
+    poly = Image.new("L", (W, H), 0); d = ImageDraw.Draw(poly); d.polygon(P(outer), fill=255)
+    for h in holes:
+        d.polygon(P(h), fill=0)
+    got = Image.new("L", (W, H), 0); g = ImageDraw.Draw(got)
+    if obj["type"] == "run":
+        g.line(P(obj["points"]), fill=255, width=max(1, round(width_mm * k)))
+    elif obj["type"] == "column":
+        g.polygon(P(obj["rail1"] + obj["rail2"][::-1]), fill=255)
+    else:
+        return 1.0, []
+    got = got.filter(ImageFilter.MaxFilter(5))                 # 0.2 mm positional tolerance
+    pa = np.asarray(poly) > 0
+    area = int(pa.sum())
+    if not area:
+        return 1.0, []
+    res = pa & ~(np.asarray(got) > 0)
+    cov = 1.0 - res.sum() / area
+    if cov >= 0.995:
+        return cov, []
+    r = Image.fromarray(res.astype(np.uint8) * 255).filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(3))      # drop 1-2 px slivers along the edges
+    rm = np.asarray(r) > 0
+    rings = []
+    for loop in _loops_fast(rm):
+        pts = _simplify_closed([(float(px), float(py)) for px, py in loop], 1.0)
+        if len(pts) >= 3:
+            ring = [(px / k + x0 - pad, py / k + y0 - pad) for px, py in pts]
+            if _area(ring) >= NOISE_AREA_MM2:
+                rings.append(ring)
+    return float(cov), _nest(rings)
+
+
+def _split_thick_thin(outer, holes, min_width_mm=0.7):
+    """A component that joins broad areas with thin lines (e.g. copper lines touching a sprig) cannot be one fill: a tatami fill leaves the narrow strips empty.
+    Split it by morphological opening: the part wider than `min_width_mm` stays a region, the rest are thin pieces. -> (thick_components, thin_components) or None
+    when the thin part is negligible. Rasterised locally at 10 px/mm; contours smoothed to 0.12 mm."""
+    try:
+        import numpy as np
+        from PIL import Image, ImageDraw, ImageFilter
+    except ImportError:
+        return None
+    x0, y0, x1, y1 = _bbox_mm(outer); k = 10.0; pad = 1.0
+    W, H = int((x1 - x0 + 2 * pad) * k) + 2, int((y1 - y0 + 2 * pad) * k) + 2
+    if W * H > 6_000_000:
+        return None
+    P = lambda pts: [((x - x0 + pad) * k, (y - y0 + pad) * k) for x, y in pts]
+    im = Image.new("L", (W, H), 0); d = ImageDraw.Draw(im); d.polygon(P(outer), fill=255)
+    for h in holes:
+        d.polygon(P(h), fill=0)
+    ks = 2 * int(min_width_mm * k / 2) + 1
+    thick = im.filter(ImageFilter.MinFilter(ks)).filter(ImageFilter.MaxFilter(ks))
+    tk = np.asarray(thick) > 0; whole = np.asarray(im) > 0
+    grown = np.asarray(thick.filter(ImageFilter.MaxFilter(3))) > 0
+    thin = whole & ~grown
+    thin = np.asarray(Image.fromarray(thin.astype(np.uint8) * 255).filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(3))) > 0
+    a_thin, a_thick, a_all = thin.sum() / k / k, tk.sum() / k / k, whole.sum() / k / k
+    if a_thin < max(1.0, 0.04 * a_all) or a_thick < 1.0:
+        return None
+    def comps(mask):
+        rings = []
+        for loop in _loops_fast(mask):
+            pts = _simplify_closed([(float(px), float(py)) for px, py in loop], 1.2)
+            if len(pts) >= 3:
+                ring = [(px / k + x0 - pad, py / k + y0 - pad) for px, py in pts]
+                if _area(ring) >= NOISE_AREA_MM2:
+                    rings.append(ring)
+        return _nest(rings)
+    return comps(tk), comps(thin)
+
+
+def _force_fill(outer, holes, color):
+    xs, ys = [p[0] for p in outer], [p[1] for p in outer]
+    ang = _major_axis_deg(outer) if (max(xs) - min(xs)) > 2.0 * (max(ys) - min(ys)) or (max(ys) - min(ys)) > 2.0 * (max(xs) - min(xs)) else 45.0
+    return {"type": "fill", "color": color, "rings": [_round(outer)] + [_round(h) for h in holes], "params": {"angle": round(ang, 1), "pull_comp": 0.2}}
 
 
 def _bbox_mm(ring):
@@ -569,10 +671,11 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
     mm = width_mm / W; height_mm = H * mm
     # smoothing in source pixels: a coarse source (big pixels) needs more of it, a crisp one almost none (corners stay sharp)
     up = cfg["up"] if cfg["up"] == 1 else max(cfg["up"], min(8, math.ceil(mm / 0.09)))         # coarse source: more up-sampling so hi-res px <= ~0.09 mm
+    up = max(1, min(up, MAX_HIRES_PX // max(W, H)))                                              # time / memory budget: the up-sampled mask is at most MAX_HIRES_PX on its long side
     blur_px = 0 if not cfg["blur"] else cfg["blur"] * (0.7 + 0.9 * min(1.0, max(0.0, (mm - 0.15) / 0.5)))
     objs, kinds, areas = [], {"fill": 0, "column": 0, "run": 0, "tack": 0}, {}
     inventory, noise = [], {"count": 0, "area_mm2": 0.0}
-    fringe = {"count": 0, "area_mm2": 0.0}
+    fringe = {"count": 0, "area_mm2": 0.0}; residual_pieces = {"count": 0}; split_n = {"count": 0}
     mixes = {ci: _is_mix(pal[:k], ci, k, bg) for ci in range(k) if ci != bg} if k >= 3 else {}
     ink_area = covered_area = 0.0; holes_filled = {"count": 0, "area_mm2": 0.0}
     for ci in range(k):
@@ -580,9 +683,11 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
             continue
         color = "#%02x%02x%02x" % pal[ci]
         comps = _nest(_contours_mm(labels == ci, up, blur_px, cfg["tol_mm"], width_mm))
-        for outer, holes in comps:
+        queue = [(o_, h_, None) for o_, h_ in comps]
+        while queue:
+            outer, holes, is_resid = queue.pop(0)
             x0, y0, x1, y1 = _bbox_mm(outer); ext = max(x1 - x0, y1 - y0); a_out = _area(outer)
-            ink_area += a_out
+            if is_resid is None: ink_area += a_out
             kept_holes = []
             for h in holes:
                 if _area(h) >= cfg["min_area"] / 2: kept_holes.append(h)
@@ -593,17 +698,32 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
                 fringe["count"] += 1; fringe["area_mm2"] += a_out; continue
             if ext < NOISE_FLOOR_MM or a_out < NOISE_AREA_MM2:
                 noise["count"] += 1; noise["area_mm2"] += a_out; continue
-            if a_out >= cfg["min_area"]:
+            if a_out >= max(cfg["min_area"], MIN_FILL_MM2):
                 o, kind = _make_object(outer, holes, color, cfg, report); status, reason, score = "digitized", f"{kind} ({a_out:.1f} mm2)", 1.0
             else:
                 o, kind, status, reason, score = _classify_small(outer, holes, color, cfg, report)
+            if o is not None and kind == "fill" and a_out >= 3.0 and is_resid is None:
+                sp = _split_thick_thin(outer, holes)
+                if sp:
+                    queue.extend((ro, rh, "split") for ro, rh in sp[0] + sp[1]); split_n["count"] += 1
+                    continue                                      # the parts are recorded individually (they partition this region)
+            if o is not None and kind in ("run", "column") and a_out >= 0.6 and is_resid is None:
+                cov_, resid = _shape_coverage(outer, holes, o)
+                if cov_ < 0.95:                                  # a line / column would leave part of the shape unstitched (a bead on a line end, two lines meeting at a tip)
+                    if resid and len(resid) <= 12:
+                        queue.extend((ro, rh, "resid") for ro, rh in resid); residual_pieces["count"] += len(resid)
+                        reason += f"; plus {len(resid)} extra piece(s) for the {100 * (1 - cov_):.0f} % the line does not cover"
+                    elif cov_ < 0.88:
+                        o, kind = _force_fill(outer, holes, color), "fill"
+                        reason = f"fill (a line / column would have covered only {100 * cov_:.0f} % of this shape)"; score = min(score, 0.9)
             rec = {"id": f"d{len(inventory) + 1:03d}", "colour": color, "bbox_mm": [round(x0, 2), round(y0, 2), round(x1, 2), round(y1, 2)], "size_mm": [round(x1 - x0, 2), round(y1 - y0, 2)],
                    "area_mm2": round(a_out, 2), "strategy": kind, "status": status, "reason": reason, "stitchability": round(score, 2), "object": None}
             if len(inventory) < INVENTORY_LIMIT: inventory.append(rec)
             if o is None:
                 continue
             o["_a"] = a_out; o["_c"] = ci; o["_kind"] = kind; o["_inv"] = rec["id"]
-            objs.append(o); kinds[kind] = kinds.get(kind, 0) + 1; areas[ci] = areas.get(ci, 0) + o["_a"]; covered_area += a_out
+            objs.append(o); kinds[kind] = kinds.get(kind, 0) + 1; areas[ci] = areas.get(ci, 0) + o["_a"]
+            if is_resid != "resid": covered_area += a_out
     # order: colours by total area (largest first = bottom layer), inside a colour fills -> columns -> runs, nearest-neighbour for fewer jumps
     rank = {c: i for i, c in enumerate(sorted(areas, key=lambda c: -areas[c]))}
     krank = {"fill": 0, "column": 1, "run": 2, "tack": 3}
@@ -628,6 +748,7 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
     coverage = {"ink_area_mm2": round(ink_area, 2), "stitched_area_mm2": round(covered_area, 2),
                 "stitched_fraction": round(covered_area / ink_area, 4) if ink_area else 1.0,
                 "noise_specks": {"count": noise["count"], "area_mm2": round(noise["area_mm2"], 3), "rule": f"under {NOISE_FLOOR_MM:g} mm across or {NOISE_AREA_MM2:g} mm2 in area (below one thread width)"},
+                "residual_pieces": residual_pieces["count"], "split_thick_thin": split_n["count"],
                 "antialiasing_fringe": {"count": fringe["count"], "area_mm2": round(fringe["area_mm2"], 3), "rule": "thin sliver (< 0.5 mm wide, < 6 mm2) in a colour that is a Lab blend of two other palette colours"},
                 "holes_filled": {"count": holes_filled["count"], "area_mm2": round(holes_filled["area_mm2"], 3)}}
     report.update({"colours_used": len({o["color"] for o in ordered}), "palette": ["#%02x%02x%02x" % c for c in pal[:k]],
