@@ -108,24 +108,35 @@ def classify(data: bytes, threads=None, max_px: int = 700):
     return masks, (im.width, im.height)
 
 
-def rosettes(mask, scale_mm_per_px: float, np=None, Image=None, IF=None):
-    """Round blobs of a thread mask -> ([(cx_px, cy_px, outer_r_mm, inner_r_mm)], mask of what they cover)."""
+def _blobs(mask, s, use_close, np, Image, IF):
     import math as _m
-    np, Image, IF = _np()
-    core = _clean(mask, 3, 60, np, Image, IF); core = _filt(_filt(core, "ero", 15, np, Image, IF), "dil", 15, np, Image, IF)
-    s = scale_mm_per_px; out = []; cover = np.zeros_like(mask)
-    H, W = mask.shape
+    closed = (_filt(_filt(mask, "dil", 13, np, Image, IF), "ero", 13, np, Image, IF) | mask) if use_close else mask   # closing: petal gaps / stone holes no longer break a textured flower
+    core = _clean(closed, 3, 60, np, Image, IF); core = _filt(_filt(core, "ero", 15, np, Image, IF), "dil", 15, np, Image, IF)
+    out = []; cover = np.zeros_like(mask); H, W = mask.shape
     for ys, xs in _comps(core, 700, np):
         y0, y1, x0, x1 = max(0, ys.min() - 14), min(H, ys.max() + 15), max(0, xs.min() - 14), min(W, xs.max() + 15)       # work on the blob's own window (speed)
-        sub = mask[y0:y1, x0:x1]; m = np.zeros_like(sub); m[ys - y0, xs - x0] = True
-        full = sub & _filt(m, "dil", 5, np, Image, IF); filled = _fill_holes(full, np)
-        A = int(filled.sum()); hole = int((filled & ~full).sum()); Re = _m.sqrt(A / _m.pi) * s
+        sub = mask[y0:y1, x0:x1]; csub = closed[y0:y1, x0:x1]; m = np.zeros_like(sub); m[ys - y0, xs - x0] = True
+        full = csub & _filt(m, "dil", 5, np, Image, IF); filled = _fill_holes(full, np)
+        A = int(filled.sum()); hole = int((filled & ~sub).sum()) if not use_close else int((filled & ~csub).sum()); Re = _m.sqrt(A / _m.pi) * s
         if not (2.2 < Re < 9.0): continue
         yy, xx = np.nonzero(filled); rr = np.hypot(xx - xx.mean(), yy - yy.mean()) * s
-        if A / (_m.pi * (rr.max() / s) ** 2) < 0.70: continue
+        if A / (_m.pi * (rr.max() / s) ** 2) < (0.58 if use_close else 0.70): continue
         r_in = _m.sqrt(hole / _m.pi) * s if hole > 0.05 * A else 1.6
         r_in = min(max(r_in, 1.5), Re - 1.2)
         out.append((float(xx.mean() + x0), float(yy.mean() + y0), Re, r_in)); cover[y0:y1, x0:x1] |= filled
+    return out, cover
+
+
+def rosettes(mask, scale_mm_per_px: float, np=None, Image=None, IF=None):
+    """Round blobs of a thread mask -> ([(cx_px, cy_px, outer_r_mm, inner_r_mm)], mask of what they cover). Two passes: the plain mask, then the gap-closed mask
+    (textured flowers with stone holes); a blob from the second pass is kept only if it does not overlap one from the first."""
+    np, Image, IF = _np(); s = scale_mm_per_px
+    a, ca = _blobs(mask, s, False, np, Image, IF); b, cb = _blobs(mask, s, True, np, Image, IF)
+    out = list(a); cover = ca.copy()
+    for (cx, cy, Re, ri) in b:
+        if all(math.hypot(cx - ax, cy - ay) * s > 0.7 * max(Re, aRe) for ax, ay, aRe, _ in a): out.append((cx, cy, Re, ri))
+    for (cx, cy, Re, ri) in out[len(a):]:
+        yy, xx = np.ogrid[:mask.shape[0], :mask.shape[1]]; cover |= (xx - cx) ** 2 + (yy - cy) ** 2 <= (Re / s) ** 2
     return out, cover
 
 
