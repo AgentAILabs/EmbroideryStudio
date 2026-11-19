@@ -15,7 +15,8 @@ from .font import layout_text
 from .geometry import dist, polygon_area, smooth, inset_ring, rotate_closed, ring_self_intersections, trim_polyline, outset_ring, scale_axes
 from .model import Cmd, Pattern, ThreadColor
 from .stitches import (DigitizingError, satin_from_rails, contour_fill, cross_fill, center_walk_underlay, edge_walk_underlay, running_stitch,
-                       satin_stitch, tatami_fill, underlay_path, zigzag_underlay, rails_from_centerline)
+                       satin_stitch, tatami_fill, underlay_path, zigzag_underlay, rails_from_centerline,
+                       motif_run, exact_stitches, warp_to_path)
 from .validate import validate
 
 DEFAULTS = {
@@ -24,7 +25,8 @@ DEFAULTS = {
              "expand_mm": 0.0, "comp_x": 0.0, "comp_y": 0.0, "min_row": 0.0},          # stitch holes / U-shapes region by region instead of jumping the gap on every row
     "satin": {"width": 3.0, "spacing": 0.4, "underlay": "auto", "pull_comp": 0.2, "push_comp": 0.0, "style": "satin",
               "corners": False, "corner_angle": 60.0},
-    "run": {"stitch_len": 2.5, "style": "single"},
+    "run": {"stitch_len": 2.5, "style": "single", "motif": "wave", "motif_size": 4.0, "motif_amp": 1.5},
+    "manual": {},
     "column": {"spacing": 0.4, "underlay": "auto", "pull_comp": 0.2, "push_comp": 0.0, "style": "satin", "comp_x": 0.0, "comp_y": 0.0},
     "text": {"spacing": 1.0, "underlay": "auto", "pull_comp": 0.1},
     "applique": {"width": 2.5, "spacing": 0.4, "stitch_len": 2.5, "cover_color": None},
@@ -366,7 +368,11 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                                     bool(_p(ob, "end_at_start"))))
             elif typ == "run":
                 pts = _pts(ob["points"], ob, bool(ob.get("closed")))
-                run_pts = running_stitch(pts, _p(ob, "stitch_len"), bool(ob.get("closed")))
+                if _p(ob, "style") == "motif":
+                    base = pts + [pts[0]] if ob.get("closed") else pts
+                    run_pts = motif_run(base, str(_p(ob, "motif")), float(_p(ob, "motif_size")), float(_p(ob, "motif_amp")), float(_p(ob, "stitch_len")))
+                else:
+                    run_pts = running_stitch(pts, _p(ob, "stitch_len"), bool(ob.get("closed")))
                 if _p(ob, "style") == "bean":
                     run_pts = bean_stitch(run_pts)
                 objs.append(StitchObject(oid, "running", th, [run_pts]))
@@ -374,12 +380,18 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                 h = float(ob.get("height", 10))
                 width = _p(ob, "width") or max(1.0, min(h * 0.16, 4.0))
                 ox, oy = float(ob.get("x", 0)), float(ob.get("y", 0))
-                for k, st in enumerate(layout_text(ob.get("text", ""), h, _p(ob, "spacing"))):
+                strokes = layout_text(ob.get("text", ""), h, _p(ob, "spacing"))
+                if ob.get("path") and len(ob["path"]) >= 2:          # text on a path: glyphs follow the curve
+                    strokes = warp_to_path(strokes, [(float(a), float(b)) for a, b in ob["path"]], h, str(ob.get("align", "center")))
+                    ox = oy = 0.0
+                for k, st in enumerate(strokes):
                     path = [(ox + a, oy + b) for a, b in st]
                     if len(path) == 2 and abs(path[0][0] - path[1][0]) + abs(path[0][1] - path[1][1]) < 0.5:
                         continue  # dots handled as tiny satin below
                     objs.append(_satin_objs(f"{oid}.{k}", th, path, width, 0.4, _p(ob, "pull_comp") or 0.0,
                                             _p(ob, "underlay"), split_of(ob)))
+            elif typ == "manual":                          # stitch-level editing: every point is a needle penetration
+                objs.append(StitchObject(oid, "running", th, [exact_stitches([(float(a), float(b)) for a, b in ob["points"]], mach["max_stitch"])], fixed=True))
             elif typ == "applique":
                 rings = [_pts(r, ob, True) for r in ob["rings"]]
                 ring = rings[0] + [rings[0][0]]
@@ -415,7 +427,11 @@ def empty_stats(design: Optional[dict] = None) -> dict:
 def _bbox(ob: dict):
     pts = [p for r in ob.get("rings", []) for p in r] + list(ob.get("points", [])) + list(ob.get("rail1", [])) + list(ob.get("rail2", []))
     if ob.get("type") == "text":
-        h = float(ob.get("height", 10)); pts = [(ob.get("x", 0), ob.get("y", 0)), (ob.get("x", 0) + max(2, len(ob.get("text", "")) * 0.9 * h), ob.get("y", 0) + h)]
+        h = float(ob.get("height", 10))
+        if ob.get("path") and len(ob["path"]) >= 2:
+            pts = [(p[0] + dx, p[1] + dy) for p in ob["path"] for dx, dy in ((-h, -h), (h, h))]
+        else:
+            pts = [(ob.get("x", 0), ob.get("y", 0)), (ob.get("x", 0) + max(2, len(ob.get("text", "")) * 0.9 * h), ob.get("y", 0) + h)]
     if not pts:
         return None
     xs, ys = [p[0] for p in pts], [p[1] for p in pts]

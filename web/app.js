@@ -6,7 +6,7 @@ const PALETTE = ["#000000","#ffffff","#7f7f7f","#c8102e","#e4572e","#f28c28","#f
 const HOOPS = {"100 × 100 mm":[100,100],"130 × 180 mm":[130,180],"4 × 4 in":[101.6,101.6],"5 × 7 in":[127,177.8],"200 × 300 mm":[200,300],"240 × 150 mm":[240,150]};
 const THREADS = {"40wt": "40 wt (standard)", "60wt": "60 wt (fine)", "120": "120/2 (blouse / fine)"};
 const FABRICS = {cotton:{pull_comp:.2,spacing:.40},silk:{pull_comp:.3,spacing:.45},georgette:{pull_comp:.35,spacing:.45},velvet:{pull_comp:.4,spacing:.38},denim:{pull_comp:.1,spacing:.40},knit:{pull_comp:.4,spacing:.42}};
-const DEF = {fill:{angle:45,spacing:.4,stitch_len:3.5,underlay:"tatami",pull_comp:.2,pattern:"tatami",cross_size:2,regions:true,cut_hidden:false,overlap_mm:.6,push_comp:0,expand_mm:0,comp_x:0,comp_y:0,min_row:0},satin:{width:3,spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true,shorten:false,push_comp:0,style:"satin",corners:false,corner_angle:60},run:{stitch_len:2.5,style:"single"},column:{spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true,shorten:false,push_comp:0,style:"satin",comp_x:0,comp_y:0},text:{spacing:1,underlay:"auto",pull_comp:.1,auto_split:true},applique:{width:2.5,spacing:.4,stitch_len:2.5},embellishment:{}};
+const DEF = {fill:{angle:45,spacing:.4,stitch_len:3.5,underlay:"tatami",pull_comp:.2,pattern:"tatami",cross_size:2,regions:true,cut_hidden:false,overlap_mm:.6,push_comp:0,expand_mm:0,comp_x:0,comp_y:0,min_row:0},satin:{width:3,spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true,shorten:false,push_comp:0,style:"satin",corners:false,corner_angle:60},run:{stitch_len:2.5,style:"single",motif:"wave",motif_size:4,motif_amp:1.5},manual:{},column:{spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true,shorten:false,push_comp:0,style:"satin",comp_x:0,comp_y:0},text:{spacing:1,underlay:"auto",pull_comp:.1,auto_split:true},applique:{width:2.5,spacing:.4,stitch_len:2.5},embellishment:{}};
 const TOOLHINT = {select:"Click to select, drag to move, drag the white handles to edit points. Space+drag or right-drag pans, wheel zooms.",fill:"Click points of the shape. Double-click, Enter or click the first point to finish. Esc cancels.",satin:"Click along the centre line of the column. Double-click or Enter to finish.",column:"Draw the FIRST edge (double-click/Enter to finish), then the SECOND edge. Stitches zig-zag between them.",run:"Click points of the line. Double-click or Enter to finish.",rect:"Drag to draw a rectangle.",ellipse:"Drag to draw an ellipse.",text:"Click where the text should start.",bead:"Click to place beads / stones / sequins. They are NOT stitched: they appear on the production sheet. Click again to add more to the same group.",applique:"Click the outline of the appliqué patch. Double-click or Enter to finish."};
 
 const S = { doc: newDoc(), sel: null, tool: "select", view: {x: 0, y: 0, z: 3}, mode: "beginner", vmode: "design",
@@ -51,6 +51,7 @@ function allPts(o) {
   if (o.rings) return o.rings.flat();
   if (o.rail1) return o.rail1.concat(o.rail2);
   if (o.points) return o.points;
+  if (o.type === "text" && o.path) return textStrokes(o).flat().concat(o.path);
   if (o.type === "text") { const [w, h] = textSize(o); return [[o.x, o.y], [o.x + w, o.y + h]]; }
   return [];
 }
@@ -63,7 +64,7 @@ function mapPts(o, f) {
   if (o.rings) o.rings = o.rings.map(r => r.map(p => f(p)));
   if (o.points) o.points = o.points.map(p => f(p));
   if (o.rail1) { o.rail1 = o.rail1.map(p => f(p)); o.rail2 = o.rail2.map(p => f(p)); }
-  if (o.type === "text") { const p = f([o.x, o.y]); o.x = p[0]; o.y = p[1]; }
+  if (o.type === "text") { const p = f([o.x, o.y]); o.x = p[0]; o.y = p[1]; if (o.path) o.path = o.path.map(q => f(q)); }
 }
 function textSize(o) { const f = S.font; if (!f) return [10, o.height || 10]; const k = (o.height || 10) / f.h; let w = 0;
   for (const ch of (o.text || "").toUpperCase()) w += ((ch === " " ? f.w * .7 : f.w) + f.gap) * k * ((o.params || {}).spacing || 1); return [Math.max(w - f.gap * k, 2), o.height || 10]; }
@@ -75,7 +76,15 @@ function textStrokes(o) {
     for (const st of g) out.push(st.map(([px, py]) => [o.x + x + px * k, o.y + (f.h - py) * k]));
     x += (f.w + f.gap) * k * sp;
   }
-  return out;
+  return o.path && o.path.length >= 2 ? warpToPath(out.map(st => st.map(([a, b]) => [a - o.x, b - o.y])), o.path, o.height || 10, o.align || "center") : out;
+}
+function warpToPath(strokes, path, h, align) {     // same maths as engine stitches.warp_to_path
+  const cum = [0]; for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
+  const L = cum[cum.length - 1]; if (L < 1e-6) return strokes;
+  const xs = strokes.flat().map(p => p[0]); const mn = Math.min(...xs), tw = Math.max(...xs) - mn;
+  const off = (align === "start" ? 0 : align === "end" ? L - tw : (L - tw) / 2) - mn;
+  const frame = t => { for (let i = 0; i < path.length - 1; i++) { const seg = cum[i + 1] - cum[i]; if ((cum[i + 1] >= t || i === path.length - 2) && seg > 1e-12) { const tx = (path[i + 1][0] - path[i][0]) / seg, ty = (path[i + 1][1] - path[i][1]) / seg, u = t - cum[i]; return [[path[i][0] + tx * u, path[i][1] + ty * u], [ty, -tx]]; } } return [path[0], [0, -1]]; };
+  return strokes.map(st => st.map(([x, y]) => { const [[bx, by], [ux, uy]] = frame(x + off); const up = h - y; return [bx + ux * up, by + uy * up]; }));
 }
 function smooth(P, closed, n = 8) { if (P.length < 3) return P; const m = P.length, seg = closed ? m : m - 1, g = closed ? i => P[((i % m) + m) % m] : i => P[Math.max(0, Math.min(m - 1, i))]; const out = [P[0]];
   for (let i = 0; i < seg; i++) { const [a, b, c, d] = [g(i - 1), g(i), g(i + 1), g(i + 2)]; for (let k = 1; k <= n; k++) { const t = k / n; out.push([0, 1].map(j => .5 * (2 * b[j] + (-a[j] + c[j]) * t + (2 * a[j] - 5 * b[j] + 4 * c[j] - d[j]) * t * t + (-a[j] + 3 * b[j] - 3 * c[j] + d[j]) * t ** 3))); } }
@@ -88,7 +97,8 @@ function hit(o, p, tol) {
   if (o.hidden) return false;
   if (o.type === "fill" || o.type === "applique") return o.rings.reduce((n, r) => n + inRing(p, r), 0) % 2 === 1 || o.rings.some(r => r.some((q, i) => segDist(p, q, r[(i + 1) % r.length]) < tol));
   if (o.type === "embellishment") { const r = Math.max((o.size_mm || 4) / 2, tol); return o.points.some(q => dist2(p, q) <= r * r); }
-  if (o.type === "satin" || o.type === "run") { const w = o.type === "satin" ? ((o.params || {}).width ?? 3) / 2 : 0; const P = o.points; for (let i = 0; i < P.length - 1; i++) if (segDist(p, P[i], P[i + 1]) < Math.max(tol, w)) return true; return false; }
+  if (o.type === "text" && o.path) return textStrokes(o).some(st => st.some((q, i) => i < st.length - 1 && segDist(p, q, st[i + 1]) < Math.max(tol, 1)));
+  if (o.type === "satin" || o.type === "run" || o.type === "manual") { const w = o.type === "satin" ? ((o.params || {}).width ?? 3) / 2 : 0; const P = o.points; for (let i = 0; i < P.length - 1; i++) if (segDist(p, P[i], P[i + 1]) < Math.max(tol, w)) return true; return false; }
   if (o.type === "column") { const R = [o.rail1, o.rail2]; if (R.some(r => r.some((q, i) => i < r.length - 1 && segDist(p, q, r[i + 1]) < tol))) return true; const ring = o.rail1.concat(o.rail2.slice().reverse()); return inRing(p, ring); }
   if (o.type === "text") { const [w, h] = textSize(o); return p[0] >= o.x - tol && p[0] <= o.x + w + tol && p[1] >= o.y - tol && p[1] <= o.y + h + tol; }
   return false;
@@ -126,9 +136,10 @@ function drawObjects(c) {
       c.beginPath(); o.rings.forEach(r => pathOf(c, shown(o, r, true), true));
       c.fillStyle = o.color + (o.type === "applique" ? "99" : "cc"); c.fill("evenodd");
       c.strokeStyle = o.type === "applique" ? "#555" : "#0006"; c.setLineDash(o.type === "applique" ? [6, 4] : []); c.lineWidth = 1; c.stroke();
-    } else if (o.type === "satin" || o.type === "run") {
-      c.beginPath(); pathOf(c, shown(o, o.points, !!o.closed), !!o.closed); c.strokeStyle = o.color + (o.type === "satin" ? "cc" : "ff");
+    } else if (o.type === "satin" || o.type === "run" || o.type === "manual") {
+      c.beginPath(); pathOf(c, o.type === "manual" ? o.points : shown(o, o.points, !!o.closed), !!o.closed); c.strokeStyle = o.color + (o.type === "satin" ? "cc" : "ff");
       c.lineWidth = Math.max(1.5, (o.type === "satin" ? P(o, "width") : .5) * S.view.z); c.stroke();
+      if (o.type === "manual") { c.fillStyle = o.color; for (const q of o.points) { const t = toScreen(q); c.fillRect(t[0] - 1.5, t[1] - 1.5, 3, 3); } }
     } else if (o.type === "column") {
       const ring = shown(o, o.rail1, false).concat(shown(o, o.rail2, false).slice().reverse()); c.beginPath(); pathOf(c, ring, true); c.fillStyle = o.color + "cc"; c.fill(); c.strokeStyle = "#0006"; c.lineWidth = 1; c.stroke();
       c.strokeStyle = "#fff8"; c.beginPath(); const a = shown(o, o.rail1, false), b = shown(o, o.rail2, false); for (let i = 0; i < a.length; i += 1) { const q = toScreen(a[i]), r = toScreen(b[Math.min(b.length - 1, Math.round(i * (b.length - 1) / Math.max(1, a.length - 1)))]);   /* same direction: rails both run A -> B */ c.moveTo(q[0], q[1]); c.lineTo(r[0], r[1]); } c.stroke();
@@ -511,6 +522,18 @@ function renderTestSteps() {
   $("#wzTest").innerHTML = TESTSTEPS.map((t, i) => `<label class="tst"><input type="checkbox" data-i="${i}" ${st[i] ? "checked" : ""}> ${i + 1}. ${esc(t)}</label>`).join("");
   $("#wzTest").onchange = e => { const i = e.target.dataset.i; if (i === undefined) return; st[i] = e.target.checked; try { localStorage.setItem(key, JSON.stringify(st)); } catch (er) {} };
 }
+function openLettering() { $("#mMore").open = false; $("#ltOut").textContent = ""; $("#dlgLetter").showModal(); }
+async function lettering() {
+  const out = $("#ltOut"); out.textContent = "Shaping and digitizing…";
+  try {
+    const f = $("#ltFont").files[0]; const font = f ? b64(new Uint8Array(await f.arrayBuffer())) : null;
+    const r = await post("/api/lettering", {text: $("#ltText").value, height_mm: +$("#ltH").value || 15, color: $("#ltColor").value, language: $("#ltLang").value || null,
+      direction: $("#ltDir").value || null, font});
+    if (!r.objects.length) { out.textContent = "Nothing to stitch - check the text and the font."; return; }
+    r.objects.forEach(o => { o.id = "o" + (S.n++); }); fitObjects(r.objects, null); S.doc.objects.push(...r.objects); S.sel = null; commit(); renderAll(); fit();
+    out.textContent = `Added ${r.objects.length} object(s) - font: ${r.info.font}, shaping: ${r.info.shaping}.` + (r.notes.length ? "\n" + r.notes.join("\n") : "");
+  } catch (e) { out.textContent = "Failed: " + e.message; }
+}
 async function qualityCheck() {
   const dlg = $("#dlgQuality"); $("#qBody").textContent = "Running…"; dlg.showModal();
   try {
@@ -591,9 +614,15 @@ function renderProps() {
     if (pt !== "tatami") h += `<div class="note">${pt === "contour" ? "Concentric rings; shapes with holes or very complex outlines fall back to tatami (see Checks)." : "Cross-stitch grid; no underlay."}</div>`; }
   if (o.type === "satin") h += field("Width mm", "width", o, {step: .25, min: .8}) + field("Underlay", "underlay", o, {options: ["auto", "none", "center", "edge", "zigzag", "edge+zigzag"], pro: 1}) + field("Curve shortening", "shorten", o, {type: "check", pro: 1}) + field("Split sharp corners", "corners", o, {type: "check", pro: 1}) + field("Style", "style", o, {options: ["satin", "zigzag"], pro: 1}) + field("Push comp mm", "push_comp", o, {step: .05, min: 0, pro: 1, tip: "Shorten the column ends"}) + field("Spacing mm", "spacing", o, {step: .05, min: .2, pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1}) + field("Auto-split long stitches", "auto_split", o, {type: "check", pro: 1, tip: "Splits stitches longer than the machine max stitch so wide satin stays clean"});
   if (o.type === "column") h += field("Horizontal comp mm", "comp_x", o, {step: .05, pro: 1, tip: "Added to the object width (total, both sides), whatever the stitch direction"}) + field("Vertical comp mm", "comp_y", o, {step: .05, pro: 1, tip: "Added to the object height (total)"}) + field("Underlay", "underlay", o, {options: ["auto", "none", "center", "edge", "zigzag", "edge+zigzag"], pro: 1}) + field("Curve shortening", "shorten", o, {type: "check", pro: 1}) + field("Style", "style", o, {options: ["satin", "zigzag"], pro: 1}) + field("Push comp mm", "push_comp", o, {step: .05, min: 0, pro: 1, tip: "Shorten the column ends"}) + field("Spacing mm", "spacing", o, {step: .05, min: .2, pro: 1}) + field("Pull comp mm", "pull_comp", o, {step: .05, min: 0, pro: 1}) + field("Auto-split long stitches", "auto_split", o, {type: "check", pro: 1, tip: "Splits stitches longer than the machine max stitch so wide satin stays clean"}) + `<div class="note">Two-rail satin: stitches run edge to edge. Drag the rail points to reshape.</div>`;
-  if (o.type === "run") h += field("Stitch length mm", "stitch_len", o, {step: .5, min: .5}) + field("Closed loop", "closed", o, {type: "check", direct: 1}) + field("Style", "style", o, {options: ["single", "bean"], tip: "bean = triple stitch: bold raised outline / stem"});
+  if (o.type === "run") h += field("Stitch length mm", "stitch_len", o, {step: .5, min: .5}) + field("Closed loop", "closed", o, {type: "check", direct: 1}) + field("Style", "style", o, {options: ["single", "bean", "motif"], tip: "bean = triple stitch: bold raised outline / stem; motif = a small motif repeated along the line"}) +
+    (P(o, "style") === "motif" ? field("Motif", "motif", o, {options: ["wave", "zigzag", "scallop", "diamond", "leaf"]}) + field("Repeat length mm", "motif_size", o, {step: .5, min: 1}) + field("Motif width mm", "motif_amp", o, {step: .25, min: 0, tip: "How far the motif swings to each side"}) : "");
+  if (o.type === "manual") h += `<div class="note">Manual stitches: ${o.points.length} needle points, sewn exactly as placed (only stitches longer than the max stitch are split). Drag the white handles to move single stitches.</div>`;
+  if (o.type === "text") { const paths = S.doc.objects.filter(q => (q.type === "run" || q.type === "satin") && q.points && q.points.length >= 2);
+    h += `<div class="row"><label title="Bend the lettering along a running-stitch or satin line (e.g. a neckline)">Follow path</label><select id="txtPath"><option value="">(straight)</option>${paths.map(q => `<option value="${esc(q.id)}">${esc(q.name || q.id)}</option>`).join("")}</select></div>` +
+      (o.path ? `<div class="row"><label>Align on path</label><select id="txtAlign">${["start", "center", "end"].map(a => `<option ${a === (o.align || "center") ? "selected" : ""}>${a}</option>`).join("")}</select></div><div class="btns"><button data-op="unpath">Straighten text</button></div>` : ""); }
   if (o.type === "text") h += `<div class="row"><label>Text</label><input type="text" data-k="text" data-d=1 value="${esc(o.text)}"></div>` + field("Height mm", "height", o, {direct: 1, step: .5, min: 3}) + field("Letter spacing", "spacing", o, {step: .1, min: .5}) + field("Stroke width mm", "width", o, {step: .25, min: 1, tip: "Satin column width of each stroke"}) + `<div class="note">Built-in single-line satin font (A–Z, 0–9, - . !). Minimum practical height ≈ 5 mm.</div>`;
   if (o.type === "applique") h += field("Cover width mm", "width", o, {step: .25, min: 1.5}) + `<div class="note">Stitches: placement line → tack-down → satin cover. The machine pauses at the colour change so you can lay fabric.</div>`;
+  if (S.mode === "pro" && !["embellishment", "manual"].includes(o.type) && !o.guide) h += `<div class="btns"><button data-op="manual" title="Replace this object by its actual needle points so single stitches can be moved (stitch-level editing). The DST does not change until you edit.">Convert to manual stitches</button></div>`;
   h += `<div class="btns"><button data-op="dup">Duplicate</button><button data-op="fh">Flip ↔</button><button data-op="fv">Flip ↕</button><button data-op="r90">Rotate 90°</button>${o.rings ? `<button data-op="outline">Add border</button>` : ""}<button data-op="del">Delete</button></div>`;
   const bb = bbox(allPts(o)); const bw = bb ? +(bb[2] - bb[0]).toFixed(2) : 0, bh = bb ? +(bb[3] - bb[1]).toFixed(2) : 0;
   h += `<div class="row"><label>Width mm</label><input type="number" id="szW" value="${bw}" step="0.5" min="1"></div><div class="row"><label>Height mm</label><input type="number" id="szH" value="${bh}" step="0.5" min="1"></div><div class="row"><label>Keep proportions</label><input type="checkbox" id="szLock" checked></div>`;
@@ -612,12 +641,20 @@ function renderProps() {
     const f = which === "w" ? w / cw : hh / ch; if ($("#szLock").checked) { if (Math.abs(f - 1) > 1e-3) scaleSel(f * 100); } else if (Math.abs(w / cw - 1) > 1e-3 || Math.abs(hh / ch - 1) > 1e-3) nonUniform(w / cw, hh / ch); };
   $("#szW").onchange = sz("w"); $("#szH").onchange = sz("h");
   if ($("#convSel")) $("#convSel").onchange = e => { if (e.target.value) convertSel(e.target.value); };
+  if ($("#txtPath")) $("#txtPath").onchange = e => { const src = S.doc.objects.find(q => q.id === e.target.value); const t = selObj(); if (!t) return; if (src) { t.path = clone(src.points); t.align = t.align || "center"; } else delete t.path; commit(); renderAll(); };
+  if ($("#txtAlign")) $("#txtAlign").onchange = e => { const t = selObj(); if (t) { t.align = e.target.value; commit(); renderAll(); } };
   el.querySelectorAll("[data-op]").forEach(b => b.onclick = () => ({
     rot: () => rotateSel(parseFloat($("#rotDeg").value) || 0),
     dup: () => duplicate(3, 3), del: deleteSel, outline, scale: () => scaleSel(parseFloat($("#scalePct").value) || 100),
     fh: () => transformSel((p, cx) => [2 * cx - p[0], p[1]], false), fv: () => transformSel((p, cx, cy) => [p[0], 2 * cy - p[1]], false),
     r90: () => transformSel((p, cx, cy) => [cx - (p[1] - cy), cy + (p[0] - cx)], false),
-    repeat: () => duplicate(parseFloat($("#repX").value) || 0, parseFloat($("#repY").value) || 0, parseInt($("#repN").value) - 1 || 1)
+    repeat: () => duplicate(parseFloat($("#repX").value) || 0, parseFloat($("#repY").value) || 0, parseInt($("#repN").value) - 1 || 1),
+    unpath: () => { const t = selObj(); if (t) { delete t.path; commit(); renderAll(); } },
+    manual: async () => { const t = selObj(); if (!t) return;
+      try { const r = await post("/api/to_manual", {design: S.doc, id: t.id}); const i = S.doc.objects.indexOf(t);
+        r.objects.forEach(o => { o.id = "o" + (S.n++); }); S.doc.objects.splice(i, 1, ...r.objects); S.sel = r.objects[0].id; commit(); renderAll();
+        alert(`Converted to ${r.objects.length} manual stitch object(s), ${r.stitches} needle points. The DST is unchanged until you move points.`);
+      } catch (e) { alert("Could not convert: " + e.message); } }
   })[b.dataset.op]());
 }
 function regenSoft() { regen(); }
@@ -734,7 +771,7 @@ $("#libq").oninput = e => { libQ = e.target.value; renderLibrary(); };
 $("#libcats").onclick = e => { if (e.target.dataset.cat) { libCat = e.target.dataset.cat; renderLibrary(); } };
 $("#libgrid").onclick = e => { const b = e.target.closest("button[data-act]"); if (b) openFromLibrary(b.dataset.id, b.dataset.act === "3d"); };
 $("#v3fab").onchange = e => Viewer3D.setFabric(e.target.value); $("#v3reset").onclick = () => Viewer3D.reset();
-$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bExp").onclick = exportExp; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => { $("#mMore").open = false; $("#fileDst").click(); }; $("#bQuality").onclick = qualityCheck; $("#bSet").onclick = openSet; $("#bWizard").onclick = openWizard;
+$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bExp").onclick = exportExp; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => { $("#mMore").open = false; $("#fileDst").click(); }; $("#bQuality").onclick = qualityCheck; $("#bLetter").onclick = openLettering; $("#ltGo").onclick = e => { e.preventDefault(); lettering(); }; $("#bSet").onclick = openSet; $("#bWizard").onclick = openWizard;
 $("#wzGo").onclick = e => { e.preventDefault(); wizardRun(); };
 $("#dlgWizard").addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (!b) return; e.preventDefault(); const n = +b.dataset.go; if (n > 2 && !WZ.res) return; if (n === 6) renderTestSteps(); wzStep(n); });
 $("#wzExport").onclick = e => { e.preventDefault(); exportDst(); };
@@ -760,5 +797,5 @@ addEventListener("resize", () => { resize(); if (S.vmode === "3d") Viewer3D.resi
   resize(); if (saved) { try { const d = JSON.parse(saved); if (d.objects) { S.doc = Object.assign(newDoc(), d); S.n = 1 + Math.max(0, ...S.doc.objects.map(o => parseInt(String(o.id).replace(/\D/g, "")) || 0)); } } catch (e) {} }
   $("#docName").value = S.doc.name; commit(); renderAll(); fit(); setTool("select");
   renderTemplates();
-  window.__ES = S;
+  window.__ES = S; window.__ESapi = {commit, renderAll};      // test hooks (e2e)
 })();

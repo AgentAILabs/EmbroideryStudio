@@ -12,6 +12,7 @@ class StitchObject:
     thread: int                    # index into thread list
     runs: List[List[Point]]        # top stitching; a gap between runs = JUMP
     underlay_runs: List[List[Point]] = field(default_factory=list)
+    fixed: bool = False            # manual stitches: sew exactly in the given direction (no smart reversal)
 
 
 LOCK_MIN = 0.3      # never emit a lock stitch shorter than this (the validator warns below 0.3 mm)
@@ -83,7 +84,7 @@ def build_pattern(objects: Sequence[StitchObject], threads: Sequence[ThreadColor
         for run in obj.underlay_runs + obj.runs:
             if not run:
                 continue
-            if choose_direction and cur is not None and dist(cur, run[0]) > trim_distance >= dist(cur, run[-1]):
+            if choose_direction and not obj.fixed and cur is not None and dist(cur, run[0]) > trim_distance >= dist(cur, run[-1]):
                 run = run[::-1]            # only when it turns a trim into a carried jump (a greedy "nearest end" can make the next jump worse)
             cut = cur is None                      # a fresh thread end (design start, after a trim, or a new colour) needs a tie-in
             if cur_thread is not None and obj.thread != cur_thread:

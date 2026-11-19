@@ -29,6 +29,7 @@
   <button id="bSet" title="Make the same design for left / right / neck ... as separate, named, verified DST files">Placement set</button>
   <button id="bQuality" title="Run the six-stage DST verification on this design (or on the .dst you are viewing)">Quality check</button>
   <details class="menu" id="mMore"><summary title="More exports and tools">More ▾</summary><div class="pop">
+    <button id="bLetter" title="Lettering from a TrueType / OpenType font - Telugu, Devanagari, Tamil ... with proper shaping">TrueType lettering…</button>
     <button id="bViewDst" title="Inspect an existing .dst file (view + verification report)">Open DST to inspect…</button>
     <button id="bExp" title="Export Melco EXP (same stitches as the DST; trims as zero-move jumps)">Export EXP (Melco)</button>
     <button id="bSvg" title="Export preview SVG">Preview SVG</button>
@@ -69,6 +70,20 @@
       <div class="row2"><button data-go="4">Back</button><button data-go="6" class="primary">Next: machine test</button></div></div>
     <div class="wzp" data-p="6" hidden><p><b>Ricoma test before production</b> - tick as you go (saved in this browser):</p><div id="wzTest"></div>
       <div class="row2"><button data-go="5">Back</button><button value="close" class="primary">Done</button></div></div>
+  </form>
+</dialog>
+<dialog id="dlgLetter">
+  <form method="dialog">
+    <h3>TrueType / OpenType lettering</h3>
+    <p class="hint">Upload a font you are licensed to embroider with (for Telugu e.g. Noto Sans Telugu, Ramabhadra; Devanagari: Noto Sans Devanagari). Complex scripts are shaped with HarfBuzz (conjuncts, vowel signs). No font = DejaVu Sans (Latin, Greek, Cyrillic, Arabic).</p>
+    <label>Text <input type="text" id="ltText" value="Sri Lakshmi"></label>
+    <label>Letter height (mm) <input type="number" id="ltH" value="15" min="3" max="200"></label>
+    <label>Thread colour <input type="color" id="ltColor" value="#c8102e"></label>
+    <label>Script / language <select id="ltLang"><option value="">auto</option><option value="te">Telugu</option><option value="hi">Hindi (Devanagari)</option><option value="ta">Tamil</option><option value="kn">Kannada</option><option value="ml">Malayalam</option><option value="bn">Bengali</option><option value="ar">Arabic</option><option value="en">English</option></select></label>
+    <label>Direction <select id="ltDir"><option value="">auto</option><option value="ltr">left to right</option><option value="rtl">right to left</option></select></label>
+    <label>Font file (.ttf / .otf) <input type="file" id="ltFont" accept=".ttf,.otf"></label>
+    <pre id="ltOut" class="wzlog"></pre>
+    <div class="row2"><button value="cancel">Close</button><button id="ltGo" class="primary">Create lettering</button></div>
   </form>
 </dialog>
 <dialog id="dlgSet">

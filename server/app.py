@@ -150,6 +150,53 @@ def api_placements(d):
     return data, rep
 
 
+def api_lettering(d):
+    """TrueType / OpenType lettering (uploaded font, complex-script shaping) -> editable embroidery objects."""
+    from stitchcraft_engine.lettering import lettering_objects
+    font = base64.b64decode(d["font"]) if d.get("font") else None
+    color = str(d.get("color", "#000000"))
+    if not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
+        raise ValueError("color must be #rrggbb")
+    lang = d.get("language") or None
+    if lang is not None and not re.fullmatch(r"[a-z]{2,3}", str(lang)):
+        raise ValueError("language must be an ISO 639 code such as te, hi, ta, ar")
+    direction = d.get("direction") or None
+    if direction not in (None, "ltr", "rtl"):
+        raise ValueError("direction must be ltr or rtl")
+    objs, notes, info = lettering_objects(str(d.get("text", "")), float(d.get("height_mm", 15)), color, font, lang, direction,
+                                          str(d.get("quality", "high")))
+    return {"objects": objs, "notes": notes, "info": {k: v for k, v in info.items() if k != "report"}}
+
+
+def api_to_manual(d):
+    """Stitch-level editing: replace one object by its generated needle points as `manual` objects (one per stitched run)."""
+    design, oid = d["design"], str(d["id"])
+    check_design(design)
+    src = next((o for o in design.get("objects", []) if str(o.get("id")) == oid), None)
+    if src is None:
+        raise ValueError(f"no object with id {oid!r}")
+    if src.get("type") in ("embellishment", "manual"):
+        raise ValueError("this object has no generated stitches to convert")
+    # without lock stitches: the builder adds tie-in / tie-off again when the manual object is sewn (no doubled locks)
+    pattern, _, _ = generate(dict(design, objects=[src], machine=dict(design.get("machine") or {}, lock_len=0)))
+    runs, cur = [], []
+    for s in pattern.stitches:
+        if s.cmd == Cmd.STITCH:
+            if not cur or (abs(s.x - cur[-1][0]) > 1e-9 or abs(s.y - cur[-1][1]) > 1e-9):
+                cur.append([s.x, s.y])                                # full precision: converting changes nothing in the DST
+        elif cur:
+            runs.append(cur); cur = []
+    if cur:
+        runs.append(cur)
+    runs = [r for r in runs if len(r) >= 2]
+    if not runs:
+        raise ValueError("object produced no stitches")
+    base = src.get("name") or oid
+    out = [{"id": f"{oid}_m{k + 1}", "type": "manual", "color": src.get("color"), "name": f"{base} stitches {k + 1}" if len(runs) > 1 else f"{base} stitches",
+            "points": r} for k, r in enumerate(runs)]
+    return {"objects": out, "replaces": oid, "stitches": sum(len(r) for r in runs)}
+
+
 def api_checklist(d):
     check_design(d)
     return checklist.evaluate(d)
@@ -351,6 +398,10 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_svg(d))
             if path == "/api/import/raster":
                 return self._send(200, api_raster(d))
+            if path == "/api/lettering":
+                return self._send(200, api_lettering(d))
+            if path == "/api/to_manual":
+                return self._send(200, api_to_manual(d))
             if path == "/api/checklist":
                 return self._send(200, api_checklist(d))
             if path == "/api/autodigitize":

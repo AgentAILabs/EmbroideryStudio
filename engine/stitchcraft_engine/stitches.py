@@ -423,3 +423,98 @@ def cross_fill(rings: Sequence[Sequence[Point]], size: float = 2.0) -> List[List
     if not runs:
         raise DigitizingError("shape is smaller than one cross; reduce the cross size")
     return runs
+
+
+
+# ---------------------------------------------------------------- motif run (decorative repeat along a path)
+MOTIFS = {
+    "wave":    [(k / 8, math.sin(2 * math.pi * k / 8)) for k in range(9)],
+    "zigzag":  [(0, 0), (0.25, 1), (0.75, -1), (1, 0)],
+    "scallop": [(k / 8, math.sin(math.pi * k / 8)) for k in range(9)],
+    "diamond": [(0, 0), (0.5, 1), (1, 0), (0.5, -1), (0, 0), (1, 0)],
+    "leaf":    [(k / 8, math.sin(math.pi * k / 8)) for k in range(9)] + [(1 - k / 8, -math.sin(math.pi * (1 - k / 8))) for k in range(1, 9)] + [(1, 0)],
+}
+
+
+def motif_run(path: Sequence[Point], kind: str = "wave", size: float = 4.0, amp: float = 1.5, stitch_len: float = 2.0) -> List[Point]:
+    """A small motif repeated along a path as one continuous running stitch (decorative borders, maggam-style edges).
+    size = length of one repeat along the path, amp = how far the motif swings to each side (mm)."""
+    if kind not in MOTIFS:
+        raise DigitizingError(f"unknown motif {kind!r}; use one of {', '.join(MOTIFS)}")
+    if size <= 0.5 or amp < 0:
+        raise DigitizingError("motif size must be > 0.5 mm and amplitude >= 0")
+    pts = [tuple(p) for p in path]
+    L = polyline_length(pts)
+    if L < 1e-6:
+        raise DigitizingError("motif run needs a path with some length")
+    n = max(1, round(L / size)); step = L / n
+    cum = [0.0]
+    for a, b in zip(pts, pts[1:]):
+        cum.append(cum[-1] + dist(a, b))
+
+    def at(t):
+        t = max(0.0, min(L, t))
+        for i in range(len(pts) - 1):
+            if cum[i + 1] >= t - 1e-12 and cum[i + 1] - cum[i] > 1e-12:
+                u = (t - cum[i]) / (cum[i + 1] - cum[i]); a, b = pts[i], pts[i + 1]
+                d = cum[i + 1] - cum[i]; tx, ty = (b[0] - a[0]) / d, (b[1] - a[1]) / d
+                return (a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u), (-ty, tx)
+        a, b = pts[-2], pts[-1]; d = dist(a, b) or 1.0
+        return b, (-(b[1] - a[1]) / d, (b[0] - a[0]) / d)
+    out: List[Point] = []
+    for r in range(n):
+        for u, v in MOTIFS[kind]:
+            (x, y), (nx, ny) = at((r + u) * step)
+            q = (x + nx * v * amp, y + ny * v * amp)
+            if not out or dist(out[-1], q) > 1e-6:
+                out.append(q)
+    return running_stitch(out, stitch_len)
+
+
+def exact_stitches(points: Sequence[Point], max_len: float = 7.0) -> List[Point]:
+    """Manual stitches: every point is a needle penetration, exactly where it was placed. Only segments longer than max_len are
+    split (DST / machine limit). No simplification, no resampling - this is stitch-level editing."""
+    pts = [tuple(p) for p in points]
+    if len(pts) < 2:
+        raise DigitizingError("manual stitches need at least 2 points")
+    out = [pts[0]]
+    for a, b in zip(pts, pts[1:]):
+        d = dist(a, b)
+        if d < 1e-9:
+            continue
+        n = max(1, math.ceil(d / max_len - 1e-9))
+        out += [(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n) for k in range(1, n + 1)]
+    return out
+
+
+def warp_to_path(strokes: Sequence[Sequence[Point]], path: Sequence[Point], height: float, align: str = "center") -> List[List[Point]]:
+    """Text on a path: lettering strokes laid out on a straight baseline (x along, y down, baseline at y = height) are bent onto
+    `path`: x becomes the distance along the path, the height above the baseline goes along the path's upward normal."""
+    pts = [tuple(p) for p in path]
+    L = polyline_length(pts)
+    if L < 1e-6:
+        raise DigitizingError("text path has no length")
+    xs = [p[0] for st in strokes for p in st]
+    tw = (max(xs) - min(xs)) if xs else 0.0
+    off = {"start": 0.0, "end": L - tw, "center": (L - tw) / 2}.get(align, (L - tw) / 2) - (min(xs) if xs else 0.0)
+    cum = [0.0]
+    for a, b in zip(pts, pts[1:]):
+        cum.append(cum[-1] + dist(a, b))
+
+    def frame(t):
+        for i in range(len(pts) - 1):
+            seg = cum[i + 1] - cum[i]
+            if (cum[i + 1] >= t or i == len(pts) - 2) and seg > 1e-12:
+                tx, ty = (pts[i + 1][0] - pts[i][0]) / seg, (pts[i + 1][1] - pts[i][1]) / seg
+                u = (t - cum[i]) / seg
+                return (pts[i][0] + tx * u * seg, pts[i][1] + ty * u * seg), (ty, -tx)     # up = left of travel on a y-down canvas
+        return pts[0], (0.0, -1.0)
+    out = []
+    for st in strokes:
+        w = []
+        for x, y in st:
+            (bx, by), (ux, uy) = frame(x + off)
+            up = height - y
+            w.append((bx + ux * up, by + uy * up))
+        out.append(w)
+    return out

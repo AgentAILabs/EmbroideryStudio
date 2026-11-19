@@ -104,3 +104,7 @@ dialog#dlgWizard .row2{display:flex;justify-content:flex-end;gap:8px;margin-top:
 .cl{margin-bottom:10px}.clhead{display:flex;align-items:center;gap:10px;margin-bottom:6px}.bar{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--line)}.bar i{display:block;height:100%;background:var(--ok)}
 .cli .chip{align-self:start;justify-self:start;white-space:nowrap;text-align:center;min-width:40px}.cli{display:grid;grid-template-columns:52px 1fr;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);font-size:12.5px}.cli small{color:var(--mute)}.chip.NA{background:var(--mute)}
 .tst{display:flex!important;justify-content:flex-start!important;gap:8px;align-items:flex-start!important;font-size:13px}
+
+dialog#dlgLetter{border:1px solid var(--line);border-radius:10px;padding:16px;width:min(560px,94vw);background:var(--panel);color:var(--ink)}
+dialog#dlgLetter label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0}
+dialog#dlgLetter .row2{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
