@@ -138,8 +138,12 @@ QUALITY = {
     #            max source px | up-sampling | blur (src px) | outline tolerance mm | min area mm2 | palette merge dE | majority passes
     "draft":    {"max_px": 260, "up": 1, "blur": 0.0, "tol_mm": 0.30, "min_area": 6.0, "merge_de": 28.0, "majority": 0},
     "standard": {"max_px": 420, "up": 3, "blur": 0.8, "tol_mm": 0.12, "min_area": 2.5, "merge_de": 20.0, "majority": 1},
-    "high":     {"max_px": 700, "up": 4, "blur": 0.9, "tol_mm": 0.08, "min_area": 1.2, "merge_de": 16.0, "majority": 1},
+    "high":     {"max_px": 700, "up": 4, "blur": 0.9, "tol_mm": 0.08, "min_area": 1.2, "merge_de": 16.0, "majority": 1, "adaptive": True},
+    # maximum: analyse at up to MAX_WORK_PX (no destructive downscale), no majority smoothing (it erases 1-px lines), finest outline tolerance
+    "maximum":  {"max_px": 1000, "up": 3, "blur": 0.6, "tol_mm": 0.05, "min_area": 0.25, "merge_de": 14.0, "majority": 0, "adaptive": True},
 }
+MAX_WORK_PX = 1600          # memory / time budget for the working image (longest side)
+DETAIL_MM_PER_PX = 0.08     # adaptive working resolution aims for <= this many mm per working pixel
 THIN_MM = 1.0            # estimated width below this -> running stitch along the middle
 COLUMN_MAX_MM = 5.5      # width up to this (and elongated, no holes) -> satin column
 MIN_ASPECT = 2.5
@@ -274,6 +278,18 @@ def _palette(rgb, max_colors, merge_de, report):
     return out.reshape(H, W), [tuple(int(round(v)) for v in c) for c in pal]
 
 
+def _isolated_fraction(labels):
+    """Share of pixels whose 8 neighbours all carry a different label: salt-and-pepper noise. Clean artwork (even with 1-px lines) has almost none."""
+    import numpy as np
+    pad = np.pad(labels, 1, mode="edge"); same = np.zeros(labels.shape, dtype=np.int8)
+    for dy in range(3):
+        for dx in range(3):
+            if dy == 1 and dx == 1:
+                continue
+            same += (pad[dy:dy + labels.shape[0], dx:dx + labels.shape[1]] == labels)
+    return float((same == 0).mean())
+
+
 def _majority(labels, k, passes):
     import numpy as np
     for _ in range(passes):
@@ -289,7 +305,22 @@ def _majority(labels, k, passes):
     return labels
 
 
-def _remove_fringe(labels, k, bg, thin_frac=0.75):
+def _is_mix(pal, c, k, bg, tol=14.0):
+    """True when palette colour `c` lies (in Lab) on the segment between two other palette colours: an antialiasing blend, not a real ink."""
+    import numpy as np
+    lab = _srgb_to_lab(np.array([pal], dtype=float))[0]
+    others = [i for i in range(k) if i != c]
+    for a in range(len(others)):
+        for b in range(a + 1, len(others)):
+            A, B_, C = lab[others[a]], lab[others[b]], lab[c]
+            d = B_ - A; L2 = float(d @ d)
+            t = 0.0 if L2 == 0 else max(0.0, min(1.0, float((C - A) @ d) / L2))
+            if float(np.linalg.norm(C - (A + t * d))) <= tol:
+                return True
+    return False
+
+
+def _remove_fringe(labels, k, bg, thin_frac=0.75, pal=None):
     """Antialiasing leaves thin slivers of in-between colours along every edge. A label whose pixels mostly disappear under a
     3x3 opening is such a fringe (or noise): hand its pixels to the dominant neighbouring label. Returns (labels, removed)."""
     import numpy as np
@@ -311,6 +342,8 @@ def _remove_fringe(labels, k, bg, thin_frac=0.75):
             for dx in range(3):
                 opened |= padE[dy:dy + mask.shape[0], dx:dx + mask.shape[1]]
         if (mask & ~opened).sum() / total <= thin_frac:
+            continue
+        if pal is not None and not _is_mix(pal, c, k, bg):      # a genuine thin ink (hairline colour) is not a blend of two other colours: keep it
             continue
         pad_l = np.pad(labels, 2, mode="edge"); counts = np.zeros(mask.shape + (k,), dtype=np.int16)
         for dy in range(5):
@@ -334,6 +367,21 @@ def _contours_mm(mask, up, blur, tol_mm, width_mm):
     if blur > 0:
         im = im.filter(ImageFilter.GaussianBlur(radius=max(0.3, blur * up)))          # sigma in hi-res px = blur (source px) x up-sampling
     hi = np.asarray(im) > 127
+    if blur > 0:
+        # smoothing + thresholding erases structures thinner than the blur (1-2 px lines, tiny dots). Pixels that vanish under a 3x3 opening ARE such thin
+        # structures: put them back (up-sampled, un-blurred) so no ink is lost; the outline tolerance below tidies the staircase.
+        pad = np.pad(mask, 1); er = np.ones_like(mask)
+        for dy in range(3):
+            for dx in range(3):
+                er &= pad[dy:dy + H, dx:dx + W]
+        padE = np.pad(er, 1); op = np.zeros_like(mask)
+        for dy in range(3):
+            for dx in range(3):
+                op |= padE[dy:dy + H, dx:dx + W]
+        thin = mask & ~op
+        if thin.any():
+            thin_hi = np.kron(thin.astype(np.uint8), np.ones((up, up), dtype=np.uint8)) > 0 if up > 1 else thin
+            hi = hi | thin_hi
     mm = width_mm / (W * up)
     rings = []
     for loop in _loops_fast(hi):
@@ -432,7 +480,10 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
             alpha_bg = a < 128
         flat = Image.new("RGBA", rgba.size, (255, 255, 255, 255)); flat.alpha_composite(rgba); im = flat
     im = im.convert("RGB")
-    sc = cfg["max_px"] / max(im.size)
+    work_px = cfg["max_px"]
+    if cfg.get("adaptive"):                                    # enough resolution for the finest feature the page size can hold, within the budget
+        work_px = min(MAX_WORK_PX, max(work_px, math.ceil(width_mm / DETAIL_MM_PER_PX)))
+    sc = work_px / max(im.size)
     if sc < 1:
         im = im.resize((max(1, round(im.width * sc)), max(1, round(im.height * sc))), Image.LANCZOS)
         if alpha_bg is not None:
@@ -447,8 +498,12 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
     max_colors = max(2, min(int(max_colors), MAX_COLORS))
     labels, pal = _palette(rgb, max_colors, cfg["merge_de"], report)
     k = len(pal)
-    if cfg["majority"]:
+    iso = _isolated_fraction(labels); report["noise_isolated_px"] = round(iso, 6)
+    if cfg["majority"] and (is_jpeg or iso > 2e-4):            # the 3x3 majority filter erases 1-px lines: only run it when the source is actually noisy
         labels = _majority(labels, k, cfg["majority"])
+        report["majority_filter"] = True
+    else:
+        report["majority_filter"] = False
     # background: transparent pixels, else the label that dominates the image border
     bg = None
     if alpha_bg is not None:
@@ -459,7 +514,7 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
         if (border == top).mean() >= 0.5:
             bg = top
     if cfg["majority"]:
-        labels, report["fringe_colours_removed"] = _remove_fringe(labels, k, bg)
+        labels, report["fringe_colours_removed"] = _remove_fringe(labels, k, bg, pal=pal[:k] if len(pal) >= k else None)
     report["background"] = None if bg is None else "#%02x%02x%02x" % pal[bg]
     mm = width_mm / W; height_mm = H * mm
     # smoothing in source pixels: a coarse source (big pixels) needs more of it, a crisp one almost none (corners stay sharp)
