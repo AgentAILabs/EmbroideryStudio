@@ -496,7 +496,7 @@ function importSummary(r, scaled) {
   l.push("Imported " + ((r.objectsN) || 0) + " objects, " + (r.colours_used || 0) + " colour(s)" + (r.colours_merged ? " (" + r.colours_merged + " near-duplicate shade(s) merged)" : "") + ".");
   if (r.dpi) l.push("Source resolution ≈ " + r.dpi + " dpi at this size" + (r.dpi < 150 ? " – low; edges may be rough, use a larger image." : "."));
   const e = r.enhance;
-  if (e) l.push(e.skipped ? "Enhancer: skipped (" + e.skipped + ")." : "Enhancer: " + e.source_px.join("×") + " → " + e.result_px.join("×") + " px (" + e.steps.join(", ") + ")" + (e.photographic ? " – photo: only lightly sharpened." : "."));
+  if (e) l.push(e.skipped ? "Enhancer: skipped (" + e.skipped + ")." : "Enhancer: " + e.source_px.join("×") + " → " + e.result_px.join("×") + " px (" + e.steps.join(", ") + ")" + (e.photographic ? " – photo: only lightly sharpened." : ".") + (e.provenance ? " ESTIMATED - not recovered detail; your original is what is compared and kept." : ""));
   return l;
 }
 function objArea(o) { if (!o.rings) return null; const ar = r => Math.abs(r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0) / 2); return Math.max(0, ar(o.rings[0]) - o.rings.slice(1).reduce((a, r) => a + ar(r), 0)); }
@@ -558,6 +558,14 @@ function fidHighlight(it) {
   const st = $("#fidStage"), z = Math.min(8, Math.max(1.5, Math.min(st.clientWidth, st.clientHeight) / Math.max(30, Math.max(b[2] - b[0], b[3] - b[1]) * k * 4)));
   FID.z = z; FID.x = st.clientWidth / 2 - (b[0] + b[2]) / 2 * k * z; FID.y = st.clientHeight / 2 - (b[1] + b[3]) / 2 * k * z; fidApply();
 }
+function fidRenderScan() {
+  const m = ((FID.rep.passes.find(p => p.pass === 2) || {}).metrics || {}).detail_scan, box = $("#fidScan");
+  if (!m) { box.innerHTML = "<small>not available</small>"; return; }
+  const c = m.counts, rows = (m.detections || []).slice(0, 60);
+  box.innerHTML = `<small>${m.detections_total} detections at ${m.feature_sizes_mm.join(" / ")} mm scales: ${c.digitized} digitized, ${c.approximate} approximate, ${c.not_stitchable} not stitchable, <b>${c.awaiting_review} awaiting review</b> (agreement ${(100 * m.agreement).toFixed(1)} %)</small>` +
+    (rows.length ? `<table>${rows.map(d => `<tr data-x="${d.x_mm}" data-y="${d.y_mm}" data-s="${d.size_mm}"><td>${d.id}</td><td>${d.x_mm}, ${d.y_mm} mm</td><td>${d.size_mm} mm ${d.kind}</td><td>${esc(d.status)}</td></tr>`).join("")}</table>` : "");
+  box.querySelectorAll("tr[data-x]").forEach(tr => tr.onclick = () => { const x = +tr.dataset.x, y = +tr.dataset.y, r = Math.max(.6, +tr.dataset.s); fidHighlight({bbox_mm: [x - r, y - r, x + r, y + r]}); });
+}
 function fidRenderInv() {
   const f = $("#fidFilter").value, rows = (FID.rep.inventory || []).filter(r => !f || r.status === f).slice(0, 400);
   $("#fidInv").innerHTML = `<table><tr><th>id</th><th>size mm</th><th>status</th><th>stitch</th><th>reason</th></tr>${rows.map(r => `<tr data-id="${r.id}"><td>${r.id}</td><td>${r.size_mm[0]}×${r.size_mm[1]}</td><td>${esc(r.status)}</td><td>${esc(r.strategy)}</td><td title="${esc(r.reason)}">${esc(r.reason.slice(0, 70))}${r.status === "not_stitchable" ? ` <button data-dec="tack" data-id="${r.id}" title="Stitch a tack dot (6-stitch star) here anyway">tack</button> <button data-dec="omit" data-id="${r.id}" title="Accept leaving it out">omit</button>` : ""}</td></tr>`).join("")}</table>`;
@@ -580,7 +588,7 @@ async function openFidelity(keepOpen) {
     $("#fidDisc").textContent = rep.disclaimer;
     $("#fidPasses").innerHTML = rep.passes.map(p => `<div class="fp ${p.result}"><b>${p.pass}. ${p.result}</b><span>${esc(p.name)}<br><small>${esc(p.detail)}</small></span></div>`).join("");
     $("#fidRisks").innerHTML = rep.remaining_risks.map(r => `<li>${esc(r)}</li>`).join("") || "<li>none recorded</li>";
-    fidRenderInv(); FID.mode = "orig"; document.querySelectorAll("#fidMode button").forEach(b => b.classList.toggle("on", b.dataset.m === "orig"));
+    fidRenderScan(); fidRenderInv(); FID.mode = "orig"; document.querySelectorAll("#fidMode button").forEach(b => b.classList.toggle("on", b.dataset.m === "orig"));
     const A = $("#fidA"); A.onload = () => { fidFit(); }; A.src = FID.imgs.orig; if (A.complete) fidFit();
   } catch (e) { $("#fidVerdict").textContent = "Validation failed: " + e.message; }
 }
@@ -764,7 +772,7 @@ async function enhanceFile(file) {
     const j = await post("/api/enhance", {data: raw, scale: 2, mode: "auto"});
     const bin = atob(j.png), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
     download(file.name.replace(/\.[^.]+$/, "") + "_x2.png", u, "image/png");
-    alert(`Enhanced ${j.info.source_px.join("×")} → ${j.info.result_px.join("×")} px (${j.info.steps.join(", ")}).\nSharpness ${j.info.sharpness_before} → ${j.info.sharpness_after}.` + (j.info.photographic ? "\nLooks like a photo: only resampled and lightly sharpened." : ""));
+    alert((j.info.provenance ? j.info.provenance.statement + "\n\n" : "") + `Enhanced ${j.info.source_px.join("×")} → ${j.info.result_px.join("×")} px (${j.info.steps.join(", ")}).\nSharpness ${j.info.sharpness_before} → ${j.info.sharpness_after}.` + (j.info.photographic ? "\nLooks like a photo: only resampled and lightly sharpened." : ""));
   } catch (e) { alert("Enhance failed: " + e.message); }
 }
 function travelHtml(t) {

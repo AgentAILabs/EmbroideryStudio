@@ -486,7 +486,8 @@ def _raster_full(d):
         raise ValueError("enhance must be off, auto or always")
     if mode != "off":
         try:
-            out, info = enhance_image(raw, 2.0, "sharpen" if mode == "always" else "auto")
+            from stitchcraft_engine import enhance as enhance_mod
+            out, info = enhance_mod.enhance(raw, 2.0, "sharpen" if mode == "always" else "auto")
         except OSError as e:
             raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
         if len(info["steps"]) > 1:                       # only use it when it actually cleaned something
@@ -508,7 +509,8 @@ def api_enhance(d):
     ops.check_base64_upload(d.get("data"), "image")
     raw = base64.b64decode(d["data"])
     try:
-        out, info = enhance_image(raw, float(d.get("scale", 2.0)), str(d.get("mode", "auto")))
+        from stitchcraft_engine import enhance as enhance_mod
+        out, info = enhance_mod.enhance(raw, float(d.get("scale", 2.0)), str(d.get("mode", "auto")), bool(d.get("denoise")), bool(d.get("contrast")))
     except OSError as e:
         raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
     return {"png": base64.b64encode(out).decode(), "info": info}

@@ -157,6 +157,18 @@ def validate(original: bytes, width_mm: float, imp: dict, design: Optional[dict]
         f"{len(inventory)} regions inventoried; ink {cov['ink_area_mm2']} mm2 = stitched {cov['stitched_area_mm2']} + not stitchable {round(not_st, 2)} + noise {cov['noise_specks']['area_mm2']} + fringe {cov['antialiasing_fringe']['area_mm2']}; "
         f"unexplained {100 * un_frac:.2f} % (limit {100 * THRESHOLDS['unexplained_ink']:g} %); {len(unresolved)} detail(s) need review",
         {"inventory": len(inventory), "status": rep.get("inventory_status"), "unexplained_fraction": round(un_frac, 5), "unresolved": unresolved})
+    from . import detail_scan
+    scan = detail_scan.scan(original, width_mm, inventory)
+    if scan.get("ran") and scan["counts"]["awaiting_review"] and r2 != "FAILED":
+        r2 = "WARNING"
+        passes[-1]["result"] = "WARNING"
+    if scan.get("ran"):
+        passes[-1]["detail"] += (f"; independent multi-scale scan: {scan['detections_total']} detections, {scan['counts']['awaiting_review']} awaiting review, {scan['counts']['not_stitchable']} not stitchable, "
+                                 f"{scan['counts']['approximate']} approximate (agreement with the digitizer {100 * scan['agreement']:.1f} %)")
+        passes[-1]["metrics"]["detail_scan"] = {k: scan[k] for k in ("scales_px", "feature_sizes_mm", "detections_total", "counts", "agreement", "faint_responses_not_listed", "rule")}
+        passes[-1]["metrics"]["detail_scan"]["detections"] = [d for d in scan["detections"] if d["status"] != "digitized"][:120]
+        if scan["counts"]["awaiting_review"]:
+            risks.append(f"{scan['counts']['awaiting_review']} detail(s) found by the independent scan have no matching region in the digitized design (awaiting review)")
     if unresolved:
         risks.append(f"{len(unresolved)} detail(s) are too small to stitch safely and were left out; review them in the inventory")
     # ---- ink masks of the ORIGINAL (from the label map of the full-resolution analysis), common grid
