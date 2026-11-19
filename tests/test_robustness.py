@@ -71,3 +71,23 @@ class UploadsDoNotCrash(unittest.TestCase):
         png = (ROOT / "tools" / "e2e_art.png").read_bytes()
         for blob in (png[:300], png[:80] + b"\x00" * 200 + png[280:], b"\x89PNG\r\n\x1a\n" + b"junk" * 20):
             with self.assertRaises(ValueError): server.api_raster({"data": base64.b64encode(blob).decode(), "width_mm": 60})
+
+
+class PixelErase(unittest.TestCase):
+    def setUp(self):
+        try: import PIL  # noqa: F401
+        except ImportError: self.skipTest("Pillow not installed")
+        import base64
+        self.b64 = base64.b64encode((ROOT / "tools" / "e2e_art.png").read_bytes()).decode()
+    def objs(self, **kw): return server.api_raster(dict({"data": self.b64, "width_mm": 60, "colors": 4}, **kw))["objects"]
+    def test_erasing_pixels_removes_regions_from_the_result(self):
+        full = self.objs(); self.assertGreaterEqual(len(full), 2)
+        pts = [p for o in full for p in ([q for r in o.get("rings", []) for q in r] or o.get("points", []))]
+        cx = sum(p[0] for p in pts) / len(pts); cy = sum(p[1] for p in pts) / len(pts)
+        gone = self.objs(erase=[[cx, cy, 60]])                               # a brush covering the whole picture
+        self.assertLess(len(gone), len(full))
+        some = self.objs(erase=[[cx, cy, 6]]); self.assertNotEqual(json.dumps(some), json.dumps(full))        # a partial erase changes the regions (it may also split one)
+    def test_no_strokes_is_a_no_op_and_bad_strokes_are_refused(self):
+        self.assertEqual(len(self.objs(erase=[])), len(self.objs()))
+        for bad in ([[1, 2]], [["a", 1, 1]], [[1, 2, 0]], [[1, 2, 1e9]], "x", [[0, 0, 1]] * 401, [[float("nan"), 0, 1]]):
+            with self.assertRaises(ValueError, msg=str(bad)[:40]): self.objs(erase=bad)

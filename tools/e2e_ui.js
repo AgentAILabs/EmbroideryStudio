@@ -158,6 +158,16 @@ await step('Phase 6: machine profile limits block export; production report down
   await pg.click('#bExport');await wait(1500);if(!/hoop limit|machine profile/i.test(msg))throw new Error('export not blocked: '+msg);
   const fi=await pg.evaluate(()=>{__ES.doc.fabric='net';__ESapi.renderAll();return document.querySelector('#fabInfo').innerText});if(!/stabiliser/i.test(fi))throw new Error('net warning missing');
   pg.removeAllListeners('dialog');pg.on('dialog',d=>d.accept());return 'report ok; export blocked by profile; net warning shown'});
+await step('Phase 5c: erase brush removes pixels from the source and re-detects regions',async()=>{
+  await pg.click('#bNew');await wait(300);pg.removeAllListeners('dialog');pg.on('dialog',d=>d.accept());await pg.setInputFiles('#fileImport',ROOT+'/tools/e2e_art.png');await pg.waitForSelector('#dlgImport[open]');await pg.click('#impGo');await pg.waitForSelector('#dlgSeg[open]');
+  const before=await pg.evaluate(()=>document.querySelector('#segSum').innerText.split(' ')[0]);
+  await pg.click('#segBrush');await pg.fill('#segBrushR','15');await pg.dispatchEvent('#segBrushR','input');
+  const b=await pg.evaluate(()=>{const c=document.querySelector('#segCv').getBoundingClientRect();return {x:c.left,y:c.top,w:c.width,h:c.height}});
+  await pg.mouse.move(b.x+b.w*.2,b.y+b.h*.5);await pg.mouse.down();for(let i=0;i<12;i++)await pg.mouse.move(b.x+b.w*(.2+i*.055),b.y+b.h*.5);await pg.mouse.up();
+  const n=await pg.evaluate(()=>document.querySelector('#segApply').innerText);if(!/\(\d+\)/.test(n)||/\(0\)/.test(n))throw new Error('no strokes '+n);
+  await pg.click('#segApply');await pg.waitForFunction(()=>document.querySelector('#dlgSeg[open]'),null,{timeout:15000});await wait(500);
+  const after=await pg.evaluate(()=>document.querySelector('#segSum').innerText.split(' ')[0]);
+  await pg.click('#segGo');await wait(1500);const s=await S();if(!s.n)throw new Error('nothing imported');return 'regions '+before+' -> '+after+' after erasing; imported '+s.n});
 await pg.screenshot({path:SP+'/e2e-final.png'});
 for(const r of res)console.log(r[0],'|',r[1],'|',r[2]);
 console.log('page errors:',errs.length?errs:'none','| HTTP 5xx:',bad.length?bad:'none');console.log('artifacts in',SP);await b.close();

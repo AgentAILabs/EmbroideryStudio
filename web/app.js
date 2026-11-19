@@ -452,7 +452,7 @@ function importSummary(r, scaled) {
   return l;
 }
 function objArea(o) { if (!o.rings) return null; const ar = r => Math.abs(r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0) / 2); return Math.max(0, ar(o.rings[0]) - o.rings.slice(1).reduce((a, r) => a + ar(r), 0)); }
-function reviewRegions(objs) {      // segmentation review: keep / recolour / merge colours / drop specks BEFORE anything is stitched
+function reviewRegions(objs, extent) {      // segmentation review: keep / recolour / merge colours / drop specks BEFORE anything is stitched
   return new Promise(resolve => {
     const dlg = $("#dlgSeg"), by = {}; objs.forEach(o => { const c = (o.color || "#000000").toLowerCase(); (by[c] = by[c] || []).push(o); });
     const cols = Object.keys(by).sort((a, b) => by[b].length - by[a].length);
@@ -467,8 +467,18 @@ function reviewRegions(objs) {      // segmentation review: keep / recolour / me
         g.globalAlpha = on ? 1 : .15; g.beginPath();
         if (o.rings) { o.rings.forEach(r => r.forEach((p, j) => { const q = tp(p); j ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); if (j === r.length - 1) g.closePath(); })); g.fillStyle = colOf(o); g.fill("evenodd"); }
         else { (o.points || []).forEach((p, j) => { const q = tp(p); j ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.strokeStyle = colOf(o); g.lineWidth = 2; g.stroke(); } });
-      g.globalAlpha = 1; };
-    cvs.onclick = ev => { const r = cvs.getBoundingClientRect(), w = fp([(ev.clientX - r.left) * cvs.width / r.width, (ev.clientY - r.top) * cvs.height / r.height]);
+      g.globalAlpha = 1; paintStrokes(); };
+    const strokes = []; let brush = false, painting = false;
+    const syncBrush = () => { $("#segBrush").textContent = "Erase brush: " + (brush ? "on" : "off"); $("#segApply").textContent = `Apply erase (${strokes.length})`; $("#segApply").disabled = !strokes.length; $("#segUndoErase").disabled = !strokes.length; cvs.style.cursor = brush ? "crosshair" : "pointer"; };
+    const paintStrokes = () => { g.save(); g.fillStyle = "rgba(220,38,38,.35)"; strokes.forEach(([x, y, r]) => { const q = tp([x, y]); g.beginPath(); g.arc(q[0], q[1], r * k, 0, 7); g.fill(); }); g.restore(); };
+    const addStroke = ev => { const r = cvs.getBoundingClientRect(), w = fp([(ev.clientX - r.left) * cvs.width / r.width, (ev.clientY - r.top) * cvs.height / r.height]); strokes.push([+w[0].toFixed(2), +w[1].toFixed(2), +$("#segBrushR").value]); paint(); syncBrush(); };
+    $("#segBrush").onclick = () => { brush = !brush; syncBrush(); };
+    $("#segUndoErase").onclick = () => { strokes.pop(); paint(); syncBrush(); };
+    $("#segApply").onclick = () => { dlg.dataset.redo = JSON.stringify(strokes); dlg.close("redo"); };
+    cvs.onpointerdown = ev => { if (!brush) return; painting = true; cvs.setPointerCapture(ev.pointerId); addStroke(ev); };
+    cvs.onpointermove = ev => { if (brush && painting) addStroke(ev); };
+    cvs.onpointerup = () => { painting = false; };
+    cvs.onclick = ev => { if (brush) return; const r = cvs.getBoundingClientRect(), w = fp([(ev.clientX - r.left) * cvs.width / r.width, (ev.clientY - r.top) * cvs.height / r.height]);
       for (let i = objs.length - 1; i >= 0; i--) { const o = objs[i]; let hitIt = false;
         if (o.rings) hitIt = o.rings.reduce((n, rg) => n + inRing(w, rg), 0) % 2 === 1; else { const P = o.points || []; for (let j = 0; j < P.length - 1; j++) if (segDist(w, P[j], P[j + 1]) < 1.5 / Math.max(k, .2) + 1) hitIt = true; }
         if (hitIt) { off.has(i) ? off.delete(i) : off.add(i); break; } }
@@ -477,7 +487,7 @@ function reviewRegions(objs) {      // segmentation review: keep / recolour / me
       by[row.dataset.c].forEach(o => { if (off.has(objs.indexOf(o))) return; const a = objArea(o); if (a !== null && a < min) return; out.push(Object.assign({}, o, {color: nc})); }); }); return out; };
     const sum = () => { $("#segMinV").textContent = $("#segMin").value; const r = result(); $("#segSum").textContent = `${r.length} of ${objs.length} regions will be imported. Click a region in the preview to leave it out (click again to restore).`; paint(); };
     $("#segMin").oninput = sum; $("#segRows").onchange = sum; sum();
-    dlg.onclose = () => resolve(dlg.returnValue === "go" ? result() : null); dlg.showModal();
+    dlg.onclose = () => resolve(dlg.returnValue === "go" ? result() : dlg.returnValue === "redo" ? {redo: JSON.parse(dlg.dataset.redo || "[]")} : null); dlg.showModal();
   });
 }
 async function importFile(file) {
@@ -488,9 +498,16 @@ async function importFile(file) {
     else {
       const o = await askImport(); if (!o || !o.w) return;
       const buf = new Uint8Array(await file.arrayBuffer()); let bin = ""; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
-      res = await post("/api/import/raster", {data: btoa(bin), width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e});
-      if (res.report) { res.report.objectsN = res.objects.length; res.notes = importSummary(res.report).concat(res.notes || []); }
-      if (res.objects.length) { const kept = await reviewRegions(res.objects); if (!kept) return; res.objects = kept; }
+      let erase = [];
+      for (;;) {                                   // review -> (optional) erase pixels in the source image -> re-detect -> review again
+        res = await post("/api/import/raster", {data: btoa(bin), width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e, erase});
+        if (res.report) { res.report.objectsN = res.objects.length; res.notes = importSummary(res.report).concat(res.notes || []); }
+        if (!res.objects.length) break;
+        const kept = await reviewRegions(res.objects);
+        if (!kept) return;
+        if (kept.redo) { erase = erase.concat(kept.redo); continue; }
+        res.objects = kept; break;
+      }
     }
     if (!res.objects.length) { alert((res.notes || []).join("\n") || "Nothing to digitize. For images, use flat-colour artwork on a plain background."); return; }
     res.objects.forEach(o => { o.id = "o" + (S.n++); o.name = o.name || o.id; });

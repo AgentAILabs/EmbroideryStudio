@@ -130,6 +130,8 @@
   <form method="dialog" id="segForm">
     <h3>Review detected regions</h3>
     <p class="hint">The image was split into colour regions. Untick a colour to leave it out (e.g. background), pick a new colour to recolour it - give two colours the same value to merge them - and drop tiny specks with the slider. Nothing is stitched until you continue.</p>
+    <div class="btns"><button type="button" id="segBrush" title="Paint over parts of the picture to erase them from the SOURCE image; then press Apply erase to re-detect the regions">Erase brush: off</button>
+      <label>size <input type="range" id="segBrushR" min="0.5" max="15" step="0.5" value="3"></label><button type="button" id="segApply" disabled>Apply erase (0)</button><button type="button" id="segUndoErase" disabled>Undo stroke</button></div>
     <canvas id="segCv" width="420" height="280" style="width:100%;max-width:420px;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer" title="Click a region to leave it out"></canvas>
     <div id="segRows"></div>
     <label>Drop fills smaller than <input type="range" id="segMin" min="0" max="50" value="0" step="0.5"> <b id="segMinV">0</b> mm²</label>

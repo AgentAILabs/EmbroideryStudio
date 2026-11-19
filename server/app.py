@@ -15,7 +15,7 @@ GET  /api/templates       template catalogue
 POST /api/tools/column-from-outline  {ring} -> {rail1, rail2, ...} or 400 with the reason
 POST /api/template        {id, params, color} -> objects
 GET  /api/health"""
-import base64, json, os, re, sys, time, hashlib
+import base64, json, math, os, re, sys, time, hashlib
 import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -348,11 +348,42 @@ def api_svg(d):
     return {"objects": objs, "width_mm": doc.width_mm, "height_mm": doc.height_mm, "notes": doc.warnings}
 
 
+def _erase_pixels(raw: bytes, width_mm: float, strokes) -> bytes:
+    """Pixel-level editing of the SOURCE image before digitizing: each stroke [x_mm, y_mm, r_mm] (in the imported object coordinates, origin top-left)
+    is painted with the image's background colour (or made transparent), so the region simply is not detected. Nothing else is touched."""
+    if not isinstance(strokes, list) or len(strokes) > 400:
+        raise ValueError("erase must be a list of at most 400 [x_mm, y_mm, radius_mm] strokes")
+    import io as _io
+    from collections import Counter
+    from PIL import Image, ImageDraw
+    for st in strokes:
+        if not (isinstance(st, list) and len(st) == 3 and all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in st) and 0 < st[2] <= 500):
+            raise ValueError("each erase stroke must be [x_mm, y_mm, radius_mm] with 0 < radius <= 500")
+    if not strokes:
+        return raw
+    try:
+        im = Image.open(_io.BytesIO(raw)); im.load()
+    except OSError as e:
+        raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
+    im = im.convert("RGBA")
+    w, h = im.size; k = w / float(width_mm)
+    px = im.load(); border = [px[x, 0] for x in range(0, w, max(1, w // 64))] + [px[x, h - 1] for x in range(0, w, max(1, w // 64))] + \
+        [px[0, y] for y in range(0, h, max(1, h // 64))] + [px[w - 1, y] for y in range(0, h, max(1, h // 64))]
+    bg = Counter(border).most_common(1)[0][0]
+    dr = ImageDraw.Draw(im)
+    for x, y, r in strokes:
+        dr.ellipse([(x - r) * k, (y - r) * k, (x + r) * k, (y + r) * k], fill=bg)
+    out = _io.BytesIO(); im.save(out, "PNG")
+    return out.getvalue()
+
+
 def api_raster(d):
     ops.check_base64_upload(d.get("data"), "image")
     raw = base64.b64decode(d["data"])
     if raw[:4] == b"%PDF":
         raise ValueError(formats.PDF_MESSAGE)
+    if d.get("erase"):
+        raw = _erase_pixels(raw, float(d.get("width_mm", 80)), d["erase"])
     enh = None
     mode = str(d.get("enhance", "off"))
     if mode not in ("off", "auto", "always"):
