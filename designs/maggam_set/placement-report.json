@@ -11,23 +11,16 @@
    "log": [],
    "status": "ok",
    "grade": "PASS",
-   "stitches": 2103,
+   "stitches": 2371,
    "colours": 2,
-   "trims": 21,
+   "trims": 12,
    "size_mm": [
     115.0,
     50.7
    ],
-   "minutes": 5.4,
-   "sha256": "dab452b49b186baa20f0ee672685e803cec48a07ed814c78e5bee30f91f8610e",
-   "notes": [
-    "r36: skipped (running stitch needs at least 2 points)",
-    "r47: skipped (running stitch needs at least 2 points)",
-    "r58: skipped (running stitch needs at least 2 points)",
-    "r69: skipped (running stitch needs at least 2 points)",
-    "r80: skipped (running stitch needs at least 2 points)",
-    "r91: skipped (running stitch needs at least 2 points)"
-   ]
+   "minutes": 4.9,
+   "sha256": "aa8779c9ce17181ad930d9967ab21ca62389ae16d57f5aebf77f57b0bfee1d28",
+   "notes": []
   },
   {
    "placement": "right",
@@ -40,23 +33,16 @@
    ],
    "status": "ok",
    "grade": "PASS",
-   "stitches": 2103,
+   "stitches": 2371,
    "colours": 2,
-   "trims": 21,
+   "trims": 12,
    "size_mm": [
     115.0,
     50.7
    ],
-   "minutes": 5.4,
-   "sha256": "71321c088d9aecd8116bd5b0aa0b6d5e394a3b3a4470216c9942cf2aebc9ed7d",
-   "notes": [
-    "r36: skipped (running stitch needs at least 2 points)",
-    "r47: skipped (running stitch needs at least 2 points)",
-    "r58: skipped (running stitch needs at least 2 points)",
-    "r69: skipped (running stitch needs at least 2 points)",
-    "r80: skipped (running stitch needs at least 2 points)",
-    "r91: skipped (running stitch needs at least 2 points)"
-   ]
+   "minutes": 4.9,
+   "sha256": "99eb737e41a3aa03d97cb8fc891055293eb77726402428bd25ba1d0e784fe19d",
+   "notes": []
   }
  ]
 }

@@ -119,6 +119,24 @@ class SequenceTests(unittest.TestCase):
         self.assertLess(ids.index("base"), ids.index("top"))
 
 
+class MotifSequencingTests(unittest.TestCase):
+    def test_touching_objects_form_one_motif_and_far_ones_do_not(self):
+        a = {"id": "a", "type": "run", "color": "#f00", "points": [[0, 0], [10, 0]]}
+        b = {"id": "b", "type": "run", "color": "#f00", "points": [[10.5, 0], [20, 0]]}
+        c = {"id": "c", "type": "run", "color": "#f00", "points": [[50, 0], [60, 0]]}
+        self.assertEqual(SQ._motifs([a, b, c]), [[0, 1], [2]])
+    def test_motif_inner_order_is_kept(self):
+        objs = [{"id": f"p{i}", "type": "run", "color": "#f00", "points": [[i * 0.8, 0], [i * 0.8 + 0.7, 0]]} for i in range(5)] + \
+               [{"id": "far", "type": "run", "color": "#f00", "points": [[90, 0], [95, 0]]}]
+        order = SQ._motif_order(objs, (100, 0))
+        self.assertEqual(order, [5, 0, 1, 2, 3, 4])                                  # far motif first (nearest), petals in their order
+    def test_objective_is_machine_time_and_never_worse(self):
+        self.assertAlmostEqual(SQ.machine_seconds((1, 0.0)), 6.0)
+        for n in ("bride_frame", "temple_border", "peacock_arch", "lotus_bloom"):
+            d = lib(n); nd, _ = SQ.optimize_sequence(d)
+            self.assertLessEqual(SQ.machine_seconds(SQ.travel_metrics(nd)), SQ.machine_seconds(SQ.travel_metrics(d)) + 1e-6, n)
+
+
 class ChecklistTests(unittest.TestCase):
     def test_fifteen_items_and_library_is_exportable(self):
         for n in ("peacock_arch", "kalash", "lotus_bloom"):

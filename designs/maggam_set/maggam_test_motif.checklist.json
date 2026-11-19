@@ -3,7 +3,7 @@
   "profile: Maggam blouse neck on Silk, thread 120 (starting values - confirm with a stitch-out)",
   "set pull_comp on 44 object(s), shorten on 44 object(s), spacing on 19 object(s)",
   "centred in the hoop",
-  "sequence kept: already optimal for this design (trims 6, travel 169 mm)"
+  "sequence kept: already optimal for this design (trims 6, travel 154 mm)"
  ],
  "items": [
   {
@@ -52,7 +52,7 @@
    "n": 8,
    "title": "No excessively short stitches",
    "level": "PASS",
-   "evidence": "0 stitch(es) under 0.3 mm; 0.0% in clusters of 2+ stitches < 0.5 mm (0.0% incl. lone row turns and locks)"
+   "evidence": "0 stitch(es) under 0.3 mm; 0.39% in clusters of 2+ stitches < 0.5 mm (0.78% incl. lone row turns and locks)"
   },
   {
    "n": 9,
@@ -82,19 +82,19 @@
    "n": 13,
    "title": "Stitch count within production limits",
    "level": "PASS",
-   "evidence": "921 stitches, ~2.2 min at 700 spm (limit 150,000)"
+   "evidence": "1050 stitches, ~2.4 min at 700 spm (limit 150,000)"
   },
   {
    "n": 14,
    "title": "DST header and command sequence validated",
    "level": "PASS",
-   "evidence": "container PASS, encoding PASS; 975 records, sha256 374b1105b106"
+   "evidence": "container PASS, encoding PASS; 1104 records, sha256 5c182297c096"
   },
   {
    "n": 15,
    "title": "DST reopened and simulated successfully",
    "level": "PASS",
-   "evidence": "reopened: 921 stitch records, ends with END=True; simulation PASS (span 43.2x33.4 mm)"
+   "evidence": "reopened: 1050 stitch records, ends with END=True; simulation PASS (span 43.2x33.4 mm)"
   }
  ],
  "passed": 15,
@@ -102,12 +102,12 @@
  "export_allowed": true,
  "verify_grade": "PASS",
  "stats": {
-  "stitches": 921,
+  "stitches": 1050,
   "color_changes": 1,
   "trims": 6,
   "width_mm": 43.29,
   "height_mm": 33.35,
-  "est_minutes": 2.2
+  "est_minutes": 2.4
  },
  "colour_sequence": [
   {
@@ -116,7 +116,7 @@
   },
   {
    "hex": "#c9a227",
-   "stitches": 471
+   "stitches": 600
   }
  ]
 }
