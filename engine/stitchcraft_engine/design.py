@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from .builder import StitchObject, build_pattern
 from .font import layout_text
-from .geometry import polygon_area, smooth, inset_ring, rotate_closed, ring_self_intersections, trim_polyline
+from .geometry import polygon_area, smooth, inset_ring, rotate_closed, ring_self_intersections, trim_polyline, outset_ring, scale_axes
 from .model import Cmd, Pattern, ThreadColor
 from .stitches import (DigitizingError, satin_from_rails, contour_fill, cross_fill, center_walk_underlay, edge_walk_underlay, running_stitch,
                        satin_stitch, tatami_fill, underlay_path, zigzag_underlay, rails_from_centerline)
@@ -20,10 +20,11 @@ from .validate import validate
 
 DEFAULTS = {
     "fill": {"angle": 45.0, "spacing": 0.4, "stitch_len": 3.5, "underlay": "tatami", "pull_comp": 0.2, "pattern": "tatami", "cross_size": 2.0,
-             "regions": True, "cut_hidden": False, "overlap_mm": 0.6, "push_comp": 0.0},          # stitch holes / U-shapes region by region instead of jumping the gap on every row
+             "regions": True, "cut_hidden": False, "overlap_mm": 0.6, "push_comp": 0.0,
+             "expand_mm": 0.0, "comp_x": 0.0, "comp_y": 0.0, "min_row": 0.0},          # stitch holes / U-shapes region by region instead of jumping the gap on every row
     "satin": {"width": 3.0, "spacing": 0.4, "underlay": "auto", "pull_comp": 0.2, "push_comp": 0.0, "style": "satin"},
     "run": {"stitch_len": 2.5},
-    "column": {"spacing": 0.4, "underlay": "auto", "pull_comp": 0.2, "push_comp": 0.0, "style": "satin"},
+    "column": {"spacing": 0.4, "underlay": "auto", "pull_comp": 0.2, "push_comp": 0.0, "style": "satin", "comp_x": 0.0, "comp_y": 0.0},
     "text": {"spacing": 1.0, "underlay": "auto", "pull_comp": 0.1},
     "applique": {"width": 2.5, "spacing": 0.4, "stitch_len": 2.5, "cover_color": None},
 }
@@ -52,6 +53,42 @@ def _p(obj: dict, key: str):
 def _pts(v, ob: Optional[dict] = None, closed: bool = False) -> list:
     pts = [(float(a), float(b)) for a, b in v]
     return smooth(pts, closed) if ob and ob.get("smooth") else pts
+
+
+def _centre(pts):
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    return (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+
+
+def _axis_comp(pts, ob):
+    """Horizontal / vertical compensation: comp_x / comp_y mm total added to the object's width / height (scaled about its
+    centre). Independent of the stitch direction - pull_comp / push_comp are the direction-relative pair."""
+    cx, cy = float(_p(ob, "comp_x") or 0.0), float(_p(ob, "comp_y") or 0.0)
+    if not cx and not cy:
+        return 1.0, 1.0
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    w, h = max(xs) - min(xs), max(ys) - min(ys)
+    kx = 1.0 + max(-0.5, min(cx, 2.0)) / w if w > 1e-6 else 1.0
+    ky = 1.0 + max(-0.5, min(cy, 2.0)) / h if h > 1e-6 else 1.0
+    return kx, ky
+
+
+def _compensate_rings(rings, ob, notes, oid):
+    """Fill-object expansion (outline offset outwards, holes shrink by the same amount) then horizontal / vertical compensation."""
+    e = max(0.0, min(float(_p(ob, "expand_mm") or 0.0), 1.0))
+    if e > 0:
+        out = []
+        for k, r in enumerate(rings):
+            q = outset_ring(r, e) if k == 0 else inset_ring(r, e)
+            if q is None:
+                notes.append(f"{oid}: {'outline' if k == 0 else 'hole'} expansion skipped (shape too sharp or small to offset safely)")
+                q = r
+            out.append(q)
+        rings = out
+    kx, ky = _axis_comp([p for p in rings[0]], ob)
+    if kx != 1.0 or ky != 1.0:
+        c = _centre(rings[0]); rings = [scale_axes(r, *c, kx, ky) for r in rings]
+    return rings
 
 
 def _covering_shapes(objs, idx):
@@ -188,7 +225,7 @@ def generate(design: dict, trim_distance: Optional[float] = None):
         try:
             th = tid(ob.get("color"))
             if typ == "fill":
-                rings = [_pts(r, ob, True) for r in ob["rings"]]
+                rings = _compensate_rings([_pts(r, ob, True) for r in ob["rings"]], ob, notes, oid)
                 bad = [k for k, r in enumerate(rings) if ring_self_intersections(r)]
                 if bad:
                     notes.append(f"{oid}: outline crosses itself - the fill will overlap or leave gaps; redraw it as a simple shape")
@@ -208,7 +245,8 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                 ov = float(_p(ob, "overlap_mm") or 0.6)
                 runs = tatami_fill(rings, _p(ob, "angle"), _p(ob, "spacing"), _p(ob, "stitch_len"),
                                    pull_comp=_p(ob, "pull_comp") or 0.0, regions=bool(_p(ob, "regions")),
-                                   exclude=cover, exclude_margin=ov, push_comp=float(_p(ob, "push_comp") or 0.0))
+                                   exclude=cover, exclude_margin=ov, push_comp=float(_p(ob, "push_comp") or 0.0),
+                                   min_row=float(_p(ob, "min_row") or 0.0))
                 under = []
                 mode = _p(ob, "underlay")
                 mode = "tatami" if mode is True else "none" if mode in (False, None) else mode
@@ -216,7 +254,7 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                     if mode in ("edge", "edge+tatami"):
                         edge = [inset_ring(r, 0.5) for r in rings]
                         if all(edge):
-                            under += [running_stitch(e, 2.5, closed=True) for e in edge]
+                            under += [running_stitch(underlay_path(e + [e[0]]), 2.5) for e in edge]
                         else:
                             notes.append(f"{oid}: edge underlay skipped (shape too small or too complex to inset safely)")
                     if mode in ("tatami", "edge+tatami") or (mode == "edge" and not under):
@@ -240,6 +278,9 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                                         _p(ob, "pull_comp") or 0.0, "none" if zz else _p(ob, "underlay"), split_of(ob), bool(_p(ob, "shorten")) and not zz))
             elif typ == "column":
                 r1, r2 = _pts(ob["rail1"], ob), _pts(ob["rail2"], ob)
+                cx_, cy_ = _axis_comp(r1 + r2, ob)
+                if cx_ != 1.0 or cy_ != 1.0:
+                    c0 = _centre(r1 + r2); r1, r2 = scale_axes(r1, *c0, cx_, cy_), scale_axes(r2, *c0, cx_, cy_)
                 push = float(_p(ob, "push_comp") or 0.0)
                 if push > 0:
                     r1, r2 = trim_polyline(r1, push / 2, push / 2), trim_polyline(r2, push / 2, push / 2)

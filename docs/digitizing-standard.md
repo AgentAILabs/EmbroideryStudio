@@ -16,11 +16,11 @@ does not "understand" a photo of a blouse. Flat-colour artwork in, editable obje
 ## 1. Core parameters
 | Parameter | Spec | Implemented | Where |
 |---|---|---|---|
-| Satin density | 0.40-0.45 mm | ✅ 0.40 x thread x fabric x width factor (auto spacing), clamped 0.18-0.60 | `profiles.apply_profile` |
+| Satin density | 0.40-0.45 mm | ✅ 40 wt on cotton: 0.40-0.45 (auto spacing opens narrow columns to 0.45); thread and fabric factors scale the range, clamped 0.18-0.60 | `profiles.apply_profile` |
 | Tatami density | 0.40-0.45 mm | ✅ same, per fabric / thread | `profiles` |
 | Underlay | by object + fabric | ✅ ladder by width / area, shifted by fabric and category | `profiles.satin_underlay`, `fill_underlay` |
 | Pull compensation | 0.1-0.3 mm | ✅ per fabric 0.15-0.40, capped at 10 % of a narrow satin | `profiles` |
-| Minimum stitch | ~0.8-1.0 mm | ◐ hard floor 0.3 mm (validator), tatami row ends ≥ 0.7 mm, curve shortening never below ~0.8 mm, sub-0.35 mm corner stitches pruned. Lone 0.2-0.4 mm row turns of tatami are inherent and reported separately | `stitches`, checklist item 8 |
+| Minimum stitch | ~0.8-1.0 mm | ✅ profiles drop tatami rows < 0.8 mm (`min_row`), row ends ≥ 0.7 mm, curve shortening never below ~0.8 mm, underlay paths simplified, corner stitches < 0.35 mm pruned, validator floor 0.3 mm. Remaining sub-0.8 mm stitches are tatami row turns (one row spacing / sin of the edge angle) - inherent to every tatami fill, Wilcom's included | `stitches`, `profiles`, checklist item 8 |
 | Maximum stitch | 7 mm | ✅ machine profile 7 mm, auto split | `design.machine`, checklist item 9 |
 | Satin width | 2-7 mm | ✅ raster digitizer: < 1 mm → running, narrow bands → column, wide → fill; checklist item 3 warns < 1 mm and > 7 mm unsplit | `raster._make_object`, `checklist` |
 | Running stitch | 2-3 mm | ✅ 2.0 (maggam) / 2.5 (saree, logo) | `profiles.CATEGORIES` |
@@ -54,8 +54,14 @@ layers** - a fill does not sew what later fills / columns / satins / appliqués 
 | Tatami underlay | ✅ | fills 25-400 mm² (edge + tatami above) |
 
 ## 5. Pull compensation
-Pull: satin / column width ✅, fill rows lengthened along the stitch direction ✅. Push: ✅ fills shortened across the rows, columns / satins shortened at their ends
-(`push_comp`, separate from pull) · fabric-specific ✅ (stretch: push 0.2 mm) · fill-outline expansion perpendicular to the rows ❌ (push is the opposite need on most fabrics).
+| Requirement | Implemented |
+|---|---|
+| Horizontal compensation | ✅ `comp_x`: mm added to the object width, independent of stitch direction (fills, columns) |
+| Vertical compensation | ✅ `comp_y`: mm added to the height |
+| Satin-column compensation | ✅ `pull_comp` widens the column; `push_comp` shortens its ends |
+| Fill-object expansion | ✅ `expand_mm`: outline offset outwards, holes shrink by the same amount; sharp shapes fall back safely (`geometry.outset_ring`) |
+| Fabric-specific | ✅ pull 0.14-0.40 mm by fabric (narrow satins capped at 10 % of width), push 0.2 mm on stretch |
+Direction-relative pull / push and absolute horizontal / vertical compensation are separate parameters and combine.
 
 ## 6. Stitch path
 | Algorithm | Implemented |
@@ -95,3 +101,20 @@ Engine 3 (validation): `validate.py`, `dst_verify.py`, `checklist.py`. Machine a
 Not adopted as the engine. It is GPL-3 and would make this codebase GPL; it runs inside Inkscape (an install on the user's machine,
 which is not allowed on the office laptop); and our own engine is already validated byte-for-byte against an independent DST reader. Its
 documentation was used as a reference for terminology only.
+
+
+## Audit against the specification - 2026-11-19 (measured, not estimated)
+168 auto-digitized designs = 4 categories x 7 fabrics x 6 test images (40 wt thread, 80 mm wide, 130 x 180 mm hoop):
+| Check | Result |
+|---|---|
+| Export allowed | 168 / 168, no FAIL |
+| 15-item checklist | 15 / 15 on every design, no WARN |
+| Longest stitch | 6.2 mm (spec max 7) |
+| Satin / tatami spacing, cotton 40 wt | 0.40-0.45 / 0.40 mm (spec 0.40-0.45) |
+| Pull compensation | 0.14-0.40 mm by fabric (spec 0.1-0.3, stretch higher on purpose) |
+| Running stitch | 2.0 (maggam) / 2.5 mm (saree, logo) (spec 2-3) |
+| Stitches < 0.8 mm that are not tatami row turns | median 2.8 %, max 9.1 % |
+Fixed by this audit: the auto-digitizer's own default parameters were blocking the fabric profile (pull comp was 0.2 for every fabric,
+running stitch 2.0 for every category); light fabrics could drop satin underlay to none on 2-3 mm columns; wide-column auto spacing went
+below the spec range (0.36 mm); edge underlay followed dense outline points (0.68 mm stitches); the checklist judged underlay without the
+category. Regression guard: `tests/test_digitizing_standard.py` SpecComplianceAuditTests. All delivered DSTs are unchanged.

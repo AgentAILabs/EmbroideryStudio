@@ -170,7 +170,8 @@ def api_autodigitize(d):
               "source": {"type": "raster", "report": imp.get("report") or {}}, "objects": imp["objects"]}
     log = [f"digitized: {len(imp['objects'])} object(s) " + ", ".join(f"{v} {k}" for k, v in (imp.get("report") or {}).get("objects", {}).items() if v)]
     log += [f"import: {n}" for n in imp.get("notes", [])]
-    design, l2 = profiles.apply_profile(design, str(d.get("fabric", "cotton")), str(d.get("category", "blouse_neck")))
+    # the digitizer's own parameter values are defaults, not user choices: the profile replaces them (angle is kept)
+    design, l2 = profiles.apply_profile(design, str(d.get("fabric", "cotton")), str(d.get("category", "blouse_neck")), overwrite=True)
     design, l3 = placements_mod.autofix(design)
     design, l4 = sequence.optimize_sequence(design)
     return {"design": design, "log": log + l2 + l3 + l4, "import_report": imp.get("report"), "checklist": checklist.evaluate(design)}

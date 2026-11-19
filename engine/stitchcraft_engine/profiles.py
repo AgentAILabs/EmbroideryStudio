@@ -6,7 +6,7 @@ unless `overwrite=True`. Starting values, not certified settings: fabric, thread
 
 Rules (each is logged with the object it changed):
   * density   - line spacing = 0.40 mm x thread factor x fabric factor x width factor (automatic satin spacing:
-                narrow columns open up to avoid needle crowding, wide columns close up for coverage), clamped 0.18-0.60 mm
+                narrow columns open up to 0.45 to avoid needle crowding; spec range 0.40-0.45 for 40 wt on cotton), clamped 0.18-0.60 mm
   * underlay  - satin / column by width: <1.5 none, 1.5-3 centre run, 3-4.5 edge run, 4.5-6 zig-zag, >=6 edge run + zig-zag;
                 fill by area: <25 mm2 none, <400 tatami, larger edge run + tatami; light fabrics one step lighter, pile / stretch one heavier
   * pull comp - per fabric (0.15-0.40 mm), capped at 10 % of a narrow satin's width
@@ -42,8 +42,9 @@ SPACING_MIN, SPACING_MAX = 0.18, 0.60
 
 
 def width_factor(w: float) -> float:
-    """Automatic satin spacing: narrow columns need fewer penetrations, wide ones more coverage."""
-    return 1.15 if w < 1.5 else 1.0 if w < 4.0 else 0.95 if w < 6.0 else 0.90
+    """Automatic satin spacing inside the spec's 0.40-0.45 mm starting range (for 40 wt on cotton): narrow columns open up to
+    0.45 (fewer penetrations where they crowd), everything else stays at 0.40. Thread and fabric factors scale the whole range."""
+    return 1.125 if w < 2.0 else 1.06 if w < 3.0 else 1.0
 
 
 def satin_underlay(w: float, shift: int) -> str:
@@ -53,6 +54,8 @@ def satin_underlay(w: float, shift: int) -> str:
         lvl = 0                                   # nothing fits under a sub-1.2 mm column
     if w < 2.2 and lvl > 1:
         lvl = 1                                   # edge run / zig-zag need room inside the column
+    if w >= 2.0 and lvl < 1:
+        lvl = 1                                   # "minimal" underlay on light fabrics still means a centre run, never none
     return SATIN_LADDER[lvl]
 
 
@@ -73,6 +76,14 @@ def column_width(o: dict) -> float:
     n = min(len(r1), len(r2))
     inner = list(zip(r1[1:n - 1], r2[1:n - 1])) or list(zip(r1[:n], r2[:n]))
     return sum(math.dist(a, b) for a, b in inner) / max(1, len(inner))
+
+
+def underlay_shift(design: dict) -> int:
+    """-1 lighter / 0 standard / +1 heavier underlay, from the design's fabric and category (the same rule apply_profile uses)."""
+    prof = design.get("profile") or {}
+    F = FABRICS.get(prof.get("fabric") or design.get("fabric") or "cotton", FABRICS["cotton"])
+    C = CATEGORIES.get(prof.get("category") or "blouse_neck", CATEGORIES["blouse_neck"])
+    return max(-1, min(1, F["under"] + C["under"]))
 
 
 def apply_profile(design: dict, fabric: str = None, category: str = None, overwrite: bool = False) -> Tuple[dict, List[str]]:
@@ -124,6 +135,7 @@ def apply_profile(design: dict, fabric: str = None, category: str = None, overwr
             put(o, "underlay", fill_underlay(area, shift))
             put(o, "pull_comp", F["pull"])
             put(o, "cut_hidden", True)              # do not sew what a later object covers (keeps a 0.6 mm under-lap)
+            put(o, "min_row", 0.8)                  # spec minimum stitch: no tatami row shorter than 0.8 mm (tips are covered by pull comp / outline)
             if F.get("push"):
                 put(o, "push_comp", F["push"])
         elif t == "run":

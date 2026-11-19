@@ -122,6 +122,48 @@ def inset_ring(ring: Sequence[Point], d: float, miter_limit: float = 2.5):
     return out
 
 
+def outset_ring(ring: Sequence[Point], d: float, miter_limit: float = 2.5):
+    """Move every edge of a closed ring OUTWARDS by d mm (miter joins) - fill-object expansion. Returns None when the result
+    is not trustworthy (spikes beyond the miter limit, self-crossing, or not larger than the original); callers then keep
+    the original outline."""
+    P = [tuple(p) for p in ring]
+    if len(P) > 1 and P[0] == P[-1]:
+        P = P[:-1]
+    n = len(P)
+    if n < 3 or d <= 0:
+        return None
+    a0 = _signed_area(P)
+    if abs(a0) < 1e-9:
+        return None
+    sgn = -1.0 if a0 > 0 else 1.0                      # opposite of inset_ring: normals point out of the shape
+    out = []
+    for i in range(n):
+        p0, p1, p2 = P[i - 1], P[i], P[(i + 1) % n]
+        e1, e2 = (p1[0] - p0[0], p1[1] - p0[1]), (p2[0] - p1[0], p2[1] - p1[1])
+        l1, l2 = math.hypot(*e1), math.hypot(*e2)
+        if l1 < 1e-9 or l2 < 1e-9:
+            continue
+        n1 = (-e1[1] / l1 * sgn, e1[0] / l1 * sgn)
+        n2 = (-e2[1] / l2 * sgn, e2[0] / l2 * sgn)
+        bx, by = n1[0] + n2[0], n1[1] + n2[1]
+        dot = 1 + n1[0] * n2[0] + n1[1] * n2[1]
+        if dot < 1e-6:
+            return None
+        q = (p1[0] + bx * d / dot, p1[1] + by * d / dot)
+        if math.hypot(q[0] - p1[0], q[1] - p1[1]) > d * miter_limit:
+            q = (p1[0] + bx / math.hypot(bx, by) * d * miter_limit, p1[1] + by / math.hypot(bx, by) * d * miter_limit)   # clip sharp tips
+        out.append(q)
+    if len(out) < 3 or abs(_signed_area(out)) <= abs(a0) or (_signed_area(out) > 0) != (a0 > 0):
+        return None
+    if any(not point_in_ring(q, out) for q in P) or ring_self_intersections(out):
+        return None
+    return out
+
+
+def scale_axes(pts: Sequence[Point], cx: float, cy: float, kx: float, ky: float) -> List[Point]:
+    return [(cx + (p[0] - cx) * kx, cy + (p[1] - cy) * ky) for p in pts]
+
+
 def rotate_closed(path: Sequence[Point], frac: float) -> List[Point]:
     """A closed path (first point repeated at the end) re-started at `frac` (0..1) of its perimeter. Same outline, new
     start/end point - used to stagger the thread cuts of layered passes so their lock stitches do not pile up."""
