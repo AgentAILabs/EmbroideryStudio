@@ -1,359 +1,114 @@
-EmbroideryStudio export package · 2026-11-19T08:10:09
+EmbroideryStudio export package · 2026-11-19T08:19:39
 design: blue_front_neck_full
-stitches: 32680  colour changes: 1
+stitches: 34061  colour changes: 1
 trim jumps: 3
-DST records: 35486
-DST sha256: a03ca363d4343ab705d177b0a7b555d3a69626344429edd1969c8154f8099301
+DST records: 36989
+DST sha256: d5f48a9310c3d69781a261c66e8544d22a307748d21d378504fe392c7e51250a
 
 Machine format: DST only. DST has been validated in software; it has NOT been validated on a physical machine.
 NOT machine-tested. Stitch a sample on matching fabric and stabiliser before production use.
 
 CHECKS
-WARNING STITCH_LONG: Stitch 7.0 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.0 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.1 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.1 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.1 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.2 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.2 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.3 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.3 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.3 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.4 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.4 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.4 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.4 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.4 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.4 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.3 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.3 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.2 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.2 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.1 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.1 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.0 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.0 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.1 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.1 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.2 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.2 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.3 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.3 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.4 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.4 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.4 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.4 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.4 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.3 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.3 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.3 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.2 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.2 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.1 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.1 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.1 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.0 mm may snag or break thread
-WARNING STITCH_LONG: Stitch 7.0 mm may snag or break thread
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.28 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-WARNING STITCH_SHORT: Very short stitch 0.29 mm
-NOTE c856: column is very narrow (0.9 mm)
-NOTE c857: column is very narrow (0.9 mm)
-NOTE c858: column is very narrow (0.9 mm)
-NOTE c859: column is very narrow (0.9 mm)
-NOTE c860: column is very narrow (0.9 mm)
-NOTE c890: column is very narrow (0.9 mm)
-NOTE c891: column is very narrow (0.9 mm)
-NOTE c892: column is very narrow (0.9 mm)
-NOTE c893: column is very narrow (0.9 mm)
-NOTE c894: column is very narrow (0.9 mm)
-NOTE c924: column is very narrow (0.9 mm)
-NOTE c925: column is very narrow (0.9 mm)
-NOTE c926: column is very narrow (0.9 mm)
-NOTE c927: column is very narrow (0.9 mm)
-NOTE c928: column is very narrow (0.9 mm)
-NOTE c958: column is very narrow (0.9 mm)
-NOTE c959: column is very narrow (0.9 mm)
-NOTE c960: column is very narrow (0.9 mm)
-NOTE c961: column is very narrow (0.9 mm)
-NOTE c962: column is very narrow (0.9 mm)
-NOTE c992: column is very narrow (0.9 mm)
-NOTE c993: column is very narrow (0.9 mm)
-NOTE c994: column is very narrow (0.9 mm)
-NOTE c995: column is very narrow (0.9 mm)
-NOTE c996: column is very narrow (0.9 mm)
-NOTE c1060: column is very narrow (0.9 mm)
-NOTE c1061: column is very narrow (0.9 mm)
-NOTE c1062: column is very narrow (0.9 mm)
-NOTE c1063: column is very narrow (0.9 mm)
-NOTE c1064: column is very narrow (0.9 mm)
-NOTE c1094: column is very narrow (0.9 mm)
-NOTE c1095: column is very narrow (0.9 mm)
-NOTE c1096: column is very narrow (0.9 mm)
-NOTE c1097: column is very narrow (0.9 mm)
-NOTE c1098: column is very narrow (0.9 mm)
-NOTE c1128: column is very narrow (0.9 mm)
-NOTE c1129: column is very narrow (0.9 mm)
-NOTE c1131: column is very narrow (0.9 mm)
-NOTE c1132: column is very narrow (0.9 mm)
-NOTE c1130: column is very narrow (0.9 mm)
-NOTE c1214: column is very narrow (0.9 mm)
-NOTE c1213: column is very narrow (0.9 mm)
-NOTE c1205: column is very narrow (0.9 mm)
-NOTE c1206: column is very narrow (0.9 mm)
-NOTE c1209: column is very narrow (0.9 mm)
-NOTE c1207: column is very narrow (0.9 mm)
-NOTE c1208: column is very narrow (0.9 mm)
-NOTE c823: column is very narrow (0.9 mm)
+NOTE c856: column is very narrow (1.0 mm)
+NOTE c857: column is very narrow (1.0 mm)
+NOTE c858: column is very narrow (1.0 mm)
+NOTE c859: column is very narrow (1.0 mm)
+NOTE c860: column is very narrow (1.0 mm)
+NOTE c890: column is very narrow (1.0 mm)
+NOTE c891: column is very narrow (1.0 mm)
+NOTE c892: column is very narrow (1.0 mm)
+NOTE c893: column is very narrow (1.0 mm)
+NOTE c894: column is very narrow (1.0 mm)
+NOTE c924: column is very narrow (1.0 mm)
+NOTE c925: column is very narrow (1.0 mm)
+NOTE c926: column is very narrow (1.0 mm)
+NOTE c927: column is very narrow (1.0 mm)
+NOTE c928: column is very narrow (1.0 mm)
+NOTE c958: column is very narrow (1.0 mm)
+NOTE c959: column is very narrow (1.0 mm)
+NOTE c960: column is very narrow (1.0 mm)
+NOTE c961: column is very narrow (1.0 mm)
+NOTE c962: column is very narrow (1.0 mm)
+NOTE c992: column is very narrow (1.0 mm)
+NOTE c993: column is very narrow (1.0 mm)
+NOTE c994: column is very narrow (1.0 mm)
+NOTE c995: column is very narrow (1.0 mm)
+NOTE c996: column is very narrow (1.0 mm)
+NOTE c1060: column is very narrow (1.0 mm)
+NOTE c1061: column is very narrow (1.0 mm)
+NOTE c1062: column is very narrow (1.0 mm)
+NOTE c1063: column is very narrow (1.0 mm)
+NOTE c1064: column is very narrow (1.0 mm)
+NOTE c1094: column is very narrow (1.0 mm)
+NOTE c1095: column is very narrow (1.0 mm)
+NOTE c1096: column is very narrow (1.0 mm)
+NOTE c1097: column is very narrow (1.0 mm)
+NOTE c1098: column is very narrow (1.0 mm)
+NOTE c1128: column is very narrow (1.0 mm)
+NOTE c1129: column is very narrow (1.0 mm)
+NOTE c1130: column is very narrow (1.0 mm)
+NOTE c1131: column is very narrow (1.0 mm)
+NOTE c1132: column is very narrow (1.0 mm)
 NOTE c1211: column is very narrow (0.9 mm)
 NOTE c1212: column is very narrow (0.9 mm)
+NOTE c1213: column is very narrow (0.9 mm)
+NOTE c1214: column is very narrow (0.9 mm)
 NOTE c1215: column is very narrow (0.9 mm)
-NOTE c1026: column is very narrow (0.9 mm)
-NOTE c1027: column is very narrow (0.9 mm)
-NOTE c1028: column is very narrow (0.9 mm)
-NOTE c1029: column is very narrow (0.9 mm)
-NOTE c1030: column is very narrow (0.9 mm)
-NOTE c719: column is very narrow (0.9 mm)
-NOTE c722: column is very narrow (0.9 mm)
-NOTE c723: column is very narrow (0.9 mm)
-NOTE c720: column is very narrow (0.9 mm)
-NOTE c721: column is very narrow (0.9 mm)
-NOTE c549: column is very narrow (0.9 mm)
-NOTE c550: column is very narrow (0.9 mm)
-NOTE c551: column is very narrow (0.9 mm)
-NOTE c552: column is very narrow (0.9 mm)
-NOTE c553: column is very narrow (0.9 mm)
-NOTE c583: column is very narrow (0.9 mm)
-NOTE c584: column is very narrow (0.9 mm)
-NOTE c585: column is very narrow (0.9 mm)
-NOTE c586: column is very narrow (0.9 mm)
-NOTE c587: column is very narrow (0.9 mm)
-NOTE c617: column is very narrow (0.9 mm)
-NOTE c618: column is very narrow (0.9 mm)
-NOTE c619: column is very narrow (0.9 mm)
-NOTE c620: column is very narrow (0.9 mm)
-NOTE c621: column is very narrow (0.9 mm)
-NOTE c651: column is very narrow (0.9 mm)
-NOTE c652: column is very narrow (0.9 mm)
-NOTE c653: column is very narrow (0.9 mm)
-NOTE c654: column is very narrow (0.9 mm)
-NOTE c655: column is very narrow (0.9 mm)
-NOTE c685: column is very narrow (0.9 mm)
-NOTE c686: column is very narrow (0.9 mm)
-NOTE c687: column is very narrow (0.9 mm)
-NOTE c688: column is very narrow (0.9 mm)
-NOTE c689: column is very narrow (0.9 mm)
-NOTE c753: column is very narrow (0.9 mm)
-NOTE c754: column is very narrow (0.9 mm)
-NOTE c755: column is very narrow (0.9 mm)
-NOTE c756: column is very narrow (0.9 mm)
-NOTE c757: column is very narrow (0.9 mm)
-NOTE c787: column is very narrow (0.9 mm)
-NOTE c788: column is very narrow (0.9 mm)
-NOTE c789: column is very narrow (0.9 mm)
-NOTE c790: column is very narrow (0.9 mm)
-NOTE c791: column is very narrow (0.9 mm)
-NOTE c821: column is very narrow (0.9 mm)
-NOTE c822: column is very narrow (0.9 mm)
-NOTE c824: column is very narrow (0.9 mm)
-NOTE c825: column is very narrow (0.9 mm)
+NOTE c1205: column is very narrow (0.9 mm)
+NOTE c1206: column is very narrow (0.9 mm)
+NOTE c1207: column is very narrow (0.9 mm)
+NOTE c1208: column is very narrow (0.9 mm)
+NOTE c1209: column is very narrow (0.9 mm)
+NOTE c1026: column is very narrow (1.0 mm)
+NOTE c1027: column is very narrow (1.0 mm)
+NOTE c1028: column is very narrow (1.0 mm)
+NOTE c1029: column is very narrow (1.0 mm)
+NOTE c1030: column is very narrow (1.0 mm)
+NOTE c719: column is very narrow (1.0 mm)
+NOTE c720: column is very narrow (1.0 mm)
+NOTE c721: column is very narrow (1.0 mm)
+NOTE c722: column is very narrow (1.0 mm)
+NOTE c723: column is very narrow (1.0 mm)
+NOTE c549: column is very narrow (1.0 mm)
+NOTE c550: column is very narrow (1.0 mm)
+NOTE c551: column is very narrow (1.0 mm)
+NOTE c552: column is very narrow (1.0 mm)
+NOTE c553: column is very narrow (1.0 mm)
+NOTE c583: column is very narrow (1.0 mm)
+NOTE c584: column is very narrow (1.0 mm)
+NOTE c585: column is very narrow (1.0 mm)
+NOTE c586: column is very narrow (1.0 mm)
+NOTE c587: column is very narrow (1.0 mm)
+NOTE c617: column is very narrow (1.0 mm)
+NOTE c618: column is very narrow (1.0 mm)
+NOTE c619: column is very narrow (1.0 mm)
+NOTE c620: column is very narrow (1.0 mm)
+NOTE c621: column is very narrow (1.0 mm)
+NOTE c651: column is very narrow (1.0 mm)
+NOTE c652: column is very narrow (1.0 mm)
+NOTE c653: column is very narrow (1.0 mm)
+NOTE c654: column is very narrow (1.0 mm)
+NOTE c655: column is very narrow (1.0 mm)
+NOTE c685: column is very narrow (1.0 mm)
+NOTE c686: column is very narrow (1.0 mm)
+NOTE c687: column is very narrow (1.0 mm)
+NOTE c688: column is very narrow (1.0 mm)
+NOTE c689: column is very narrow (1.0 mm)
+NOTE c753: column is very narrow (1.0 mm)
+NOTE c754: column is very narrow (1.0 mm)
+NOTE c755: column is very narrow (1.0 mm)
+NOTE c756: column is very narrow (1.0 mm)
+NOTE c757: column is very narrow (1.0 mm)
+NOTE c787: column is very narrow (1.0 mm)
+NOTE c788: column is very narrow (1.0 mm)
+NOTE c789: column is very narrow (1.0 mm)
+NOTE c790: column is very narrow (1.0 mm)
+NOTE c791: column is very narrow (1.0 mm)
+NOTE c821: column is very narrow (1.0 mm)
+NOTE c822: column is very narrow (1.0 mm)
+NOTE c823: column is very narrow (1.0 mm)
+NOTE c824: column is very narrow (1.0 mm)
+NOTE c825: column is very narrow (1.0 mm)
 NOTE c1220: column is very narrow (0.9 mm)
 NOTE c1221: column is very narrow (0.9 mm)
 NOTE c1222: column is very narrow (0.9 mm)
@@ -508,8 +263,6 @@ NOTE c1164: column is very narrow (0.9 mm)
 NOTE c1165: column is very narrow (0.9 mm)
 NOTE c1166: column is very narrow (0.9 mm)
 NOTE c1167: column is very narrow (0.9 mm)
-NOTE r1227: stitched before fill f1237 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE r1217: stitched before fill f1239 which overlaps it - the fill will cover it. Move it after the fill.
 NOTE r1186: stitched before fill f1187 which overlaps it - the fill will cover it. Move it after the fill.
 NOTE r1182: stitched before fill f1183 which overlaps it - the fill will cover it. Move it after the fill.
 NOTE r1126: stitched before fill f1127 which overlaps it - the fill will cover it. Move it after the fill.
@@ -529,10 +282,6 @@ NOTE r1058: stitched before fill f1059 which overlaps it - the fill will cover i
 NOTE r1048: stitched before fill f1065 which overlaps it - the fill will cover it. Move it after the fill.
 NOTE s1: stitched before fill f1079 which overlaps it - the fill will cover it. Move it after the fill.
 NOTE r1092: stitched before fill f1093 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE s1: stitched before fill f1100 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE s1: stitched before fill f1102 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE s1: stitched before fill f1103 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE s1: stitched before fill f1104 which overlaps it - the fill will cover it. Move it after the fill.
 NOTE r1158: stitched before fill f1159 which overlaps it - the fill will cover it. Move it after the fill.
 NOTE r1154: stitched before fill f1155 which overlaps it - the fill will cover it. Move it after the fill.
 NOTE r819: stitched before fill f820 which overlaps it - the fill will cover it. Move it after the fill.
@@ -559,17 +308,4 @@ NOTE r2: stitched before fill f772 which overlaps it - the fill will cover it. M
 NOTE r3: stitched before fill f786 which overlaps it - the fill will cover it. Move it after the fill.
 NOTE r525: stitched before fill f786 which overlaps it - the fill will cover it. Move it after the fill.
 NOTE r785: stitched before fill f786 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE s1: stitched before fill f793 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE r3: stitched before fill f793 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE r525: stitched before fill f793 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE r3: stitched before fill f794 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE r525: stitched before fill f794 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE s1: stitched before fill f795 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE r3: stitched before fill f795 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE r525: stitched before fill f795 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE s1: stitched before fill f796 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE r3: stitched before fill f796 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE r525: stitched before fill f796 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE s1: stitched before fill f797 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE r3: stitched before fill f797 which overlaps it - the fill will cover it. Move it after the fill.
-NOTE r525: stitched before fill f797 which overlaps it - the fill will cover it. Move it after the fill.
+NOTE micro-stitch cleanup: 1385 stitch(es) shorter than 0.4 mm merged into their neighbours

@@ -2,20 +2,20 @@
  "engine_version": "0.9.0",
  "contract_version": "1.0",
  "format": "dst",
- "exported_utc": "2026-11-19T08:09:43+00:00",
- "sha256": "1e8088aaba2e03ebe08f4a4e5321973147e064e2911ffc82009d367f46a613ba",
- "bytes": 10487,
- "records": 3325,
+ "exported_utc": "2026-11-19T08:19:20+00:00",
+ "sha256": "544f3f79eeb9d08d73872f3266b2cfc151e8a750598fe717f676841bb3df5d7b",
+ "bytes": 11063,
+ "records": 3517,
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 3077
+   "stitches": 3234
   },
   {
    "stage": "validate",
    "result": "PASS",
-   "warnings": 30
+   "warnings": 0
   },
   {
    "stage": "geometry",
@@ -25,7 +25,7 @@
   {
    "stage": "checklist",
    "result": "PASS",
-   "passed": "14/15"
+   "passed": "15/15"
   },
   {
    "stage": "machine-profile",
@@ -35,15 +35,15 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 3325
+   "records": 3517
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 3077,
+   "stitch": 3234,
    "jump": 94,
    "color_change": 1,
-   "trim_jumps": 123,
+   "trim_jumps": 159,
    "end": 1,
    "size_mm": [
     43.8,
@@ -57,10 +57,10 @@
   }
  ],
  "counts": {
-  "stitch": 3077,
+  "stitch": 3234,
   "jump": 94,
   "color_change": 1,
-  "trim_jumps": 123,
+  "trim_jumps": 159,
   "end": 1
  },
  "size_mm": [
@@ -68,13 +68,13 @@
   124.2
  ],
  "quality": {
-  "score": 92,
+  "score": 91,
   "categories": {
    "geometry": 100,
-   "stitch_length": 60,
+   "stitch_length": 71,
    "density": 100,
-   "underlay": 96,
-   "path": 78,
+   "underlay": 79,
+   "path": 81,
    "jump_trim": 100,
    "hoop": 100,
    "dst_format": 100
@@ -84,18 +84,18 @@
  },
  "travel": {
   "verdicts": {
-   "trimmed": 39,
-   "carried": 53,
+   "trimmed": 51,
+   "carried": 41,
    "colour change": 1
   },
-  "jump_mm": 669.2,
-  "trims": 41,
+  "jump_mm": 662.9,
+  "trims": 53,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 250.7
+  "estimated_travel_seconds": 322.7
  },
  "validation": {
   "software": "PASSED: plan -> file -> decode -> compare (kind, count, position, size, orientation)",

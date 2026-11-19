@@ -36,18 +36,18 @@
   "thread": "120"
  },
  "counts": {
-  "stitches": 32680,
-  "jumps": 1283,
-  "trims": 350,
-  "trim_jump_records": 1050,
+  "stitches": 34061,
+  "jumps": 1273,
+  "trims": 410,
+  "trim_jump_records": 1230,
   "colour_changes": 1,
-  "dst_records": 35486
+  "dst_records": 36989
  },
  "thread_sequence": [
   {
    "order": 1,
    "hex": "#3fd6b4",
-   "stitches": 18361,
+   "stitches": 22284,
    "objects": [
     "Neck band mint satin",
     "Right garland stem",
@@ -55,18 +55,18 @@
     "Right garland leaf",
     "Right garland small flower petal",
     "Right garland small leaf",
+    "Right bird tail",
+    "Right bird body",
+    "Right bird neck",
+    "Right bird head",
     "Centre small flower R petal",
-    "Centre small flower L petal",
-    "Left bird tail",
-    "Left bird body",
-    "Left bird neck",
-    "Left bird head"
+    "Right bird swirl"
    ]
   },
   {
    "order": 2,
    "hex": "#b85a2b",
-   "stitches": 14319,
+   "stitches": 11777,
    "objects": [
     "Body daisy 7 centre",
     "Left bird swirl line 1",
@@ -84,11 +84,11 @@
   }
  ],
  "estimated_time": {
-  "minutes": 82.0,
+  "minutes": 90.0,
   "note": "Estimated machine time. Not verified on any machine; real time depends on the machine's speed settings."
  },
  "quality": {
-  "score": 85,
+  "score": 86,
   "categories": [
    {
     "name": "Geometry",
@@ -96,7 +96,7 @@
    },
    {
     "name": "Stitch length",
-    "score": 53
+    "score": 63
    },
    {
     "name": "Density",
@@ -104,11 +104,11 @@
    },
    {
     "name": "Underlay",
-    "score": 50
+    "score": 46
    },
    {
     "name": "Path optimisation",
-    "score": 75
+    "score": 80
    },
    {
     "name": "Jumps and trims",
@@ -127,18 +127,18 @@
  },
  "travel": {
   "verdicts": {
-   "carried": 933,
-   "trimmed": 348,
+   "trimmed": 408,
+   "carried": 863,
    "colour change": 1
   },
-  "jump_mm": 9923.6,
-  "trims": 350,
+  "jump_mm": 8674.3,
+  "trims": 410,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 2170.3
+  "estimated_travel_seconds": 2521.4
  },
  "warnings": [
   {
@@ -149,252 +149,207 @@
   {
    "source": "machine profile",
    "severity": "warning",
-   "message": "The longest stitch is 7.4 mm; this profile allows 7 mm."
-  },
-  {
-   "source": "machine profile",
-   "severity": "warning",
    "message": "This machine profile has no needle count; the number of thread colours was not checked."
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c856: column is very narrow (0.9 mm)"
+   "message": "c856: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c857: column is very narrow (0.9 mm)"
+   "message": "c857: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c858: column is very narrow (0.9 mm)"
+   "message": "c858: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c859: column is very narrow (0.9 mm)"
+   "message": "c859: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c860: column is very narrow (0.9 mm)"
+   "message": "c860: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c890: column is very narrow (0.9 mm)"
+   "message": "c890: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c891: column is very narrow (0.9 mm)"
+   "message": "c891: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c892: column is very narrow (0.9 mm)"
+   "message": "c892: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c893: column is very narrow (0.9 mm)"
+   "message": "c893: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c894: column is very narrow (0.9 mm)"
+   "message": "c894: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c924: column is very narrow (0.9 mm)"
+   "message": "c924: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c925: column is very narrow (0.9 mm)"
+   "message": "c925: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c926: column is very narrow (0.9 mm)"
+   "message": "c926: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c927: column is very narrow (0.9 mm)"
+   "message": "c927: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c928: column is very narrow (0.9 mm)"
+   "message": "c928: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c958: column is very narrow (0.9 mm)"
+   "message": "c958: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c959: column is very narrow (0.9 mm)"
+   "message": "c959: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c960: column is very narrow (0.9 mm)"
+   "message": "c960: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c961: column is very narrow (0.9 mm)"
+   "message": "c961: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c962: column is very narrow (0.9 mm)"
+   "message": "c962: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c992: column is very narrow (0.9 mm)"
+   "message": "c992: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c993: column is very narrow (0.9 mm)"
+   "message": "c993: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c994: column is very narrow (0.9 mm)"
+   "message": "c994: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c995: column is very narrow (0.9 mm)"
+   "message": "c995: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c996: column is very narrow (0.9 mm)"
+   "message": "c996: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1060: column is very narrow (0.9 mm)"
+   "message": "c1060: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1061: column is very narrow (0.9 mm)"
+   "message": "c1061: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1062: column is very narrow (0.9 mm)"
+   "message": "c1062: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1063: column is very narrow (0.9 mm)"
+   "message": "c1063: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1064: column is very narrow (0.9 mm)"
+   "message": "c1064: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1094: column is very narrow (0.9 mm)"
+   "message": "c1094: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1095: column is very narrow (0.9 mm)"
+   "message": "c1095: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1096: column is very narrow (0.9 mm)"
+   "message": "c1096: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1097: column is very narrow (0.9 mm)"
+   "message": "c1097: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1098: column is very narrow (0.9 mm)"
+   "message": "c1098: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1128: column is very narrow (0.9 mm)"
+   "message": "c1128: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1129: column is very narrow (0.9 mm)"
+   "message": "c1129: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1131: column is very narrow (0.9 mm)"
+   "message": "c1130: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1132: column is very narrow (0.9 mm)"
+   "message": "c1131: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1130: column is very narrow (0.9 mm)"
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "c1214: column is very narrow (0.9 mm)"
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "c1213: column is very narrow (0.9 mm)"
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "c1205: column is very narrow (0.9 mm)"
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "c1206: column is very narrow (0.9 mm)"
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "c1209: column is very narrow (0.9 mm)"
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "c1207: column is very narrow (0.9 mm)"
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "c1208: column is very narrow (0.9 mm)"
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "c823: column is very narrow (0.9 mm)"
+   "message": "c1132: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
@@ -409,252 +364,292 @@
   {
    "source": "design",
    "severity": "info",
+   "message": "c1213: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c1214: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
    "message": "c1215: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1026: column is very narrow (0.9 mm)"
+   "message": "c1205: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1027: column is very narrow (0.9 mm)"
+   "message": "c1206: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1028: column is very narrow (0.9 mm)"
+   "message": "c1207: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1029: column is very narrow (0.9 mm)"
+   "message": "c1208: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c1030: column is very narrow (0.9 mm)"
+   "message": "c1209: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c719: column is very narrow (0.9 mm)"
+   "message": "c1026: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c722: column is very narrow (0.9 mm)"
+   "message": "c1027: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c723: column is very narrow (0.9 mm)"
+   "message": "c1028: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c720: column is very narrow (0.9 mm)"
+   "message": "c1029: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c721: column is very narrow (0.9 mm)"
+   "message": "c1030: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c549: column is very narrow (0.9 mm)"
+   "message": "c719: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c550: column is very narrow (0.9 mm)"
+   "message": "c720: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c551: column is very narrow (0.9 mm)"
+   "message": "c721: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c552: column is very narrow (0.9 mm)"
+   "message": "c722: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c553: column is very narrow (0.9 mm)"
+   "message": "c723: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c583: column is very narrow (0.9 mm)"
+   "message": "c549: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c584: column is very narrow (0.9 mm)"
+   "message": "c550: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c585: column is very narrow (0.9 mm)"
+   "message": "c551: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c586: column is very narrow (0.9 mm)"
+   "message": "c552: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c587: column is very narrow (0.9 mm)"
+   "message": "c553: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c617: column is very narrow (0.9 mm)"
+   "message": "c583: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c618: column is very narrow (0.9 mm)"
+   "message": "c584: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c619: column is very narrow (0.9 mm)"
+   "message": "c585: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c620: column is very narrow (0.9 mm)"
+   "message": "c586: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c621: column is very narrow (0.9 mm)"
+   "message": "c587: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c651: column is very narrow (0.9 mm)"
+   "message": "c617: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c652: column is very narrow (0.9 mm)"
+   "message": "c618: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c653: column is very narrow (0.9 mm)"
+   "message": "c619: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c654: column is very narrow (0.9 mm)"
+   "message": "c620: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c655: column is very narrow (0.9 mm)"
+   "message": "c621: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c685: column is very narrow (0.9 mm)"
+   "message": "c651: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c686: column is very narrow (0.9 mm)"
+   "message": "c652: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c687: column is very narrow (0.9 mm)"
+   "message": "c653: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c688: column is very narrow (0.9 mm)"
+   "message": "c654: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c689: column is very narrow (0.9 mm)"
+   "message": "c655: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c753: column is very narrow (0.9 mm)"
+   "message": "c685: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c754: column is very narrow (0.9 mm)"
+   "message": "c686: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c755: column is very narrow (0.9 mm)"
+   "message": "c687: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c756: column is very narrow (0.9 mm)"
+   "message": "c688: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c757: column is very narrow (0.9 mm)"
+   "message": "c689: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c787: column is very narrow (0.9 mm)"
+   "message": "c753: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c788: column is very narrow (0.9 mm)"
+   "message": "c754: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c789: column is very narrow (0.9 mm)"
+   "message": "c755: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c790: column is very narrow (0.9 mm)"
+   "message": "c756: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c791: column is very narrow (0.9 mm)"
+   "message": "c757: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c821: column is very narrow (0.9 mm)"
+   "message": "c787: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c822: column is very narrow (0.9 mm)"
+   "message": "c788: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c824: column is very narrow (0.9 mm)"
+   "message": "c789: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c825: column is very narrow (0.9 mm)"
+   "message": "c790: column is very narrow (1.0 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c791: column is very narrow (1.0 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c821: column is very narrow (1.0 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c822: column is very narrow (1.0 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c823: column is very narrow (1.0 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c824: column is very narrow (1.0 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c825: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
@@ -1429,16 +1424,6 @@
   {
    "source": "design",
    "severity": "info",
-   "message": "r1227: stitched before fill f1237 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "r1217: stitched before fill f1239 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
    "message": "r1186: stitched before fill f1187 which overlaps it - the fill will cover it. Move it after the fill."
   },
   {
@@ -1530,26 +1515,6 @@
    "source": "design",
    "severity": "info",
    "message": "r1092: stitched before fill f1093 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "s1: stitched before fill f1100 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "s1: stitched before fill f1102 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "s1: stitched before fill f1103 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "s1: stitched before fill f1104 which overlaps it - the fill will cover it. Move it after the fill."
   },
   {
    "source": "design",
@@ -1684,91 +1649,26 @@
   {
    "source": "design",
    "severity": "info",
-   "message": "s1: stitched before fill f793 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "r3: stitched before fill f793 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "r525: stitched before fill f793 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "r3: stitched before fill f794 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "r525: stitched before fill f794 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "s1: stitched before fill f795 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "r3: stitched before fill f795 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "r525: stitched before fill f795 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "s1: stitched before fill f796 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "r3: stitched before fill f796 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "r525: stitched before fill f796 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "s1: stitched before fill f797 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "r3: stitched before fill f797 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "r525: stitched before fill f797 which overlaps it - the fill will cover it. Move it after the fill."
+   "message": "micro-stitch cleanup: 1385 stitch(es) shorter than 0.4 mm merged into their neighbours"
   }
  ],
  "file": {
-  "sha256": "a03ca363d4343ab705d177b0a7b555d3a69626344429edd1969c8154f8099301",
-  "bytes": 106970,
+  "sha256": "d5f48a9310c3d69781a261c66e8544d22a307748d21d378504fe392c7e51250a",
+  "bytes": 111479,
   "format": "dst"
  },
  "engine_version": "0.9.0",
- "exported_utc": "2026-11-19T08:10:06+00:00",
+ "exported_utc": "2026-11-19T08:19:37+00:00",
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 32680
+   "stitches": 34061
   },
   {
    "stage": "validate",
    "result": "PASS",
-   "warnings": 245
+   "warnings": 0
   },
   {
    "stage": "geometry",
@@ -1778,25 +1678,25 @@
   {
    "stage": "checklist",
    "result": "PASS",
-   "passed": "13/15"
+   "passed": "15/15"
   },
   {
    "stage": "machine-profile",
    "result": "PASS",
-   "warnings": 3
+   "warnings": 2
   },
   {
    "stage": "write",
    "result": "PASS",
-   "records": 35486
+   "records": 36989
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 32680,
-   "jump": 1283,
+   "stitch": 34061,
+   "jump": 1273,
    "color_change": 1,
-   "trim_jumps": 1050,
+   "trim_jumps": 1230,
    "end": 1,
    "size_mm": [
     319.0,

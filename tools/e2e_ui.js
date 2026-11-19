@@ -179,6 +179,17 @@ await step('Phase 5d: Bezier node handles - enable, drag a handle, stitches foll
   const [dl]=await Promise.all([pg.waitForEvent('download',{timeout:30000}),pg.click('#bExport')]);const fp=SP+'/bez.dst';await dl.saveAs(fp);if(fs.statSync(fp).size<600)throw new Error('empty dst');
   await pg.click('[data-op="straight"]');if(await pg.evaluate(()=>!!__ES.doc.objects.find(x=>x.id===__ES.sel).handles))throw new Error('handles not removed');
   return hn+' handles; moved to '+moved.map(v=>v.toFixed(1)).join(',')+'; DST '+fs.statSync(fp).size+' B'});
+await step('G1: density/risk overlay, micro-stitch cleaning field, split for hoop',async()=>{
+  await pg.click('#bNew');await wait(300);await pg.setInputFiles('#fileImport',ROOT+'/engine/samples/flower.svg');await wait(1500);
+  await pg.click('[data-view="stitch"]');await wait(1500);await pg.check('#sDens');await wait(300);
+  const risk=await pg.evaluate(()=>__ES.risk);if(!risk)throw new Error('no risk data');
+  await pg.fill('#mClean','0.4');await pg.dispatchEvent('#mClean','change');await wait(800);const mc=await pg.evaluate(()=>__ES.doc.machine.micro_clean);if(mc!==0.4)throw new Error('micro_clean '+mc);
+  const note=await pg.evaluate(()=>(__ES.gen.notes||[]).join('|'));
+  pg.removeAllListeners('dialog');let msg='';pg.on('dialog',d=>{msg=d.message();d.accept()});
+  await pg.evaluate(()=>{__ES.doc.hoop={w:60,h:60,margin:3};__ESapi.commit();__ESapi.renderAll()});await wait(600);
+  const [dl]=await Promise.all([pg.waitForEvent('download',{timeout:30000}),pg.click('#bSplit')]);await dl.saveAs(SP+'/split.zip');await wait(500);
+  if(!/Split into \d+ hooping/.test(msg))throw new Error('split msg: '+msg);if(fs.statSync(SP+'/split.zip').size<500)throw new Error('empty zip');
+  pg.removeAllListeners('dialog');pg.on('dialog',d=>d.accept());return 'risk '+JSON.stringify(risk)+'; '+msg.split('\n')[0]});
 await pg.screenshot({path:SP+'/e2e-final.png'});
 for(const r of res)console.log(r[0],'|',r[1],'|',r[2]);
 console.log('page errors:',errs.length?errs:'none','| HTTP 5xx:',bad.length?bad:'none');console.log('artifacts in',SP);await b.close();

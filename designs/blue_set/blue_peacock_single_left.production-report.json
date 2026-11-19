@@ -3,7 +3,7 @@
  "design": {
   "name": "blue_peacock_single_left",
   "size_mm": [
-   81.0,
+   81.2,
    67.0
   ],
   "objects": 28
@@ -36,18 +36,18 @@
   "thread": "120"
  },
  "counts": {
-  "stitches": 2053,
-  "jumps": 37,
-  "trims": 23,
-  "trim_jump_records": 69,
+  "stitches": 2107,
+  "jumps": 36,
+  "trims": 22,
+  "trim_jump_records": 66,
   "colour_changes": 1,
-  "dst_records": 2183
+  "dst_records": 2240
  },
  "thread_sequence": [
   {
    "order": 1,
    "hex": "#3fd6b4",
-   "stitches": 1523,
+   "stitches": 1639,
    "objects": [
     "Bird swirl",
     "Bird tail",
@@ -59,25 +59,25 @@
   {
    "order": 2,
    "hex": "#b85a2b",
-   "stitches": 530,
+   "stitches": 468,
    "objects": [
-    "Bird eye",
-    "Bird crest",
-    "Bird crest bead",
-    "Bird beak",
+    "Bird swirl line 1",
+    "Bird swirl line 2",
+    "Bird tail inner line",
+    "Bird tail drop",
     "Bird wing 1",
     "Bird wing 2",
     "Bird wing 3",
-    "Bird tail inner line",
-    "Bird tail drop",
-    "Bird tail sprig stem",
-    "Bird tail sprig leaflet",
-    "Bird tail sprig tip"
+    "Bird beak",
+    "Bird eye",
+    "Bird crest",
+    "Bird crest bead",
+    "Bird tail sprig stem"
    ]
   }
  ],
  "estimated_time": {
-  "minutes": 5.6,
+  "minutes": 5.5,
   "note": "Estimated machine time. Not verified on any machine; real time depends on the machine's speed settings."
  },
  "quality": {
@@ -89,7 +89,7 @@
    },
    {
     "name": "Stitch length",
-    "score": 82
+    "score": 83
    },
    {
     "name": "Density",
@@ -101,7 +101,7 @@
    },
    {
     "name": "Path optimisation",
-    "score": 85
+    "score": 84
    },
    {
     "name": "Jumps and trims",
@@ -121,17 +121,17 @@
  "travel": {
   "verdicts": {
    "carried": 14,
-   "trimmed": 21,
+   "trimmed": 20,
    "colour change": 1
   },
-  "jump_mm": 434.6,
-  "trims": 23,
+  "jump_mm": 536.3,
+  "trims": 22,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 141.1
+  "estimated_travel_seconds": 135.8
  },
  "warnings": [
   {
@@ -182,6 +182,11 @@
   {
    "source": "design",
    "severity": "info",
+   "message": "r5: stitched before fill f6 which overlaps it - the fill will cover it. Move it after the fill."
+  },
+  {
+   "source": "design",
+   "severity": "info",
    "message": "r15: stitched before fill f16 which overlaps it - the fill will cover it. Move it after the fill."
   },
   {
@@ -192,21 +197,21 @@
   {
    "source": "design",
    "severity": "info",
-   "message": "r5: stitched before fill f6 which overlaps it - the fill will cover it. Move it after the fill."
+   "message": "micro-stitch cleanup: 98 stitch(es) shorter than 0.4 mm merged into their neighbours"
   }
  ],
  "file": {
-  "sha256": "37912169b4cf2cdd159bf027a10470ac418db7bb0dda900657f610af1067bbd0",
-  "bytes": 7061,
+  "sha256": "8d44e0d34894984035fec3771a9e5a078bb9d437de415d138147e0213e3746cb",
+  "bytes": 7232,
   "format": "dst"
  },
  "engine_version": "0.9.0",
- "exported_utc": "2026-11-19T08:10:10+00:00",
+ "exported_utc": "2026-11-19T08:19:48+00:00",
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 2053
+   "stitches": 2107
   },
   {
    "stage": "validate",
@@ -231,18 +236,18 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 2183
+   "records": 2240
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 2053,
-   "jump": 37,
+   "stitch": 2107,
+   "jump": 36,
    "color_change": 1,
-   "trim_jumps": 69,
+   "trim_jumps": 66,
    "end": 1,
    "size_mm": [
-    81.0,
+    81.2,
     67.0
    ]
   },

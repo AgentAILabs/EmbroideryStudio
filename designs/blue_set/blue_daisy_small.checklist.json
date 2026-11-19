@@ -2,7 +2,7 @@
  "log": [
   "profile: Maggam blouse neck on Silk, thread 120 (starting values - confirm with a stitch-out)",
   "set cut_hidden on 1 object(s), min_row on 1 object(s), pull_comp on 7 object(s), shorten on 6 object(s)",
-  "sequence kept: already optimal for this design (trims 2, travel 10 mm)"
+  "sequence kept: already optimal for this design (trims 2, travel 5 mm)"
  ],
  "items": [
   {
@@ -15,7 +15,7 @@
    "n": 2,
    "title": "Design dimensions within hoop limits",
    "level": "PASS",
-   "evidence": "10.4 x 9.4 mm in a 100 x 100 mm hoop (margin 8 mm)"
+   "evidence": "10.4 x 9.16 mm in a 100 x 100 mm hoop (margin 8 mm)"
   },
   {
    "n": 3,
@@ -50,8 +50,8 @@
   {
    "n": 8,
    "title": "No excessively short stitches",
-   "level": "WARN",
-   "evidence": "0 stitch(es) under 0.3 mm; 3.1% in clusters of 2+ stitches < 0.5 mm (16.28% incl. lone row turns and locks)"
+   "level": "PASS",
+   "evidence": "0 stitch(es) under 0.3 mm; 0.68% in clusters of 2+ stitches < 0.5 mm (2.04% incl. lone row turns and locks)"
   },
   {
    "n": 9,
@@ -81,41 +81,41 @@
    "n": 13,
    "title": "Stitch count within production limits",
    "level": "PASS",
-   "evidence": "136 stitches, ~0.7 min at 700 spm (limit 150,000)"
+   "evidence": "154 stitches, ~0.8 min at 700 spm (limit 150,000)"
   },
   {
    "n": 14,
    "title": "DST header and command sequence validated",
    "level": "PASS",
-   "evidence": "container PASS, encoding PASS; 151 records, sha256 6647213c7081"
+   "evidence": "container PASS, encoding PASS; 169 records, sha256 d44806fd0c94"
   },
   {
    "n": 15,
    "title": "DST reopened and simulated successfully",
    "level": "PASS",
-   "evidence": "reopened: 136 stitch records, ends with END=True; simulation PASS (span 10.4x9.4 mm)"
+   "evidence": "reopened: 154 stitch records, ends with END=True; simulation PASS (span 10.4x9.2 mm)"
   }
  ],
- "passed": 14,
+ "passed": 15,
  "total": 15,
  "export_allowed": true,
- "verify_grade": "WARN",
+ "verify_grade": "PASS",
  "stats": {
-  "stitches": 136,
+  "stitches": 154,
   "color_changes": 1,
   "trims": 2,
   "width_mm": 10.4,
-  "height_mm": 9.4,
-  "est_minutes": 0.7
+  "height_mm": 9.16,
+  "est_minutes": 0.8
  },
  "colour_sequence": [
   {
    "hex": "#3fd6b4",
-   "stitches": 104
+   "stitches": 128
   },
   {
    "hex": "#b85a2b",
-   "stitches": 32
+   "stitches": 26
   }
  ]
 }

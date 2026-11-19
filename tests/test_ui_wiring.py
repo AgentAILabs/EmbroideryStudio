@@ -42,7 +42,7 @@ class ParameterWiring(unittest.TestCase):
         self.assertEqual(lacking, [], "engine parameters the editor cannot set: " + ", ".join(lacking))
     def test_machine_parameters_have_panel_controls(self):
         ids = {"max_stitch": "mMax", "min_stitch": "mMin", "trim_distance": "mTrim", "trim_jumps": "mJ", "lock_len": "mLock",
-               "trim_at_color_change": "mTC", "trim_at_end": "mTE", "smart_direction": "mSD"}
+               "trim_at_color_change": "mTC", "trim_at_end": "mTE", "smart_direction": "mSD", "micro_clean": "mClean"}
         self.assertEqual(sorted(ids), sorted(MACHINE_DEFAULTS))
         for k, i in ids.items():
             self.assertIn(f'id="{i}"', JS, f"machine.{k}")

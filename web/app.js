@@ -233,6 +233,16 @@ function drawStitches(c, upto, thick) {
   if (S.insp != null && st[S.insp]) { const q = toScreen([st[S.insp][0], st[S.insp][1]]); c.save(); c.strokeStyle = "#2563eb"; c.lineWidth = 2; c.beginPath(); c.arc(q[0], q[1], 7, 0, 7); c.stroke(); c.restore(); }
   return n > 0 && n <= st.length ? toScreen([st[Math.min(n, st.length) - 1][0], st[Math.min(n, st.length) - 1][1]]) : null;
 }
+function drawDensity(c) {
+  const g = S.gen; if (!g || !g.stitches) return; const st = g.stitches, n = Math.min(S.sim.i, st.length), cells = new Map(); let prev = null; const shorts = [];
+  for (let i = 0; i < n; i++) { const [x, y, cmd] = st[i];
+    if (cmd === 0) { const k = Math.floor(x) + "," + Math.floor(y); cells.set(k, (cells.get(k) || 0) + 1); if (prev && Math.hypot(x - prev[0], y - prev[1]) < 0.4) shorts.push([x, y]); prev = [x, y]; }
+    else if (cmd === 1) prev = [x, y]; else prev = null; }
+  c.save(); const z = S.view.z;
+  for (const [k, v] of cells) { if (v <= 10) continue; const [cx, cy] = k.split(",").map(Number), a = toScreen([cx, cy]); c.fillStyle = v > 16 ? "rgba(220,38,38,.55)" : "rgba(245,158,11,.45)"; c.fillRect(a[0], a[1], z, z); }
+  c.strokeStyle = "#dc2626"; c.lineWidth = 1.5; for (const p of shorts) { const q = toScreen(p); c.beginPath(); c.arc(q[0], q[1], 4, 0, 7); c.stroke(); }
+  c.restore(); S.risk = {dense: [...cells.values()].filter(v => v > 16).length, amber: [...cells.values()].filter(v => v > 10 && v <= 16).length, shorts: shorts.length};
+}
 function niceStep(z) { const t = 60 / z; for (const s of [1, 2, 5, 10, 20, 50, 100]) if (s >= t) return s; return 200; }
 function drawRulers(c) {
   const W = cv.clientWidth, H = cv.clientHeight, step = niceStep(S.view.z), a = toWorld(0, 0), b = toWorld(W, H);
@@ -268,6 +278,7 @@ function draw() {
   if (S.vmode === "design") { drawObjects(ctx); }
   else if (S.gen && S.gen.stitches) {
     const needle = drawStitches(ctx, S.sim.i, true);
+    if ($("#sDens") && $("#sDens").checked) drawDensity(ctx);
     for (const o of S.doc.objects) if (!o.hidden && (o.type === "embellishment" || o.guide)) { ctx.save(); if (o.type === "embellishment" && !o.guide) drawEmbellishment(ctx, o); else if (o.guide) { ctx.setLineDash([6, 4]); ctx.strokeStyle = "#6b7280"; ctx.beginPath(); if (o.rings) o.rings.forEach(r => pathOf(ctx, r, true)); else pathOf(ctx, o.points || [], !!o.closed); ctx.stroke(); } ctx.restore(); }
     if (needle) { ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(needle[0], needle[1], 4, 0, 7); ctx.fill(); }
   } else drawObjects(ctx);
@@ -851,7 +862,7 @@ function renderDesign() {
   <div class="row"><label title="Limits the design is checked against. No machine profile is validated: none has been stitched out.">Machine profile</label><select id="mProf">${(S.machines || [{id: "generic_tajima_dst", model: "Generic Tajima-compatible DST"}]).map(m => `<option value="${m.id}" ${m.id === ((d.machine_profile || {}).id || "generic_tajima_dst") ? "selected" : ""}>${esc((m.manufacturer ? m.manufacturer + " " : "") + m.model)}</option>`).join("")}</select></div>
   <div class="row"><label title="Largest hoop of YOUR machine (mm). Blank = not checked.">Machine max hoop W × H</label><span style="display:flex;gap:4px"><input type="number" id="mpW" value="${(((d.machine_profile || {}).overrides || {}).max_hoop || {}).w ?? ""}" style="width:50%" min="10"><input type="number" id="mpH" value="${(((d.machine_profile || {}).overrides || {}).max_hoop || {}).h ?? ""}" style="width:50%" min="10"></span></div>
   <div class="row"><label title="Number of needles / thread colours your machine holds. Blank = not checked.">Machine needles</label><input type="number" id="mpN" value="${((d.machine_profile || {}).overrides || {}).needles ?? ""}" min="1" max="64"></div>
-  <div class="note"><b>Not validated:</b> no stitch-out evidence exists for any machine profile. These limits only check the design against the numbers you enter. <button id="bReport" style="padding:1px 6px">Production report</button></div>
+  <div class="note"><b>Not validated:</b> no stitch-out evidence exists for any machine profile. These limits only check the design against the numbers you enter. <button id="bReport" style="padding:1px 6px">Production report</button> <button id="bSplit" style="padding:1px 6px" title="Design bigger than your hoop: one DST per hooping with alignment marks">Split for hoop</button></div>
   <div class="row"><label>Max stitch mm</label><input type="number" id="mMax" value="${(d.machine || {}).max_stitch ?? 7}" step=".5" min="1" max="12.1"></div>
   <div class="row"><label title="Jumps longer than this get a trim">Trim above mm</label><input type="number" id="mTrim" value="${(d.machine || {}).trim_distance ?? 3}" step=".5" min=".5"></div>
   <div class="row"><label title="DST has no trim command; machines differ. Confirm on yours.">Trim jumps</label><input type="number" id="mJ" value="${(d.machine || {}).trim_jumps ?? 3}" step="1" min="1" max="6"></div>
@@ -859,6 +870,7 @@ function renderDesign() {
   <div class="row"><label title="Tie off + trim before every thread colour change">Trim at colour change</label><input type="checkbox" id="mTC" ${((d.machine || {}).trim_at_color_change ?? 1) ? "checked" : ""}></div>
   <div class="row"><label title="Stitch each run from whichever end is nearer when that turns a trim into a carried jump">Smart start direction</label><input type="checkbox" id="mSD" ${((d.machine || {}).smart_direction ?? 1) ? "checked" : ""}></div>
   <div class="row"><label title="Stitches shorter than this are flagged by the checks">Min stitch mm</label><input type="number" id="mMin" value="${(d.machine || {}).min_stitch ?? 0.3}" step=".1" min=".1" max="2"></div>
+  <div class="row"><label title="Merge stitches shorter than this into their neighbour (thread-break / nesting risk at petal tips and tiny shapes). 0 = off.">Clean micro-stitches below mm</label><input type="number" id="mClean" value="${(d.machine || {}).micro_clean ?? 0}" step=".1" min="0" max=".8"></div>
   <div class="row"><label title="Tie off + trim before the end of the design">Trim at end</label><input type="checkbox" id="mTE" ${((d.machine || {}).trim_at_end ?? 1) ? "checked" : ""}></div>
   <div class="btns"><button id="bFix" title="Fit to hoop, centre, drop specks, fix hairline columns, remove duplicate points, relieve over-dense areas. Undoable.">Auto-fix</button><button id="bCenter">Centre design</button><button id="bOpt" title="Group objects by thread colour">Optimise colours</button><button id="bVer">Save version…</button></div><ul id="vers" style="list-style:none;margin:0;padding:0"></ul>`;
   const sig = html.replace(/ value="[^"]*"/g, "").replace(/ selected/g, "").replace(/ checked/g, "");
@@ -872,7 +884,7 @@ function renderDesign() {
   }
   el.dataset.sig = sig; el.innerHTML = html;
   const mset = (k, el) => el.onchange = () => { S.doc.machine = S.doc.machine || {}; const v = parseFloat(el.value); if (!isNaN(v)) S.doc.machine[k] = v; commit(); renderAll(); };
-  mset("max_stitch", $("#mMax")); mset("trim_distance", $("#mTrim")); mset("trim_jumps", $("#mJ")); mset("lock_len", $("#mLock"));
+  mset("max_stitch", $("#mMax")); mset("trim_distance", $("#mTrim")); mset("micro_clean", $("#mClean")); mset("trim_jumps", $("#mJ")); mset("lock_len", $("#mLock"));
   const mflag = (k, el) => el.onchange = () => { S.doc.machine = S.doc.machine || {}; S.doc.machine[k] = el.checked ? 1 : 0; commit(); renderAll(); };
   mflag("trim_at_color_change", $("#mTC")); mflag("trim_at_end", $("#mTE")); mflag("smart_direction", $("#mSD")); mset("min_stitch", $("#mMin"));
   const runProfile = async (body, label) => {
@@ -906,7 +918,14 @@ function renderDesign() {
   const hoopMP = () => setMP(mp => { const w = +$("#mpW").value, h = +$("#mpH").value; if (w > 0 && h > 0) mp.overrides.max_hoop = {w, h}; else delete mp.overrides.max_hoop; });
   $("#mpW").onchange = hoopMP; $("#mpH").onchange = hoopMP;
   $("#mpN").onchange = () => setMP(mp => { const n = parseInt($("#mpN").value); if (n >= 1) mp.overrides.needles = n; else delete mp.overrides.needles; });
-  $("#bReport").onclick = downloadReport;
+  $("#bReport").onclick = downloadReport; $("#bSplit").onclick = splitForHoop;
+}
+async function splitForHoop() {
+  if (!S.doc.objects.length) { alert("Nothing to split yet."); return; }
+  const r = await fetch("/api/split", {method: "POST", body: JSON.stringify(S.doc)});
+  if (!r.ok) { const j = await r.json().catch(() => ({})); alert("Cannot split: " + (j.error || r.statusText)); return; }
+  const rep = JSON.parse(atob(r.headers.get("X-Split-Report") || "e30=")), blob = await r.blob(), a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = (S.doc.name || "design").replace(/[^\w-]+/g, "_") + "-split.zip"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  alert(`Split into ${rep.tiles.length} hooping(s) (${rep.grid.cols} x ${rep.grid.rows}).` + (rep.oversize.length ? `\nToo big for one hooping (not cut): ${rep.oversize.join(", ")}` : "") + (rep.tiles.some(t => t.status !== "ok") ? "\nSome tiles were blocked - see split-report.json." : "") + "\nHoop each tile so its grey alignment crosses sit on the crosses already stitched. Not verified on a machine.");
 }
 async function downloadReport() {
   if (!S.doc.objects.length) { alert("Nothing to report yet."); return; }
@@ -1008,7 +1027,7 @@ $("#bOpen").onclick = () => $("#fileOpen").click(); $("#bImport").onclick = () =
 $("#fileOpen").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); if (!j.doc || !Array.isArray(j.doc.objects)) throw new Error("not an EmbroideryStudio project"); loadDoc(j.doc); } catch (err) { alert("Could not open: " + err.message); } e.target.value = ""; };
 $("#fileImport").onchange = e => { const f = e.target.files[0]; if (f) importFile(f); e.target.value = ""; };
 $("#docName").oninput = e => { S.doc.name = e.target.value; }; $("#docName").onchange = () => commit();
-$("#bGroup").onclick = groupSelected; $("#bUngroup").onclick = ungroupSelected; $("#sJumps").onchange = draw; $("#sTrims").onchange = draw; $("#sRulers").onchange = draw; $("#sFile").onchange = () => { if (!S.viewDstB64) { S._keepSim = true; regen(); } };
+$("#bGroup").onclick = groupSelected; $("#bUngroup").onclick = ungroupSelected; $("#sJumps").onchange = draw; $("#sTrims").onchange = draw; $("#sRulers").onchange = draw; $("#sDens").onchange = () => { draw(); if ($("#sDens").checked && S.risk) $("#hint").textContent = `Density / risk: ${S.risk.dense} cells above 16 penetrations/mm², ${S.risk.amber} above 10, ${S.risk.shorts} stitches under 0.4 mm`; }; $("#sFile").onchange = () => { if (!S.viewDstB64) { S._keepSim = true; regen(); } };
 $("#sBack").onclick = () => { S.sim.playing = false; $("#sPlay").textContent = "▶"; setView(simView()); S.sim.i = Math.max(0, S.sim.i - 1); draw(); }; $("#sPlay").onclick = togglePlay; $("#sStep").onclick = () => { S.sim.playing = false; setView(simView()); if (S.gen) S.sim.i = Math.min(S.gen.stitches.length, S.sim.i + 1); draw(); };
 $("#sReset").onclick = () => { S.sim.playing = false; $("#sPlay").textContent = "▶"; setView(simView()); S.sim.i = 0; draw(); };
 $("#sPos").oninput = e => { const v = +e.target.value;   /* read first: setView() redraws and re-syncs the slider to the old position */

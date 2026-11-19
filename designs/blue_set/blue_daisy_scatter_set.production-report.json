@@ -36,18 +36,18 @@
   "thread": "120"
  },
  "counts": {
-  "stitches": 1744,
+  "stitches": 2090,
   "jumps": 64,
   "trims": 16,
   "trim_jump_records": 48,
   "colour_changes": 1,
-  "dst_records": 1912
+  "dst_records": 2257
  },
  "thread_sequence": [
   {
    "order": 1,
    "hex": "#3fd6b4",
-   "stitches": 1472,
+   "stitches": 1864,
    "objects": [
     "Scatter daisy 6 petal",
     "Scatter daisy 4 petal",
@@ -62,7 +62,7 @@
   {
    "order": 2,
    "hex": "#b85a2b",
-   "stitches": 272,
+   "stitches": 226,
    "objects": [
     "Scatter daisy 1 centre",
     "Scatter daisy 4 centre",
@@ -76,11 +76,11 @@
   }
  ],
  "estimated_time": {
-  "minutes": 4.4,
+  "minutes": 4.9,
   "note": "Estimated machine time. Not verified on any machine; real time depends on the machine's speed settings."
  },
  "quality": {
-  "score": 89,
+  "score": 91,
   "categories": [
    {
     "name": "Geometry",
@@ -88,7 +88,7 @@
    },
    {
     "name": "Stitch length",
-    "score": 63
+    "score": 69
    },
    {
     "name": "Density",
@@ -100,7 +100,7 @@
    },
    {
     "name": "Path optimisation",
-    "score": 51
+    "score": 62
    },
    {
     "name": "Jumps and trims",
@@ -123,14 +123,14 @@
    "trimmed": 14,
    "colour change": 1
   },
-  "jump_mm": 870.5,
+  "jump_mm": 842.6,
   "trims": 16,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 102.2
+  "estimated_travel_seconds": 102.0
  },
  "warnings": [
   {
@@ -142,20 +142,25 @@
    "source": "machine profile",
    "severity": "warning",
    "message": "This machine profile has no needle count; the number of thread colours was not checked."
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "micro-stitch cleanup: 58 stitch(es) shorter than 0.4 mm merged into their neighbours"
   }
  ],
  "file": {
-  "sha256": "77d7eb37c15beecaff07e0eb433357160fd5eb9b2a792c8d9faeee6ec5378dfe",
-  "bytes": 6248,
+  "sha256": "76244d1b90bf63a0a9e199715d447c9b88f69054d6b46d2c8a4933b0dfaa7d46",
+  "bytes": 7283,
   "format": "dst"
  },
  "engine_version": "0.9.0",
- "exported_utc": "2026-11-19T08:09:43+00:00",
+ "exported_utc": "2026-11-19T08:19:19+00:00",
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 1744
+   "stitches": 2090
   },
   {
    "stage": "validate",
@@ -180,12 +185,12 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 1912
+   "records": 2257
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 1744,
+   "stitch": 2090,
    "jump": 64,
    "color_change": 1,
    "trim_jumps": 48,

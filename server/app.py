@@ -225,6 +225,30 @@ def api_quality(d):
     return quality.quality_report(d, pattern)
 
 
+def api_split(d):
+    """Design larger than the hoop -> one validated DST per hooping + alignment marks (zip). The hoop comes from the design's own hoop setting."""
+    from stitchcraft_engine import hooping
+    import io, zipfile
+    check_design(d)
+    h = d.get("hoop") or {}
+    plan = hooping.split_for_hoop(d, float(h.get("w", 100)), float(h.get("h", 100)), max(6.0, float(h.get("margin", 3))), bool(d.get("marks", True)))
+    buf = io.BytesIO(); rows = []
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for t in plan["tiles"]:
+            try:
+                res = export_pipeline.export_dst(t["design"])
+            except export_pipeline.ExportError as e:
+                rows.append({"name": t["name"], "status": "blocked", "reason": f"{e.stage}: {e}"[:300]}); continue
+            n = sheet._safe(t["name"])
+            z.writestr(f"{n}.dst", res.data); z.writestr(f"{n}.export-report.json", json.dumps(res.report, indent=1))
+            z.writestr(f"{n}.esproj", json.dumps({"app": "EmbroideryStudio", "version": 1, "doc": t["design"]}, indent=1))
+            rows.append({"name": t["name"], "status": "ok", "objects": t["objects"], "stitches": res.report["counts"]["stitch"], "col": t["col"], "row": t["row"], "size_mm": res.report["size_mm"]})
+        z.writestr("SPLIT-README.txt", "Split for hooping. Hoop each tile so that its alignment crosses sit on the crosses already stitched by the neighbouring tile (use a light, removable thread; the marks are real stitches). "
+                   "Order: row by row, left to right. Objects are never cut; objects larger than one tile are listed in the report. Not verified on any machine.\n")
+        z.writestr("split-report.json", json.dumps({"grid": {k: v for k, v in plan["grid"].items()}, "tiles": rows, "oversize_objects": plan["oversize"]}, indent=1))
+    return buf.getvalue(), {"tiles": rows, "oversize": plan["oversize"], "grid": {"cols": plan["grid"]["cols"], "rows": plan["grid"]["rows"]}}
+
+
 def api_report(d):
     check_design(d)
     try:
@@ -556,6 +580,10 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_lettering(d))
             if path == "/api/to_manual":
                 return self._send(200, api_to_manual(d))
+            if path == "/api/split":
+                data, rep = api_split(d)
+                return self._send(200, data, "application/zip", {"Content-Disposition": f'attachment; filename="{sheet._safe(d.get("name"))}-split.zip"',
+                                                                  "X-Split-Report": base64.b64encode(json.dumps(rep).encode()).decode()})
             if path == "/api/report":
                 res, err = api_report(d)
                 return self._send(400 if err else 200, err or res)

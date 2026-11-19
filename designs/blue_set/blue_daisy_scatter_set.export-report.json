@@ -2,15 +2,15 @@
  "engine_version": "0.9.0",
  "contract_version": "1.0",
  "format": "dst",
- "exported_utc": "2026-11-19T08:09:43+00:00",
- "sha256": "77d7eb37c15beecaff07e0eb433357160fd5eb9b2a792c8d9faeee6ec5378dfe",
- "bytes": 6248,
- "records": 1912,
+ "exported_utc": "2026-11-19T08:19:19+00:00",
+ "sha256": "76244d1b90bf63a0a9e199715d447c9b88f69054d6b46d2c8a4933b0dfaa7d46",
+ "bytes": 7283,
+ "records": 2257,
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 1744
+   "stitches": 2090
   },
   {
    "stage": "validate",
@@ -35,12 +35,12 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 1912
+   "records": 2257
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 1744,
+   "stitch": 2090,
    "jump": 64,
    "color_change": 1,
    "trim_jumps": 48,
@@ -57,7 +57,7 @@
   }
  ],
  "counts": {
-  "stitch": 1744,
+  "stitch": 2090,
   "jump": 64,
   "color_change": 1,
   "trim_jumps": 48,
@@ -68,13 +68,13 @@
   105.0
  ],
  "quality": {
-  "score": 89,
+  "score": 91,
   "categories": {
    "geometry": 100,
-   "stitch_length": 63,
+   "stitch_length": 69,
    "density": 100,
    "underlay": 100,
-   "path": 51,
+   "path": 62,
    "jump_trim": 100,
    "hoop": 100,
    "dst_format": 100
@@ -88,14 +88,14 @@
    "trimmed": 14,
    "colour change": 1
   },
-  "jump_mm": 870.5,
+  "jump_mm": 842.6,
   "trims": 16,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 102.2
+  "estimated_travel_seconds": 102.0
  },
  "validation": {
   "software": "PASSED: plan -> file -> decode -> compare (kind, count, position, size, orientation)",

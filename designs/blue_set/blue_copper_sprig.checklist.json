@@ -82,19 +82,19 @@
    "n": 13,
    "title": "Stitch count within production limits",
    "level": "PASS",
-   "evidence": "448 stitches, ~1.2 min at 700 spm (limit 150,000)"
+   "evidence": "369 stitches, ~1.1 min at 700 spm (limit 150,000)"
   },
   {
    "n": 14,
    "title": "DST header and command sequence validated",
    "level": "PASS",
-   "evidence": "container PASS, encoding PASS; 477 records, sha256 c019586ed63a"
+   "evidence": "container PASS, encoding PASS; 398 records, sha256 8d9d3d4392ab"
   },
   {
    "n": 15,
    "title": "DST reopened and simulated successfully",
    "level": "PASS",
-   "evidence": "reopened: 448 stitch records, ends with END=True; simulation PASS (span 20.4x39.4 mm)"
+   "evidence": "reopened: 369 stitch records, ends with END=True; simulation PASS (span 20.4x39.4 mm)"
   }
  ],
  "passed": 15,
@@ -102,17 +102,17 @@
  "export_allowed": true,
  "verify_grade": "PASS",
  "stats": {
-  "stitches": 448,
+  "stitches": 369,
   "color_changes": 0,
   "trims": 6,
   "width_mm": 20.36,
   "height_mm": 39.44,
-  "est_minutes": 1.2
+  "est_minutes": 1.1
  },
  "colour_sequence": [
   {
    "hex": "#b85a2b",
-   "stitches": 448
+   "stitches": 369
   }
  ]
 }

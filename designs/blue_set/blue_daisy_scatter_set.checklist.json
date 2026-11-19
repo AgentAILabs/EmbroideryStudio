@@ -3,7 +3,7 @@
   "profile: Maggam blouse neck on Silk, thread 120 (starting values - confirm with a stitch-out)",
   "set cut_hidden on 8 object(s), min_row on 8 object(s), pull_comp on 64 object(s), shorten on 56 object(s)",
   "centred in the hoop",
-  "sequence optimised (motifs): trims 16 -> 16, travel 1242 -> 870 mm (colour order and layering kept)"
+  "sequence optimised (motifs): trims 16 -> 16, travel 1213 -> 843 mm (colour order and layering kept)"
  ],
  "items": [
   {
@@ -52,7 +52,7 @@
    "n": 8,
    "title": "No excessively short stitches",
    "level": "PASS",
-   "evidence": "0 stitch(es) under 0.3 mm; 0.12% in clusters of 2+ stitches < 0.5 mm (2.86% incl. lone row turns and locks)"
+   "evidence": "0 stitch(es) under 0.3 mm; 0.1% in clusters of 2+ stitches < 0.5 mm (1.18% incl. lone row turns and locks)"
   },
   {
    "n": 9,
@@ -76,25 +76,25 @@
    "n": 12,
    "title": "Tie-in and tie-off points checked",
    "level": "PASS",
-   "evidence": "56 lock stitches of 1 mm; 16 tie-in(s) over 16 thread start(s); 48 carried continuation(s) need none"
+   "evidence": "56 lock stitches of 1 mm; 15 tie-in(s) over 16 thread start(s); 48 carried continuation(s) need none"
   },
   {
    "n": 13,
    "title": "Stitch count within production limits",
    "level": "PASS",
-   "evidence": "1744 stitches, ~4.4 min at 700 spm (limit 150,000)"
+   "evidence": "2090 stitches, ~4.9 min at 700 spm (limit 150,000)"
   },
   {
    "n": 14,
    "title": "DST header and command sequence validated",
    "level": "PASS",
-   "evidence": "container PASS, encoding PASS; 1912 records, sha256 77d7eb37c15b"
+   "evidence": "container PASS, encoding PASS; 2257 records, sha256 76244d1b90bf"
   },
   {
    "n": 15,
    "title": "DST reopened and simulated successfully",
    "level": "PASS",
-   "evidence": "reopened: 1744 stitch records, ends with END=True; simulation PASS (span 134.4x105.0 mm)"
+   "evidence": "reopened: 2090 stitch records, ends with END=True; simulation PASS (span 134.4x105.0 mm)"
   }
  ],
  "passed": 15,
@@ -102,21 +102,21 @@
  "export_allowed": true,
  "verify_grade": "PASS",
  "stats": {
-  "stitches": 1744,
+  "stitches": 2090,
   "color_changes": 1,
   "trims": 16,
   "width_mm": 134.47,
   "height_mm": 104.95,
-  "est_minutes": 4.4
+  "est_minutes": 4.9
  },
  "colour_sequence": [
   {
    "hex": "#3fd6b4",
-   "stitches": 1472
+   "stitches": 1864
   },
   {
    "hex": "#b85a2b",
-   "stitches": 272
+   "stitches": 226
   }
  ]
 }

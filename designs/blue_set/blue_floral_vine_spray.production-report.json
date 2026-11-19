@@ -36,18 +36,18 @@
   "thread": "120"
  },
  "counts": {
-  "stitches": 3077,
+  "stitches": 3234,
   "jumps": 94,
-  "trims": 41,
-  "trim_jump_records": 123,
+  "trims": 53,
+  "trim_jump_records": 159,
   "colour_changes": 1,
-  "dst_records": 3325
+  "dst_records": 3517
  },
  "thread_sequence": [
   {
    "order": 1,
    "hex": "#3fd6b4",
-   "stitches": 1707,
+   "stitches": 2152,
    "objects": [
     "Garland stem",
     "Garland daisy petal",
@@ -59,7 +59,7 @@
   {
    "order": 2,
    "hex": "#b85a2b",
-   "stitches": 1370,
+   "stitches": 1082,
    "objects": [
     "Garland fern stem",
     "Garland fern leaflet",
@@ -74,11 +74,11 @@
   }
  ],
  "estimated_time": {
-  "minutes": 8.8,
+  "minutes": 10.3,
   "note": "Estimated machine time. Not verified on any machine; real time depends on the machine's speed settings."
  },
  "quality": {
-  "score": 92,
+  "score": 91,
   "categories": [
    {
     "name": "Geometry",
@@ -86,7 +86,7 @@
    },
    {
     "name": "Stitch length",
-    "score": 60
+    "score": 71
    },
    {
     "name": "Density",
@@ -94,11 +94,11 @@
    },
    {
     "name": "Underlay",
-    "score": 96
+    "score": 79
    },
    {
     "name": "Path optimisation",
-    "score": 78
+    "score": 81
    },
    {
     "name": "Jumps and trims",
@@ -117,18 +117,18 @@
  },
  "travel": {
   "verdicts": {
-   "trimmed": 39,
-   "carried": 53,
+   "trimmed": 51,
+   "carried": 41,
    "colour change": 1
   },
-  "jump_mm": 669.2,
-  "trims": 41,
+  "jump_mm": 662.9,
+  "trims": 53,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 250.7
+  "estimated_travel_seconds": 322.7
  },
  "warnings": [
   {
@@ -144,77 +144,77 @@
   {
    "source": "design",
    "severity": "info",
-   "message": "c24: column is very narrow (0.9 mm)"
+   "message": "c24: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c25: column is very narrow (0.9 mm)"
+   "message": "c25: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c26: column is very narrow (0.9 mm)"
+   "message": "c26: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c27: column is very narrow (0.9 mm)"
+   "message": "c27: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c28: column is very narrow (0.9 mm)"
+   "message": "c28: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c58: column is very narrow (0.9 mm)"
+   "message": "c58: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c59: column is very narrow (0.9 mm)"
+   "message": "c59: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c60: column is very narrow (0.9 mm)"
+   "message": "c60: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c61: column is very narrow (0.9 mm)"
+   "message": "c61: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c62: column is very narrow (0.9 mm)"
+   "message": "c62: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c92: column is very narrow (0.9 mm)"
+   "message": "c92: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c93: column is very narrow (0.9 mm)"
+   "message": "c93: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c94: column is very narrow (0.9 mm)"
+   "message": "c94: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c95: column is very narrow (0.9 mm)"
+   "message": "c95: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c96: column is very narrow (0.9 mm)"
+   "message": "c96: column is very narrow (1.0 mm)"
   },
   {
    "source": "design",
@@ -350,25 +350,30 @@
    "source": "design",
    "severity": "info",
    "message": "r22: stitched before fill f23 which overlaps it - the fill will cover it. Move it after the fill."
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "micro-stitch cleanup: 181 stitch(es) shorter than 0.4 mm merged into their neighbours"
   }
  ],
  "file": {
-  "sha256": "1e8088aaba2e03ebe08f4a4e5321973147e064e2911ffc82009d367f46a613ba",
-  "bytes": 10487,
+  "sha256": "544f3f79eeb9d08d73872f3266b2cfc151e8a750598fe717f676841bb3df5d7b",
+  "bytes": 11063,
   "format": "dst"
  },
  "engine_version": "0.9.0",
- "exported_utc": "2026-11-19T08:09:43+00:00",
+ "exported_utc": "2026-11-19T08:19:20+00:00",
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 3077
+   "stitches": 3234
   },
   {
    "stage": "validate",
    "result": "PASS",
-   "warnings": 30
+   "warnings": 0
   },
   {
    "stage": "geometry",
@@ -378,7 +383,7 @@
   {
    "stage": "checklist",
    "result": "PASS",
-   "passed": "14/15"
+   "passed": "15/15"
   },
   {
    "stage": "machine-profile",
@@ -388,15 +393,15 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 3325
+   "records": 3517
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 3077,
+   "stitch": 3234,
    "jump": 94,
    "color_change": 1,
-   "trim_jumps": 123,
+   "trim_jumps": 159,
    "end": 1,
    "size_mm": [
     43.8,

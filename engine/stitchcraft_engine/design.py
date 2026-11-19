@@ -235,7 +235,8 @@ def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0, shorten=
 MACHINE_DEFAULTS = {"max_stitch": 7.0, "min_stitch": 0.3, "trim_distance": 3.0, "trim_jumps": 3,
                     "lock_len": 1.0,              # tie-in / tie-off stitch length in mm (0 = no lock stitches); production files use 1.0 mm
                     "trim_at_color_change": 1, "trim_at_end": 1,
-                    "smart_direction": 1}         # start a run at its nearer end when that turns a trim into a carried jump
+                    "smart_direction": 1,         # start a run at its nearer end when that turns a trim into a carried jump
+                    "micro_clean": 0.0}           # mm: merge stitches shorter than this into the previous one (0 = off, the default; opt-in because it changes the stitch data)
 
 
 def machine(design: dict) -> dict:
@@ -250,7 +251,24 @@ def machine(design: dict) -> dict:
     m["trim_at_color_change"] = 1 if m["trim_at_color_change"] else 0
     m["trim_at_end"] = 1 if m["trim_at_end"] else 0
     m["smart_direction"] = 1 if m["smart_direction"] else 0
+    m["micro_clean"] = 0.0 if m["micro_clean"] <= 0 else min(max(m["micro_clean"], 0.2), 0.8)      # below 0.2 mm cleaning would be meaningless, above 0.8 mm it would change shapes
     return m
+
+
+def clean_micro_stitches(pattern: Pattern, min_len: float) -> int:
+    """Drop a stitch that lies closer than `min_len` to the stitch before it (same thread, no jump / trim / colour change between). Such stitches are the
+    thread-break and nesting risk at petal tips, row turns and tiny shapes; the shape moves by less than `min_len`. The first stitch after a jump or trim
+    (the entry penetration) and the lock stitches are never removed. Returns how many stitches were dropped."""
+    out, dropped = [], 0
+    for s in pattern.stitches:
+        if s.cmd == Cmd.STITCH and out and out[-1].cmd == Cmd.STITCH and out[-1].thread == s.thread and dist((out[-1].x, out[-1].y), (s.x, s.y)) < min_len:
+            prev2 = out[-2] if len(out) > 1 else None
+            if prev2 is not None and prev2.cmd == Cmd.STITCH:            # keep at least entry + one more stitch
+                dropped += 1
+                continue
+        out.append(s)
+    pattern.stitches = out
+    return dropped
 
 
 def expand_handles(design: dict) -> dict:
@@ -449,6 +467,10 @@ def generate(design: dict, trim_distance: Optional[float] = None):
     pattern = build_pattern(objs, threads, design.get("name", "design"), trim_distance, lock_len=mach["lock_len"],
                             trim_at_color_change=bool(mach["trim_at_color_change"]), trim_at_end=bool(mach["trim_at_end"]),
                             choose_direction=bool(mach["smart_direction"]))
+    if mach["micro_clean"] > 0:
+        n_drop = clean_micro_stitches(pattern, mach["micro_clean"])
+        if n_drop:
+            notes.append(f"micro-stitch cleanup: {n_drop} stitch(es) shorter than {mach['micro_clean']:g} mm merged into their neighbours")
     return pattern, notes, stats(pattern, design)
 
 

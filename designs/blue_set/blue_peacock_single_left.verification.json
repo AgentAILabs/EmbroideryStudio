@@ -19,7 +19,7 @@
     {
      "level": "PASS",
      "what": "header ST equals the record count (incl. END, as Wilcom/Tajima files do)",
-     "evidence": "ST=2183 records=2183"
+     "evidence": "ST=2240 records=2240"
     },
     {
      "level": "PASS",
@@ -29,7 +29,7 @@
     {
      "level": "PASS",
      "what": "header extents (+X -X +Y -Y) match the stitches",
-     "evidence": "header=[405, 405, 335, 335] actual=[405, 405, 335, 335] (0.1 mm)"
+     "evidence": "header=[406, 406, 335, 335] actual=[406, 406, 335, 335] (0.1 mm)"
     }
    ]
   },
@@ -40,7 +40,7 @@
     {
      "level": "PASS",
      "what": "every record re-encodes to the same bytes (movement + command flag)",
-     "evidence": "0 mismatch(es) in 2183 records"
+     "evidence": "0 mismatch(es) in 2240 records"
     },
     {
      "level": "PASS",
@@ -61,12 +61,12 @@
     {
      "level": "PASS",
      "what": "long stitches (> 7 mm) are rare",
-     "evidence": "0.3% of stitches"
+     "evidence": "0.29% of stitches"
     },
     {
      "level": "PASS",
      "what": "no runs of very short stitches (< 0.5 mm, two or more in a row)",
-     "evidence": "0.2% clustered (6.65% incl. lone row-turn / lock stitches)"
+     "evidence": "0.19% clustered (1.26% incl. lone row-turn / lock stitches)"
     },
     {
      "level": "PASS",
@@ -76,7 +76,7 @@
     {
      "level": "PASS",
      "what": "design fits the 120x120 mm hoop",
-     "evidence": "81.0x67.0 mm"
+     "evidence": "81.2x67.0 mm"
     }
    ]
   },
@@ -92,12 +92,12 @@
     {
      "level": "PASS",
      "what": "no thread-break / fabric-cut cluster (<= 12 penetrations in 0.2 mm)",
-     "evidence": "max 4"
+     "evidence": "max 2"
     },
     {
      "level": "PASS",
      "what": "satin line spacing 0.15-0.55 mm (coverage vs. thread-break)",
-     "evidence": "median 0.28 mm over 717 zig-zags (thread preset k=0.55)"
+     "evidence": "median 0.22 mm over 882 zig-zags (thread preset k=0.55)"
     }
    ]
   },
@@ -108,22 +108,22 @@
     {
      "level": "PASS",
      "what": "travel (jumps) is not wildly more than stitching",
-     "evidence": "travel 465 mm vs stitched 5994 mm"
+     "evidence": "travel 567 mm vs stitched 6840 mm"
     },
     {
      "level": "PASS",
      "what": "trims are jump trains of >= 3 records",
-     "evidence": "23 trim(s), 16 carried jump(s)"
+     "evidence": "23 trim(s), 15 carried jump(s)"
     },
     {
      "level": "PASS",
      "what": "fresh thread starts are tied in (>= half of the starts after a trim / colour change)",
-     "evidence": "23 tie-in(s) over 23 thread start(s); 14 carried continuation(s) need none"
+     "evidence": "22 tie-in(s) over 22 thread start(s); 14 carried continuation(s) need none"
     },
     {
      "level": "PASS",
      "what": "few orphan pieces (1-2 stitches between two cuts)",
-     "evidence": "0 of 23 thread start(s)"
+     "evidence": "0 of 22 thread start(s)"
     }
    ]
   },
@@ -134,12 +134,12 @@
     {
      "level": "PASS",
      "what": "replayed needle path stays inside the hoop",
-     "evidence": "span 81.0x67.0 mm"
+     "evidence": "span 81.2x67.0 mm"
     },
     {
      "level": "PASS",
      "what": "end position (information: the frame returns home itself)",
-     "evidence": "end offset 41.5 mm from start"
+     "evidence": "end offset 37.7 mm from start"
     },
     {
      "level": "PASS",
@@ -150,15 +150,15 @@
   }
  ],
  "metrics": {
-  "stitches": 2053,
+  "stitches": 2107,
   "colour_blocks": 2,
   "trims": 24,
   "size_mm": [
-   81.0,
+   81.2,
    67.0
   ],
   "est_minutes": 6.0,
   "dens_max": 8,
-  "len_median": 2.86
+  "len_median": 3.33
  }
 }

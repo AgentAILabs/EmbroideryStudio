@@ -20,7 +20,8 @@ import sheet                                                                 # n
 from make_maggam_set import petal_rails, leaf_rails                          # noqa: E402
 
 MINT, COPPER = "#3fd6b4", "#b85a2b"
-COPPER_SPACING = 0.27
+COPPER_SPACING = 0.34           # metallic-look copper: open (0.33-0.40 mm); mint is denser (satin 0.24, fills 0.28) so royal blue does not show through
+MINT_SATIN, MINT_FILL = 0.24, 0.28
 FABRIC, CATEGORY, THREAD = "silk", "blouse_neck", "120"
 
 
@@ -57,7 +58,7 @@ class B:
 
 
 def col(b, name, color, r1, r2, **params):
-    params.setdefault("spacing", COPPER_SPACING if color == COPPER else 0.30)
+    params.setdefault("spacing", COPPER_SPACING if color == COPPER else MINT_SATIN)
     b.o.append({"id": b.id("c"), "type": "column", "color": color, "name": name, "rail1": b.pts(r1), "rail2": b.pts(r2), "params": params})
 
 
@@ -66,7 +67,7 @@ def run(b, name, color, pts, **params):
 
 
 def fill(b, name, color, ring, **params):
-    params.setdefault("spacing", COPPER_SPACING if color == COPPER else 0.30)
+    params.setdefault("spacing", 0.32 if color == COPPER else MINT_FILL)
     b.o.append({"id": b.id("f"), "type": "fill", "color": color, "name": name, "rings": [b.pts(ring)], "params": params})
 
 
@@ -105,7 +106,7 @@ def daisy(b, cx, cy, R0=9.0, petals=7, rot=0.0, name="Daisy"):
     for k in range(petals):
         ang = rot + 2 * math.pi * k / petals
         w = min(R0 * 0.40, 2 * math.pi * (rin + R0 * 0.4) / petals * 0.92)
-        a, c = petal_rails(cx, cy, ang, rin + 0.1, R0, w, n=8, tip=0.30)
+        a, c = petal_rails(cx, cy, ang, max(0.6, rin - 0.6), R0, w, n=8, tip=0.30)      # petals start under the centre: 0.6 mm under-lap, no blue gap
         col(b, f"{name} petal", MINT, a, c, underlay="center", end_at_start=True)
     fill(b, f"{name} centre", COPPER, ellipse(cx, cy, rin, rin, n=20), underlay="none")
     if R0 >= 8:
@@ -147,9 +148,10 @@ def bud(b, x0, y0, ang, L=8.0, name="Copper bud"):
 
 def rosette(b, cx, cy, R0=3.6, name="Copper rosette"):
     """Tiny copper five-lobed flower (five small filled lobes round a centre)."""
-    for k in range(5):
+    for k in range(5):                                                         # five short satin lobes (tiny fills are the worst case for metallic thread)
         a = 2 * math.pi * k / 5 + 0.3
-        fill(b, f"{name} lobe", COPPER, ellipse(cx + math.cos(a) * R0 * 0.62, cy + math.sin(a) * R0 * 0.62, R0 * 0.42, R0 * 0.42, n=12), underlay="none")
+        r1, r2 = petal_rails(cx, cy, a, R0 * 0.15, R0, 1.9, n=4, tip=0.6)
+        col(b, f"{name} lobe", COPPER, r1, r2, underlay="none")
 
 
 def path_len(path): return sum(math.hypot(q[0] - p[0], q[1] - p[1]) for p, q in zip(path, path[1:]))
@@ -256,8 +258,8 @@ def bead_row(b, path, dist, step=2.4, shift=0.0, name="Bead"):
 
 
 def neck_band(b, path, name="Neck band"):
-    """6 mm mint satin band; copper line inside; outside: copper line, two staggered rows of copper bead dots, copper line."""
-    b.o.append({"id": b.id("s"), "type": "satin", "color": MINT, "name": f"{name} mint satin", "points": b.pts(path), "params": {"width": 6.0, "spacing": 0.30}})
+    """5.6 mm mint satin band; copper line inside; outside: copper line, two staggered rows of copper bead dots, copper line."""
+    b.o.append({"id": b.id("s"), "type": "satin", "color": MINT, "name": f"{name} mint satin", "points": b.pts(path), "params": {"width": 5.6, "spacing": 0.26, "underlay": "edge+zigzag"}})
     run(b, f"{name} inner line", COPPER, offset(path, -4.2), stitch_len=2.2)
     run(b, f"{name} outer line 1", COPPER, offset(path, 4.2), stitch_len=2.2)
     bead_row(b, path, 6.4, name=f"{name} bead row 1")
@@ -347,7 +349,7 @@ def front_neck():
 
 # ---------------------------------------------------------------- pipeline
 def finish(d):
-    d = dict(d, thread=THREAD, stabiliser="cut-away")
+    d = dict(d, thread=THREAD, stabiliser="cut-away", machine=dict(d.get("machine") or {}, micro_clean=0.4))
     d, log = profiles.apply_profile(d, FABRIC, CATEGORY)
     d, l2 = placements.autofix(d)
     d, l3 = sequence.optimize_sequence(d)
@@ -376,6 +378,12 @@ def cli(argv):
     for make in (daisy_large, daisy_small, daisy_scatter, copper_sprig, vine, bird_pair, neck_border, front_neck):
         d, log = finish(make())
         ok &= bool(write(d, out, log)["export_allowed"])
+    import app as _server                                    # example split of the full neckline for a 260 x 300 mm frame (use your own frame size in the app: Split for hoop)
+    full, _ = finish(front_neck()); full["hoop"] = {"w": 260, "h": 300, "margin": 8}
+    zdata, srep = _server.api_split(full)
+    (out / "blue_front_neck_full-split_260x300.zip").write_bytes(zdata)
+    print(f"{'split 260x300':26} {len(srep['tiles'])} hoopings: " + ", ".join(f"{t['name'][-4:]} {t.get('stitches', '-')} st" for t in srep["tiles"]))
+    ok &= all(t["status"] == "ok" for t in srep["tiles"])
     d, log = finish(bird_single())
     z, rep = sheet.placement_set(d, [{"id": "left"}, {"id": "right"}], "left")
     zf = zipfile.ZipFile(io.BytesIO(z))

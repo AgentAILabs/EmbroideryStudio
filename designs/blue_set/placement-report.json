@@ -11,15 +11,15 @@
    "log": [],
    "status": "ok",
    "grade": "PASS",
-   "stitches": 2053,
+   "stitches": 2107,
    "colours": 2,
-   "trims": 23,
+   "trims": 22,
    "size_mm": [
-    80.91,
+    81.12,
     67.03
    ],
-   "minutes": 5.6,
-   "sha256": "37912169b4cf2cdd159bf027a10470ac418db7bb0dda900657f610af1067bbd0",
+   "minutes": 5.5,
+   "sha256": "8d44e0d34894984035fec3771a9e5a078bb9d437de415d138147e0213e3746cb",
    "notes": [
     "c22: column is very narrow (1.0 mm)",
     "c23: column is very narrow (1.0 mm)",
@@ -28,9 +28,10 @@
     "c26: column is very narrow (0.9 mm)",
     "c27: column is very narrow (0.9 mm)",
     "c28: column is very narrow (0.9 mm)",
+    "r5: stitched before fill f6 which overlaps it - the fill will cover it. Move it after the fill.",
     "r15: stitched before fill f16 which overlaps it - the fill will cover it. Move it after the fill.",
     "r19: stitched before fill f20 which overlaps it - the fill will cover it. Move it after the fill.",
-    "r5: stitched before fill f6 which overlaps it - the fill will cover it. Move it after the fill."
+    "micro-stitch cleanup: 98 stitch(es) shorter than 0.4 mm merged into their neighbours"
    ]
   },
   {
@@ -44,15 +45,15 @@
    ],
    "status": "ok",
    "grade": "PASS",
-   "stitches": 2051,
+   "stitches": 2114,
    "colours": 2,
    "trims": 23,
    "size_mm": [
-    80.91,
+    81.12,
     67.03
    ],
-   "minutes": 5.6,
-   "sha256": "6c85a879deb8cd079a17959c4b815e96d58b712b08b6d14077e82b489b37bf3f",
+   "minutes": 5.7,
+   "sha256": "f6f873c9a13fe0d5435b6b42dba0e811e649421bcfe7149f91352e7b3c1ff6d5",
    "notes": [
     "c22: column is very narrow (1.0 mm)",
     "c23: column is very narrow (1.0 mm)",
@@ -61,9 +62,10 @@
     "c26: column is very narrow (0.9 mm)",
     "c27: column is very narrow (0.9 mm)",
     "c28: column is very narrow (0.9 mm)",
+    "r5: stitched before fill f6 which overlaps it - the fill will cover it. Move it after the fill.",
     "r15: stitched before fill f16 which overlaps it - the fill will cover it. Move it after the fill.",
     "r19: stitched before fill f20 which overlaps it - the fill will cover it. Move it after the fill.",
-    "r5: stitched before fill f6 which overlaps it - the fill will cover it. Move it after the fill."
+    "micro-stitch cleanup: 98 stitch(es) shorter than 0.4 mm merged into their neighbours"
    ]
   }
  ]

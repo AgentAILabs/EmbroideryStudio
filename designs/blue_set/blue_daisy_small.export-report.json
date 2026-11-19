@@ -2,15 +2,15 @@
  "engine_version": "0.9.0",
  "contract_version": "1.0",
  "format": "dst",
- "exported_utc": "2026-11-19T08:09:42+00:00",
- "sha256": "6647213c708191370641c730578d687f17ef338660f6ac0fb812d31f9b6c0afe",
- "bytes": 965,
- "records": 151,
+ "exported_utc": "2026-11-19T08:19:19+00:00",
+ "sha256": "d44806fd0c9459cea3aed41050e56df4c405eba32a91ba15a49c9f01ab65ae9f",
+ "bytes": 1019,
+ "records": 169,
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 136
+   "stitches": 154
   },
   {
    "stage": "validate",
@@ -25,7 +25,7 @@
   {
    "stage": "checklist",
    "result": "PASS",
-   "passed": "14/15"
+   "passed": "15/15"
   },
   {
    "stage": "machine-profile",
@@ -35,19 +35,19 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 151
+   "records": 169
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 136,
+   "stitch": 154,
    "jump": 7,
    "color_change": 1,
    "trim_jumps": 6,
    "end": 1,
    "size_mm": [
     10.4,
-    9.4
+    9.2
    ]
   },
   {
@@ -57,7 +57,7 @@
   }
  ],
  "counts": {
-  "stitch": 136,
+  "stitch": 154,
   "jump": 7,
   "color_change": 1,
   "trim_jumps": 6,
@@ -65,16 +65,16 @@
  },
  "size_mm": [
   10.4,
-  9.4
+  9.2
  ],
  "quality": {
-  "score": 92,
+  "score": 94,
   "categories": {
    "geometry": 100,
-   "stitch_length": 49,
+   "stitch_length": 55,
    "density": 100,
    "underlay": 100,
-   "path": 90,
+   "path": 96,
    "jump_trim": 100,
    "hoop": 100,
    "dst_format": 100
@@ -87,14 +87,14 @@
    "carried": 5,
    "colour change": 1
   },
-  "jump_mm": 9.9,
+  "jump_mm": 5.4,
   "trims": 2,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 12.1
+  "estimated_travel_seconds": 12.0
  },
  "validation": {
   "software": "PASSED: plan -> file -> decode -> compare (kind, count, position, size, orientation)",

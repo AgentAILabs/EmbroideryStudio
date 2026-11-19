@@ -2,15 +2,15 @@
  "engine_version": "0.9.0",
  "contract_version": "1.0",
  "format": "dst",
- "exported_utc": "2026-11-19T08:09:43+00:00",
- "sha256": "c019586ed63a7e567161cf29dce6a61ab6cb74f4cf174af40b673cd3219ab822",
- "bytes": 1943,
- "records": 477,
+ "exported_utc": "2026-11-19T08:19:19+00:00",
+ "sha256": "8d9d3d4392abdc397196ecdc51d4ed36d866e5e509244e1ce9c98c37c7adde35",
+ "bytes": 1706,
+ "records": 398,
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 448
+   "stitches": 369
   },
   {
    "stage": "validate",
@@ -35,12 +35,12 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 477
+   "records": 398
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 448,
+   "stitch": 369,
    "jump": 7,
    "color_change": 0,
    "trim_jumps": 18,
@@ -57,7 +57,7 @@
   }
  ],
  "counts": {
-  "stitch": 448,
+  "stitch": 369,
   "jump": 7,
   "color_change": 0,
   "trim_jumps": 18,
@@ -68,13 +68,13 @@
   39.4
  ],
  "quality": {
-  "score": 97,
+  "score": 96,
   "categories": {
    "geometry": 100,
-   "stitch_length": 84,
+   "stitch_length": 81,
    "density": 100,
    "underlay": 100,
-   "path": 89,
+   "path": 87,
    "jump_trim": 100,
    "hoop": 100,
    "dst_format": 100
@@ -87,7 +87,7 @@
    "trimmed": 5,
    "carried": 1
   },
-  "jump_mm": 48.8,
+  "jump_mm": 48.2,
   "trims": 6,
   "colour_changes": 0,
   "distinct_threads": 1,

@@ -3,7 +3,7 @@
   "profile: Maggam blouse neck on Silk, thread 120 (starting values - confirm with a stitch-out)",
   "set cut_hidden on 1 object(s), min_row on 1 object(s), pull_comp on 8 object(s), shorten on 7 object(s)",
   "centred in the hoop",
-  "sequence kept: already optimal for this design (trims 3, travel 23 mm)"
+  "sequence kept: already optimal for this design (trims 3, travel 20 mm)"
  ],
  "items": [
   {
@@ -52,7 +52,7 @@
    "n": 8,
    "title": "No excessively short stitches",
    "level": "PASS",
-   "evidence": "0 stitch(es) under 0.3 mm; 0.6% in clusters of 2+ stitches < 0.5 mm (2.99% incl. lone row turns and locks)"
+   "evidence": "0 stitch(es) under 0.3 mm; 0.0% in clusters of 2+ stitches < 0.5 mm (0.0% incl. lone row turns and locks)"
   },
   {
    "n": 9,
@@ -82,19 +82,19 @@
    "n": 13,
    "title": "Stitch count within production limits",
    "level": "PASS",
-   "evidence": "345 stitches, ~1.1 min at 700 spm (limit 150,000)"
+   "evidence": "400 stitches, ~1.2 min at 700 spm (limit 150,000)"
   },
   {
    "n": 14,
    "title": "DST header and command sequence validated",
    "level": "PASS",
-   "evidence": "container PASS, encoding PASS; 366 records, sha256 3e143f63c8d2"
+   "evidence": "container PASS, encoding PASS; 421 records, sha256 28ba007b3a3d"
   },
   {
    "n": 15,
    "title": "DST reopened and simulated successfully",
    "level": "PASS",
-   "evidence": "reopened: 345 stitch records, ends with END=True; simulation PASS (span 21.2x21.6 mm)"
+   "evidence": "reopened: 400 stitch records, ends with END=True; simulation PASS (span 21.2x21.6 mm)"
   }
  ],
  "passed": 15,
@@ -102,21 +102,21 @@
  "export_allowed": true,
  "verify_grade": "PASS",
  "stats": {
-  "stitches": 345,
+  "stitches": 400,
   "color_changes": 1,
   "trims": 3,
   "width_mm": 21.25,
   "height_mm": 21.62,
-  "est_minutes": 1.1
+  "est_minutes": 1.2
  },
  "colour_sequence": [
   {
    "hex": "#3fd6b4",
-   "stitches": 257
+   "stitches": 324
   },
   {
    "hex": "#b85a2b",
-   "stitches": 88
+   "stitches": 76
   }
  ]
 }

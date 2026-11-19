@@ -36,18 +36,18 @@
   "thread": "120"
  },
  "counts": {
-  "stitches": 448,
+  "stitches": 369,
   "jumps": 7,
   "trims": 6,
   "trim_jump_records": 18,
   "colour_changes": 0,
-  "dst_records": 477
+  "dst_records": 398
  },
  "thread_sequence": [
   {
    "order": 1,
    "hex": "#b85a2b",
-   "stitches": 448,
+   "stitches": 369,
    "objects": [
     "Copper fern stem",
     "Copper fern leaflet",
@@ -56,11 +56,11 @@
   }
  ],
  "estimated_time": {
-  "minutes": 1.2,
+  "minutes": 1.1,
   "note": "Estimated machine time. Not verified on any machine; real time depends on the machine's speed settings."
  },
  "quality": {
-  "score": 97,
+  "score": 96,
   "categories": [
    {
     "name": "Geometry",
@@ -68,7 +68,7 @@
    },
    {
     "name": "Stitch length",
-    "score": 84
+    "score": 81
    },
    {
     "name": "Density",
@@ -80,7 +80,7 @@
    },
    {
     "name": "Path optimisation",
-    "score": 89
+    "score": 87
    },
    {
     "name": "Jumps and trims",
@@ -102,7 +102,7 @@
    "trimmed": 5,
    "carried": 1
   },
-  "jump_mm": 48.8,
+  "jump_mm": 48.2,
   "trims": 6,
   "colour_changes": 0,
   "distinct_threads": 1,
@@ -131,20 +131,25 @@
    "source": "design",
    "severity": "info",
    "message": "c11: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "micro-stitch cleanup: 22 stitch(es) shorter than 0.4 mm merged into their neighbours"
   }
  ],
  "file": {
-  "sha256": "c019586ed63a7e567161cf29dce6a61ab6cb74f4cf174af40b673cd3219ab822",
-  "bytes": 1943,
+  "sha256": "8d9d3d4392abdc397196ecdc51d4ed36d866e5e509244e1ce9c98c37c7adde35",
+  "bytes": 1706,
   "format": "dst"
  },
  "engine_version": "0.9.0",
- "exported_utc": "2026-11-19T08:09:43+00:00",
+ "exported_utc": "2026-11-19T08:19:19+00:00",
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 448
+   "stitches": 369
   },
   {
    "stage": "validate",
@@ -169,12 +174,12 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 477
+   "records": 398
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 448,
+   "stitch": 369,
    "jump": 7,
    "color_change": 0,
    "trim_jumps": 18,

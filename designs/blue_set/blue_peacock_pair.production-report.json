@@ -36,18 +36,18 @@
   "thread": "120"
  },
  "counts": {
-  "stitches": 5014,
-  "jumps": 115,
-  "trims": 65,
-  "trim_jump_records": 195,
+  "stitches": 5124,
+  "jumps": 114,
+  "trims": 67,
+  "trim_jump_records": 201,
   "colour_changes": 1,
-  "dst_records": 5420
+  "dst_records": 5535
  },
  "thread_sequence": [
   {
    "order": 1,
    "hex": "#3fd6b4",
-   "stitches": 3326,
+   "stitches": 3665,
    "objects": [
     "Left bird swirl",
     "Left bird tail",
@@ -66,7 +66,7 @@
   {
    "order": 2,
    "hex": "#b85a2b",
-   "stitches": 1688,
+   "stitches": 1459,
    "objects": [
     "Left bird swirl line 1",
     "Left bird swirl line 2",
@@ -84,7 +84,7 @@
   }
  ],
  "estimated_time": {
-  "minutes": 14.0,
+  "minutes": 14.4,
   "note": "Estimated machine time. Not verified on any machine; real time depends on the machine's speed settings."
  },
  "quality": {
@@ -96,7 +96,7 @@
    },
    {
     "name": "Stitch length",
-    "score": 73
+    "score": 78
    },
    {
     "name": "Density",
@@ -104,11 +104,11 @@
    },
    {
     "name": "Underlay",
-    "score": 93
+    "score": 86
    },
    {
     "name": "Path optimisation",
-    "score": 76
+    "score": 79
    },
    {
     "name": "Jumps and trims",
@@ -127,18 +127,18 @@
  },
  "travel": {
   "verdicts": {
-   "carried": 50,
-   "trimmed": 63,
+   "carried": 47,
+   "trimmed": 65,
    "colour change": 1
   },
-  "jump_mm": 1625.8,
-  "trims": 65,
+  "jump_mm": 1622.8,
+  "trims": 67,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 401.5
+  "estimated_travel_seconds": 413.5
  },
  "warnings": [
   {
@@ -374,31 +374,26 @@
   {
    "source": "design",
    "severity": "info",
-   "message": "r88: stitched before fill f98 which overlaps it - the fill will cover it. Move it after the fill."
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "r78: stitched before fill f100 which overlaps it - the fill will cover it. Move it after the fill."
+   "message": "micro-stitch cleanup: 262 stitch(es) shorter than 0.4 mm merged into their neighbours"
   }
  ],
  "file": {
-  "sha256": "2dd670ad44140f8a85b1105534f5cc91a5e112a21ad96b0db70063d19f58216a",
-  "bytes": 16772,
+  "sha256": "2cc3bcbf134d67368e62dec97e3e304a677832e4bcc7bbc6d867ca0c3380f313",
+  "bytes": 17117,
   "format": "dst"
  },
  "engine_version": "0.9.0",
- "exported_utc": "2026-11-19T08:09:44+00:00",
+ "exported_utc": "2026-11-19T08:19:21+00:00",
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 5014
+   "stitches": 5124
   },
   {
    "stage": "validate",
    "result": "PASS",
-   "warnings": 20
+   "warnings": 0
   },
   {
    "stage": "geometry",
@@ -408,7 +403,7 @@
   {
    "stage": "checklist",
    "result": "PASS",
-   "passed": "14/15"
+   "passed": "15/15"
   },
   {
    "stage": "machine-profile",
@@ -418,15 +413,15 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 5420
+   "records": 5535
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 5014,
-   "jump": 115,
+   "stitch": 5124,
+   "jump": 114,
    "color_change": 1,
-   "trim_jumps": 195,
+   "trim_jumps": 201,
    "end": 1,
    "size_mm": [
     171.4,
