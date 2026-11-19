@@ -4,7 +4,7 @@
   "name": "blue_daisy_small",
   "size_mm": [
    10.4,
-   9.8
+   9.4
   ],
   "objects": 7
  },
@@ -36,18 +36,18 @@
   "thread": "120"
  },
  "counts": {
-  "stitches": 122,
+  "stitches": 136,
   "jumps": 7,
   "trims": 2,
   "trim_jump_records": 6,
   "colour_changes": 1,
-  "dst_records": 137
+  "dst_records": 151
  },
  "thread_sequence": [
   {
    "order": 1,
    "hex": "#3fd6b4",
-   "stitches": 95,
+   "stitches": 104,
    "objects": [
     "Small daisy petal"
    ]
@@ -55,7 +55,7 @@
   {
    "order": 2,
    "hex": "#b85a2b",
-   "stitches": 27,
+   "stitches": 32,
    "objects": [
     "Small daisy centre"
    ]
@@ -66,7 +66,7 @@
   "note": "Estimated machine time. Not verified on any machine; real time depends on the machine's speed settings."
  },
  "quality": {
-  "score": 91,
+  "score": 92,
   "categories": [
    {
     "name": "Geometry",
@@ -74,7 +74,7 @@
    },
    {
     "name": "Stitch length",
-    "score": 43
+    "score": 49
    },
    {
     "name": "Density",
@@ -86,7 +86,7 @@
    },
    {
     "name": "Path optimisation",
-    "score": 87
+    "score": 90
    },
    {
     "name": "Jumps and trims",
@@ -108,7 +108,7 @@
    "carried": 5,
    "colour change": 1
   },
-  "jump_mm": 13.8,
+  "jump_mm": 9.9,
   "trims": 2,
   "colour_changes": 1,
   "distinct_threads": 2,
@@ -130,17 +130,17 @@
   }
  ],
  "file": {
-  "sha256": "ea6bcbbb10139e50cff6bd464734179c343f13d805a41fe91265b5659f99e660",
-  "bytes": 923,
+  "sha256": "6647213c708191370641c730578d687f17ef338660f6ac0fb812d31f9b6c0afe",
+  "bytes": 965,
   "format": "dst"
  },
  "engine_version": "0.9.0",
- "exported_utc": "2026-11-19T08:01:02+00:00",
+ "exported_utc": "2026-11-19T08:09:42+00:00",
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 122
+   "stitches": 136
   },
   {
    "stage": "validate",
@@ -155,7 +155,7 @@
   {
    "stage": "checklist",
    "result": "PASS",
-   "passed": "15/15"
+   "passed": "14/15"
   },
   {
    "stage": "machine-profile",
@@ -165,19 +165,19 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 137
+   "records": 151
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 122,
+   "stitch": 136,
    "jump": 7,
    "color_change": 1,
    "trim_jumps": 6,
    "end": 1,
    "size_mm": [
     10.4,
-    9.8
+    9.4
    ]
   },
   {

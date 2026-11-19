@@ -3,10 +3,10 @@
  "design": {
   "name": "blue_neck_border_band",
   "size_mm": [
-   141.6,
-   8.0
+   160.8,
+   15.2
   ],
-  "objects": 54
+  "objects": 138
  },
  "machine_profile": {
   "id": "generic_tajima_dst",
@@ -24,8 +24,8 @@
   "validation_statement": "NOT VALIDATED: no stitch-out evidence recorded for this machine. The checks below compare the design with the numbers above only."
  },
  "hoop_mm": {
-  "w": 200,
-  "h": 60,
+  "w": 220,
+  "h": 80,
   "margin": 8
  },
  "fabric": {
@@ -36,18 +36,18 @@
   "thread": "120"
  },
  "counts": {
-  "stitches": 1058,
-  "jumps": 55,
-  "trims": 4,
-  "trim_jump_records": 12,
+  "stitches": 1767,
+  "jumps": 139,
+  "trims": 5,
+  "trim_jump_records": 15,
   "colour_changes": 1,
-  "dst_records": 1154
+  "dst_records": 1955
  },
  "thread_sequence": [
   {
    "order": 1,
    "hex": "#3fd6b4",
-   "stitches": 544,
+   "stitches": 705,
    "objects": [
     "Neck band mint satin"
    ]
@@ -55,20 +55,22 @@
   {
    "order": 2,
    "hex": "#b85a2b",
-   "stitches": 514,
+   "stitches": 1062,
    "objects": [
     "Neck band inner line",
-    "Neck band outer line",
-    "Neck band bead dot"
+    "Neck band outer line 1",
+    "Neck band bead row 1 dot",
+    "Neck band bead row 2 dot",
+    "Neck band outer line 2"
    ]
   }
  ],
  "estimated_time": {
-  "minutes": 2.2,
+  "minutes": 3.4,
   "note": "Estimated machine time. Not verified on any machine; real time depends on the machine's speed settings."
  },
  "quality": {
-  "score": 78,
+  "score": 75,
   "categories": [
    {
     "name": "Geometry",
@@ -76,7 +78,7 @@
    },
    {
     "name": "Stitch length",
-    "score": 48
+    "score": 21
    },
    {
     "name": "Density",
@@ -84,11 +86,11 @@
    },
    {
     "name": "Underlay",
-    "score": 2
+    "score": 1
    },
    {
     "name": "Path optimisation",
-    "score": 74
+    "score": 79
    },
    {
     "name": "Jumps and trims",
@@ -107,18 +109,18 @@
  },
  "travel": {
   "verdicts": {
-   "carried": 51,
+   "trimmed": 3,
    "colour change": 1,
-   "trimmed": 2
+   "carried": 134
   },
-  "jump_mm": 344.0,
-  "trims": 4,
+  "jump_mm": 638.2,
+  "trims": 5,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 26.4
+  "estimated_travel_seconds": 34.5
  },
  "warnings": [
   {
@@ -133,17 +135,17 @@
   }
  ],
  "file": {
-  "sha256": "3eb0a2de2f3096a02849e49c30f13f168a589ad50d3cce887b7bed533bf4e67f",
-  "bytes": 3974,
+  "sha256": "2ae5e4d6c542cb35baef1367de1b22cad61606786c21beec65124c9000cfdcc3",
+  "bytes": 6377,
   "format": "dst"
  },
  "engine_version": "0.9.0",
- "exported_utc": "2026-11-19T08:01:03+00:00",
+ "exported_utc": "2026-11-19T08:09:45+00:00",
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 1058
+   "stitches": 1767
   },
   {
    "stage": "validate",
@@ -168,19 +170,19 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 1154
+   "records": 1955
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 1058,
-   "jump": 55,
+   "stitch": 1767,
+   "jump": 139,
    "color_change": 1,
-   "trim_jumps": 12,
+   "trim_jumps": 15,
    "end": 1,
    "size_mm": [
-    141.6,
-    8.0
+    160.8,
+    15.2
    ]
   },
   {

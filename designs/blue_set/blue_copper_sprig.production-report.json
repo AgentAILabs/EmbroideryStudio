@@ -3,10 +3,10 @@
  "design": {
   "name": "blue_copper_sprig",
   "size_mm": [
-   14.6,
-   33.6
+   20.4,
+   39.4
   ],
-  "objects": 10
+  "objects": 12
  },
  "machine_profile": {
   "id": "generic_tajima_dst",
@@ -36,27 +36,27 @@
   "thread": "120"
  },
  "counts": {
-  "stitches": 389,
-  "jumps": 6,
-  "trims": 5,
-  "trim_jump_records": 15,
+  "stitches": 448,
+  "jumps": 7,
+  "trims": 6,
+  "trim_jump_records": 18,
   "colour_changes": 0,
-  "dst_records": 413
+  "dst_records": 477
  },
  "thread_sequence": [
   {
    "order": 1,
    "hex": "#b85a2b",
-   "stitches": 389,
+   "stitches": 448,
    "objects": [
-    "Copper sprig stem",
-    "Copper sprig leaflet",
-    "Copper sprig tip"
+    "Copper fern stem",
+    "Copper fern leaflet",
+    "Copper fern tip"
    ]
   }
  ],
  "estimated_time": {
-  "minutes": 1.1,
+  "minutes": 1.2,
   "note": "Estimated machine time. Not verified on any machine; real time depends on the machine's speed settings."
  },
  "quality": {
@@ -68,7 +68,7 @@
    },
    {
     "name": "Stitch length",
-    "score": 85
+    "score": 84
    },
    {
     "name": "Density",
@@ -80,7 +80,7 @@
    },
    {
     "name": "Path optimisation",
-    "score": 92
+    "score": 89
    },
    {
     "name": "Jumps and trims",
@@ -99,17 +99,17 @@
  },
  "travel": {
   "verdicts": {
-   "trimmed": 4,
+   "trimmed": 5,
    "carried": 1
   },
-  "jump_mm": 35.5,
-  "trims": 5,
+  "jump_mm": 48.8,
+  "trims": 6,
   "colour_changes": 0,
   "distinct_threads": 1,
   "minimum_colour_changes": 0,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 30.3
+  "estimated_travel_seconds": 36.3
  },
  "warnings": [
   {
@@ -121,20 +121,30 @@
    "source": "machine profile",
    "severity": "warning",
    "message": "This machine profile has no needle count; the number of thread colours was not checked."
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c10: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c11: column is very narrow (0.9 mm)"
   }
  ],
  "file": {
-  "sha256": "69941dfa286aa8db0ed69b8e4aaa344f14a5b15292d5cda713578562ca4b2e0c",
-  "bytes": 1751,
+  "sha256": "c019586ed63a7e567161cf29dce6a61ab6cb74f4cf174af40b673cd3219ab822",
+  "bytes": 1943,
   "format": "dst"
  },
  "engine_version": "0.9.0",
- "exported_utc": "2026-11-19T08:01:02+00:00",
+ "exported_utc": "2026-11-19T08:09:43+00:00",
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 389
+   "stitches": 448
   },
   {
    "stage": "validate",
@@ -159,19 +169,19 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 413
+   "records": 477
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 389,
-   "jump": 6,
+   "stitch": 448,
+   "jump": 7,
    "color_change": 0,
-   "trim_jumps": 15,
+   "trim_jumps": 18,
    "end": 1,
    "size_mm": [
-    14.6,
-    33.6
+    20.4,
+    39.4
    ]
   },
   {

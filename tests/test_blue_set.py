@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "engine"))
 from stitchcraft_engine import export_pipeline as EP
 SET = ROOT / "designs" / "blue_set"
-NAMES = ["blue_daisy_large", "blue_daisy_small", "blue_copper_sprig", "blue_floral_vine_spray", "blue_peacock_pair", "blue_neck_border_band", "blue_front_neck_full", "blue_peacock_single_left", "blue_peacock_single_right"]
+NAMES = ["blue_daisy_large", "blue_daisy_small", "blue_daisy_scatter_set", "blue_copper_sprig", "blue_floral_vine_spray", "blue_peacock_pair", "blue_neck_border_band", "blue_front_neck_full", "blue_peacock_single_left", "blue_peacock_single_right"]
 
 class BlueSet(unittest.TestCase):
     def test_every_element_has_its_own_dst_that_is_the_current_engine_output(self):

@@ -3,10 +3,10 @@
  "design": {
   "name": "blue_peacock_single_right",
   "size_mm": [
-   50.4,
-   51.2
+   81.0,
+   67.0
   ],
-  "objects": 13
+  "objects": 28
  },
  "machine_profile": {
   "id": "generic_tajima_dst",
@@ -24,8 +24,8 @@
   "validation_statement": "NOT VALIDATED: no stitch-out evidence recorded for this machine. The checks below compare the design with the numbers above only."
  },
  "hoop_mm": {
-  "w": 100,
-  "h": 100,
+  "w": 120,
+  "h": 120,
   "margin": 8
  },
  "fabric": {
@@ -36,18 +36,18 @@
   "thread": "120"
  },
  "counts": {
-  "stitches": 1301,
-  "jumps": 22,
-  "trims": 14,
-  "trim_jump_records": 42,
+  "stitches": 2051,
+  "jumps": 37,
+  "trims": 23,
+  "trim_jump_records": 69,
   "colour_changes": 1,
-  "dst_records": 1381
+  "dst_records": 2179
  },
  "thread_sequence": [
   {
    "order": 1,
    "hex": "#3fd6b4",
-   "stitches": 1135,
+   "stitches": 1518,
    "objects": [
     "Bird swirl",
     "Bird tail",
@@ -59,19 +59,25 @@
   {
    "order": 2,
    "hex": "#b85a2b",
-   "stitches": 166,
+   "stitches": 533,
    "objects": [
+    "Bird eye",
     "Bird crest",
+    "Bird crest bead",
     "Bird beak",
-    "Bird tail eye",
     "Bird wing 1",
     "Bird wing 2",
-    "Bird swirl line"
+    "Bird wing 3",
+    "Bird tail inner line",
+    "Bird tail drop",
+    "Bird tail sprig stem",
+    "Bird tail sprig leaflet",
+    "Bird tail sprig tip"
    ]
   }
  ],
  "estimated_time": {
-  "minutes": 3.6,
+  "minutes": 5.6,
   "note": "Estimated machine time. Not verified on any machine; real time depends on the machine's speed settings."
  },
  "quality": {
@@ -83,7 +89,7 @@
    },
    {
     "name": "Stitch length",
-    "score": 83
+    "score": 82
    },
    {
     "name": "Density",
@@ -91,11 +97,11 @@
    },
    {
     "name": "Underlay",
-    "score": 80
+    "score": 85
    },
    {
     "name": "Path optimisation",
-    "score": 88
+    "score": 86
    },
    {
     "name": "Jumps and trims",
@@ -114,18 +120,18 @@
  },
  "travel": {
   "verdicts": {
-   "carried": 8,
-   "trimmed": 12,
+   "carried": 14,
+   "trimmed": 21,
    "colour change": 1
   },
-  "jump_mm": 221.6,
-  "trims": 14,
+  "jump_mm": 407.2,
+  "trims": 23,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 85.6
+  "estimated_travel_seconds": 140.9
  },
  "warnings": [
   {
@@ -137,20 +143,70 @@
    "source": "machine profile",
    "severity": "warning",
    "message": "This machine profile has no needle count; the number of thread colours was not checked."
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c22: column is very narrow (1.0 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c23: column is very narrow (1.0 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c24: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c25: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c26: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c27: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c28: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "r15: stitched before fill f16 which overlaps it - the fill will cover it. Move it after the fill."
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "r19: stitched before fill f20 which overlaps it - the fill will cover it. Move it after the fill."
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "r5: stitched before fill f6 which overlaps it - the fill will cover it. Move it after the fill."
   }
  ],
  "file": {
-  "sha256": "569b9875f9e66eb3f2921ff21507c4279625582e1358d00619d27458a5db2e20",
-  "bytes": 4655,
+  "sha256": "6c85a879deb8cd079a17959c4b815e96d58b712b08b6d14077e82b489b37bf3f",
+  "bytes": 7049,
   "format": "dst"
  },
  "engine_version": "0.9.0",
- "exported_utc": "2026-11-19T08:01:07+00:00",
+ "exported_utc": "2026-11-19T08:10:10+00:00",
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 1301
+   "stitches": 2051
   },
   {
    "stage": "validate",
@@ -175,19 +231,19 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 1381
+   "records": 2179
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 1301,
-   "jump": 22,
+   "stitch": 2051,
+   "jump": 37,
    "color_change": 1,
-   "trim_jumps": 42,
+   "trim_jumps": 69,
    "end": 1,
    "size_mm": [
-    50.4,
-    51.2
+    81.0,
+    67.0
    ]
   },
   {

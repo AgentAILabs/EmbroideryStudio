@@ -1,4 +1,4 @@
-"""Blue maggam blouse set - ORIGINAL designs in the style of the reference photos (royal-blue silk, mint-green and copper thread):
+"""Blue maggam blouse set (v2) - ORIGINAL designs in the style of the reference photos (royal-blue silk, mint-green and copper thread):
 six-petal daisies with copper centres, floral vine sprays with leaves / buds / copper sprigs, a pair of facing birds with paisley tails,
 a mint satin neckline band edged with copper bead dots. Hand-digitized as vector objects, NOT traced from the photos (the photos carry a
 designer's watermark; their artwork is not copied).
@@ -96,15 +96,30 @@ def bez(p0, p1, p2, p3, n=12):
 
 
 # ---------------------------------------------------------------- motifs (local coordinates)
-def daisy(b, cx, cy, R0=9.0, petals=6, rot=0.0, name="Daisy"):
-    """Six wide mint satin petals around a copper centre; every petal runs out on a centre-run underlay and its satin comes back."""
-    rin = 2.4
+def unit(a): return math.cos(a), math.sin(a)
+
+
+def daisy(b, cx, cy, R0=9.0, petals=7, rot=0.0, name="Daisy"):
+    """Long tapered mint petals (7) around a copper centre with a copper ring on the larger flowers. Every petal runs out on a centre-run underlay and its satin comes back."""
+    rin = max(1.8, R0 * 0.26)
     for k in range(petals):
         ang = rot + 2 * math.pi * k / petals
-        w = min(R0 * 0.52, 2 * math.pi * (rin + R0) / 2 / petals * 0.95)
-        a, c = petal_rails(cx, cy, ang, rin + 0.1, R0, w, n=7, tip=0.55)
+        w = min(R0 * 0.40, 2 * math.pi * (rin + R0 * 0.4) / petals * 0.92)
+        a, c = petal_rails(cx, cy, ang, rin + 0.1, R0, w, n=8, tip=0.30)
         col(b, f"{name} petal", MINT, a, c, underlay="center", end_at_start=True)
-    fill(b, f"{name} centre", COPPER, ellipse(cx, cy, max(1.5, R0 * 0.27), max(1.5, R0 * 0.27), n=20), underlay="none")
+    fill(b, f"{name} centre", COPPER, ellipse(cx, cy, rin, rin, n=20), underlay="none")
+    if R0 >= 8:
+        run(b, f"{name} centre ring", COPPER, ellipse(cx, cy, rin + 1.1, rin + 1.1, n=24) + [ellipse(cx, cy, rin + 1.1, rin + 1.1, n=24)[0]], stitch_len=1.8)
+
+
+def curved_leaf(b, x0, y0, ang, L, W, bend=0.25, color=MINT, name="Leaf"):
+    """Comma-shaped leaf: a bent centre line, widest in the first third, both ends meeting in a point."""
+    ux, uy = unit(ang); nx, ny = -uy, ux
+    cl = bez((x0, y0), (x0 + ux * L * 0.35 + nx * bend * L * 0.55, y0 + uy * L * 0.35 + ny * bend * L * 0.55),
+             (x0 + ux * L * 0.75 + nx * bend * L * 0.45, y0 + uy * L * 0.75 + ny * bend * L * 0.45), (x0 + ux * L + nx * bend * L * 0.2, y0 + uy * L + ny * bend * L * 0.2), 10)
+    a, c = ribbon(cl, lambda t: W * math.sin(math.pi * min(1.0, t ** 0.8)) ** 0.9)
+    a[0] = c[0] = cl[0]; a[-1] = c[-1] = cl[-1]
+    col(b, name, color, a, c, underlay="center", end_at_start=True)
 
 
 def leaf(b, x0, y0, ang, L, W, color=MINT, name="Leaf"):
@@ -112,69 +127,103 @@ def leaf(b, x0, y0, ang, L, W, color=MINT, name="Leaf"):
     col(b, name, color, a, c, underlay="center", end_at_start=True)
 
 
-def sprig(b, x0, y0, ang, L=14.0, pairs=3, name="Copper sprig"):
-    """Copper fern-like sprig: stem + pairs of narrow leaflets + tip."""
-    ux, uy = math.cos(ang), math.sin(ang)
+def sprig(b, x0, y0, ang, L=14.0, pairs=4, name="Copper fern"):
+    """Copper fern: stem + pairs of narrow leaflets + tip. Leaflets get shorter towards the tip."""
+    ux, uy = unit(ang)
     run(b, f"{name} stem", COPPER, [(x0 + ux * L * t, y0 + uy * L * t) for t in (0, 0.25, 0.5, 0.75, 1.0)], stitch_len=2.0)
     for i in range(pairs):
-        t = 0.3 + 0.5 * i / max(1, pairs - 1); px, py = x0 + ux * L * t, y0 + uy * L * t
+        t = 0.22 + 0.62 * i / max(1, pairs - 1); px, py = x0 + ux * L * t, y0 + uy * L * t
+        ll = L * (0.38 - 0.06 * i)
         for side in (-1, 1):
-            leaf(b, px, py, ang + side * math.radians(50), L * 0.34, max(1.6, L * 0.11), COPPER, f"{name} leaflet")
-    leaf(b, x0 + ux * L * 0.9, y0 + uy * L * 0.9, ang, L * 0.3, 1.8, COPPER, f"{name} tip")
+            leaf(b, px, py, ang + side * math.radians(52), ll, max(1.5, ll * 0.30), COPPER, f"{name} leaflet")
+    leaf(b, x0 + ux * L * 0.9, y0 + uy * L * 0.9, ang, L * 0.26, 1.6, COPPER, f"{name} tip")
 
 
-def bud(b, x0, y0, ang, L=6.0, name="Copper bud"):
-    ux, uy = math.cos(ang), math.sin(ang)
+def bud(b, x0, y0, ang, L=8.0, name="Copper bud"):
+    ux, uy = unit(ang)
     run(b, f"{name} stem", COPPER, [(x0, y0), (x0 + ux * L * 0.5, y0 + uy * L * 0.5)], stitch_len=1.8)
-    fill(b, name, COPPER, ellipse(x0 + ux * L * 0.78, y0 + uy * L * 0.78, 1.5, L * 0.32, ang + math.pi / 2, 14), underlay="none")
+    fill(b, name, COPPER, ellipse(x0 + ux * L * 0.78, y0 + uy * L * 0.78, 1.7, L * 0.34, ang + math.pi / 2, 14), underlay="none")
 
 
-def vine_spray(b, L=110.0, flip=False):
-    """Vertical floral vine: wavy mint stem, daisies alternating left / right, mint leaves, copper buds and sprigs."""
-    s = -1 if flip else 1
-    stem = [(s * 5.0 * math.sin(2 * math.pi * 1.25 * t), -L / 2 + L * t) for t in [k / 24 for k in range(25)]]
-    a, c = ribbon(stem, lambda t: 1.5)
-    col(b, "Vine stem", MINT, a, c, underlay="none")
+def rosette(b, cx, cy, R0=3.6, name="Copper rosette"):
+    """Tiny copper five-lobed flower (five small filled lobes round a centre)."""
+    for k in range(5):
+        a = 2 * math.pi * k / 5 + 0.3
+        fill(b, f"{name} lobe", COPPER, ellipse(cx + math.cos(a) * R0 * 0.62, cy + math.sin(a) * R0 * 0.62, R0 * 0.42, R0 * 0.42, n=12), underlay="none")
 
-    def pos(t):
-        i = min(len(stem) - 1, int(t * (len(stem) - 1))); return stem[i]
-    for k, (t, R0) in enumerate(((0.10, 7.5), (0.34, 8.5), (0.58, 7.8), (0.82, 8.5))):
-        px, py = pos(t); side = -1 if k % 2 == 0 else 1
-        daisy(b, px + side * 9.0, py, R0, rot=0.3 * k, name=f"Vine daisy {k + 1}")
-    for k, t in enumerate((0.05, 0.22, 0.46, 0.70, 0.93)):
-        px, py = pos(t); side = 1 if k % 2 == 0 else -1
-        leaf(b, px, py, math.radians(-90 + side * 55), 11.0, 4.2, MINT, f"Vine leaf {k + 1}")
-    for k, t in enumerate((0.16, 0.40, 0.64, 0.88)):
-        px, py = pos(t); side = 1 if k % 2 == 0 else -1
-        sprig(b, px + side * 2, py, math.radians(-90 + side * 38), 13.0, 3, f"Vine sprig {k + 1}")
-        bud(b, px - side * 3, py + 3, math.radians(-90 - side * 30), 6.0, f"Vine bud {k + 1}")
+
+def path_len(path): return sum(math.hypot(q[0] - p[0], q[1] - p[1]) for p, q in zip(path, path[1:]))
+
+
+def path_at(path, s):
+    """(point, tangent angle) at arclength s along the polyline."""
+    acc = 0.0
+    for p, q in zip(path, path[1:]):
+        d = math.hypot(q[0] - p[0], q[1] - p[1])
+        if acc + d >= s and d > 0:
+            t = (s - acc) / d
+            return (p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t), math.atan2(q[1] - p[1], q[0] - p[0])
+        acc += d
+    p, q = path[-2], path[-1]
+    return q, math.atan2(q[1] - p[1], q[0] - p[0])
+
+
+def garland(b, path, step=32.0, first_side=1, name="Garland"):
+    """Continuous floral vine along `path`: wavy mint stem, big daisies alternating sides, curved leaves, copper buds / ferns / rosettes, small mint flowers."""
+    total = path_len(path)
+    stem = []
+    n = int(total / 2.0)
+    for k in range(n + 1):
+        (px, py), th = path_at(path, min(total, k * total / n)); nx, ny = -math.sin(th), math.cos(th)
+        w = 3.2 * math.sin(2 * math.pi * (k * total / n) / 70.0)
+        stem.append((px + nx * w, py + ny * w))
+    a, c = ribbon(stem, lambda t: 1.6)
+    col(b, f"{name} stem", MINT, a, c, underlay="none")
+    k, s = 0, step * 0.5
+    while s < total - step * 0.35:
+        side = first_side * (1 if k % 2 == 0 else -1)
+        (px, py), th = path_at(path, s); nx, ny = -math.sin(th), math.cos(th); ux, uy = math.cos(th), math.sin(th)
+        R0 = 11.0 if k % 2 == 0 else 9.5
+        daisy(b, px + nx * side * (R0 + 2.0), py + ny * side * (R0 + 2.0), R0, rot=0.4 * k, name=f"{name} daisy")
+        (qx, qy), _ = path_at(path, min(total, s + step * 0.30))
+        curved_leaf(b, qx, qy, th - side * math.radians(50), 15.0, 5.6, bend=0.3 * side, name=f"{name} leaf")
+        (rx, ry), _ = path_at(path, min(total, s + step * 0.42))
+        sprig(b, rx - nx * side * 2, ry - ny * side * 2, th - side * math.radians(38), 15.0, 4, f"{name} fern")
+        bud(b, rx + nx * side * 2, ry + ny * side * 2, th + side * math.radians(42), 8.5, f"{name} bud")
+        (tx, ty), _ = path_at(path, min(total, s + step * 0.60))
+        daisy(b, tx - nx * side * 13.0, ty - ny * side * 13.0, 3.8, petals=5, rot=0.2 * k, name=f"{name} small flower")
+        rosette(b, tx + nx * side * 12.0, ty + ny * side * 12.0, 3.6, f"{name} rosette")
+        (vx, vy), _ = path_at(path, min(total, s + step * 0.78))
+        curved_leaf(b, vx, vy, th + side * math.radians(55), 11.0, 4.2, bend=-0.3 * side, name=f"{name} small leaf")
+        k += 1; s += step
 
 
 def bird(b, facing=1, name="Bird"):
-    """A bird with a curled paisley tail, facing right (+1) or left (-1). ~48 x 46 mm."""
+    """A duck-like bird with a large paisley tail, layered wing, S-neck and a crested head, facing right (+1) or left (-1). ~66 x 66 mm."""
     with b.at(mirror=(facing < 0)):
-        # swirl base under the bird (mint) with a copper outline line
-        cl = bez((-24, 10), (-10, 18), (10, 17), (26, 4))
-        a, c = ribbon(cl, lambda t: 1.0 + 4.2 * math.sin(math.pi * t) ** 0.8)
+        base = bez((-31, 14), (-12, 25), (12, 23), (33, 4))
+        a, c = ribbon(base, lambda t: 1.0 + 5.4 * math.sin(math.pi * t) ** 0.8)
         col(b, f"{name} swirl", MINT, a, c, underlay="center")
-        run(b, f"{name} swirl line", COPPER, [(x, y + 5.6) for x, y in bez((-22, 12), (-8, 20), (10, 19), (25, 7))], stitch_len=2.2)
-        # tail: big paisley curl up and back
-        tail = bez((-5, 3), (-24, 4), (-26, -16), (-12, -22)) + bez((-12, -22), (-5, -25), (-2, -17), (-9, -14))[1:]
-        a, c = ribbon(tail, lambda t: 1.2 + 5.5 * math.sin(math.pi * min(1.0, t * 1.05)) ** 0.7 * (1 - 0.35 * t))
+        run(b, f"{name} swirl line 1", COPPER, bez((-29, 18), (-12, 29), (12, 27), (32, 9)), stitch_len=2.2)
+        run(b, f"{name} swirl line 2", COPPER, bez((-27, 21), (-12, 33), (12, 31), (31, 12)), stitch_len=2.2)
+        tail = bez((-8, 2), (-35, 6), (-38, -21), (-17, -31)) + bez((-17, -31), (-6, -35), (1, -22), (-11, -17))[1:]
+        a, c = ribbon(tail, lambda t: 1.5 + 5.0 * math.sin(math.pi * min(1.0, t * 1.05)) ** 0.7 * (1 - 0.3 * t))
         col(b, f"{name} tail", MINT, a, c, underlay="center")
-        fill(b, f"{name} tail eye", COPPER, ellipse(-15, -13, 1.9, 3.4, 0.5, 16), underlay="none")
-        # body, neck, head
-        fill(b, f"{name} body", MINT, ellipse(2, 3, 11.5, 6.8, -0.12, 28), underlay="tatami")
-        neck = bez((7, 0), (12, -4), (11, -10), (12, -16))
-        a, c = ribbon(neck, lambda t: 5.2 - 2.2 * t)
+        run(b, f"{name} tail inner line", COPPER, tail[3:-5], stitch_len=2.2)
+        fill(b, f"{name} tail drop", COPPER, ellipse(-18, -19, 2.1, 4.4, 0.55, 16), underlay="none")
+        fill(b, f"{name} body", MINT, ellipse(2, 4, 14.5, 8.8, -0.10, 30), underlay="tatami")
+        for i, dy in enumerate((0, 3.6, 7.2)):                                                     # layered wing feathers
+            run(b, f"{name} wing {i + 1}", COPPER, bez((-9 + i, 1 + dy), (-4, -3 + dy), (4, -3 + dy), (10 - i, 1 + dy), 8), stitch_len=2.0)
+        neck = bez((11, 0), (19, -4), (15, -13), (18, -21))
+        a, c = ribbon(neck, lambda t: 6.0 - 2.6 * t)
         col(b, f"{name} neck", MINT, a, c, underlay="center")
-        fill(b, f"{name} head", MINT, ellipse(12.5, -18.5, 3.4, 3.1, 0, 18), underlay="none")
-        fill(b, f"{name} beak", COPPER, [(15.4, -19.6), (20.0, -17.0), (15.6, -16.6)], underlay="none")
-        for dx, dy in ((10.5, -27), (13.0, -28.5), (15.5, -26.5)):                    # crest
-            run(b, f"{name} crest", COPPER, [(12.5 + (dx - 12.5) * 0.35, -21.4), (dx, dy)], stitch_len=1.6)
-        # wing lines
-        run(b, f"{name} wing 1", COPPER, bez((-6, 1), (-2, -3), (4, -3), (9, 1), 8), stitch_len=2.0)
-        run(b, f"{name} wing 2", COPPER, bez((-5, 5), (-1, 1), (4, 1), (8, 5), 8), stitch_len=2.0)
+        fill(b, f"{name} head", MINT, ellipse(18.5, -24, 4.6, 4.0, 0, 20), underlay="none")
+        fill(b, f"{name} beak", COPPER, [(22.5, -25.2), (28.8, -22.0), (22.8, -21.6)], underlay="none")
+        fill(b, f"{name} eye", COPPER, ellipse(19.8, -24.6, 0.9, 0.9, n=10), underlay="none")
+        for tip in ((13.0, -36.0), (18.5, -37.5), (24.0, -35.0)):                                  # crest plumes with bead tips
+            run(b, f"{name} crest", COPPER, [(18.5 + (tip[0] - 18.5) * 0.3, -27.4), tip], stitch_len=1.6)
+            fill(b, f"{name} crest bead", COPPER, ellipse(tip[0], tip[1], 1.0, 1.0, n=10), underlay="none")
+        sprig(b, -33, -2, math.radians(205), 14.0, 3, f"{name} tail sprig")
 
 
 def band_points(path, step):
@@ -196,23 +245,29 @@ def offset(path, dist):
     return out
 
 
-def neck_band(b, path, name="Neck band"):
-    """Mint satin band with a row of copper bead dots on its outer side and thin copper lines either side."""
-    b.o.append({"id": b.id("s"), "type": "satin", "color": MINT, "name": f"{name} mint satin", "points": b.pts(path), "params": {"width": 3.2, "spacing": 0.30}})
-    run(b, f"{name} inner line", COPPER, offset(path, -2.6), stitch_len=2.2)
-    run(b, f"{name} outer line", COPPER, offset(path, 2.6), stitch_len=2.2)
-    dots = band_points(offset(path, 4.6), 2.8)
+def bead_row(b, path, dist, step=2.4, shift=0.0, name="Bead"):
+    dots = band_points(offset(path, dist), step)
     for i, p in enumerate(dots):
         q0, q1 = dots[max(i - 1, 0)], dots[min(i + 1, len(dots) - 1)]
         tx, ty = q1[0] - q0[0], q1[1] - q0[1]; l = math.hypot(tx, ty) or 1.0; tx, ty = tx / l, ty / l; nx, ny = -ty, tx
-        a = [(p[0] - tx * 0.8 + nx * 0.8, p[1] - ty * 0.8 + ny * 0.8), (p[0] + tx * 0.8 + nx * 0.8, p[1] + ty * 0.8 + ny * 0.8)]
-        c = [(p[0] - tx * 0.8 - nx * 0.8, p[1] - ty * 0.8 - ny * 0.8), (p[0] + tx * 0.8 - nx * 0.8, p[1] + ty * 0.8 - ny * 0.8)]
-        col(b, f"{name} bead dot", COPPER, a, c, underlay="none")
+        a = [(p[0] - tx * 0.7 + nx * 0.9, p[1] - ty * 0.7 + ny * 0.9), (p[0] + tx * 0.7 + nx * 0.9, p[1] + ty * 0.7 + ny * 0.9)]
+        c = [(p[0] - tx * 0.7 - nx * 0.9, p[1] - ty * 0.7 - ny * 0.9), (p[0] + tx * 0.7 - nx * 0.9, p[1] + ty * 0.7 - ny * 0.9)]
+        col(b, f"{name} dot", COPPER, a, c, underlay="none")
 
 
-def u_path(half_w=65.0, side=70.0, step=2.0):
+def neck_band(b, path, name="Neck band"):
+    """6 mm mint satin band; copper line inside; outside: copper line, two staggered rows of copper bead dots, copper line."""
+    b.o.append({"id": b.id("s"), "type": "satin", "color": MINT, "name": f"{name} mint satin", "points": b.pts(path), "params": {"width": 6.0, "spacing": 0.30}})
+    run(b, f"{name} inner line", COPPER, offset(path, -4.2), stitch_len=2.2)
+    run(b, f"{name} outer line 1", COPPER, offset(path, 4.2), stitch_len=2.2)
+    bead_row(b, path, 6.4, name=f"{name} bead row 1")
+    bead_row(b, path, 8.9, name=f"{name} bead row 2")
+    run(b, f"{name} outer line 2", COPPER, offset(path, 11.1), stitch_len=2.2)
+
+
+def u_path(half_w=80.0, side=175.0, step=2.0):
     left = [(-half_w, -side + k * step) for k in range(int(side / step))]
-    arc = [(half_w * math.cos(math.pi - math.pi * k / 40), half_w * math.sin(math.pi - math.pi * k / 40)) for k in range(41)]
+    arc = [(half_w * math.cos(math.pi - math.pi * k / 48), half_w * math.sin(math.pi - math.pi * k / 48)) for k in range(49)]
     right = [(half_w, (k + 1) * -step) for k in range(int(side / step))]
     return left + arc + right
 
@@ -232,48 +287,62 @@ def daisy_large():
 
 
 def daisy_small():
-    b = B(); daisy(b, 0, 0, 5.2, name="Small daisy"); return D("blue_daisy_small", b, 100, 100)
+    b = B(); daisy(b, 0, 0, 5.2, petals=6, name="Small daisy"); return D("blue_daisy_small", b, 100, 100)
 
 
 def copper_sprig():
-    b = B(); sprig(b, 0, 14, math.radians(-90), 28.0, 4); return D("blue_copper_sprig", b, 100, 100)
+    b = B(); sprig(b, 0, 18, math.radians(-90), 34.0, 5); return D("blue_copper_sprig", b, 100, 100)
 
 
 def vine():
-    b = B(); vine_spray(b, 110.0); return D("blue_floral_vine_spray", b, 130, 160)
+    b = B(); garland(b, [(0.0, -62.0 + k * 2.0) for k in range(63)], step=34.0); return D("blue_floral_vine_spray", b, 150, 190)
+
+
+def daisy_scatter():
+    b = B()
+    for i, (x, y, r) in enumerate(((-60, -45, 7.5), (0, -45, 7.5), (60, -45, 7.5), (-30, 0, 7.5), (30, 0, 7.5), (-60, 45, 7.5), (0, 45, 7.5), (60, 45, 7.5))):
+        daisy(b, x, y, r, rot=0.35 * i, name=f"Scatter daisy {i + 1}")
+    return D("blue_daisy_scatter_set", b, 200, 160)
 
 
 def bird_single():
-    b = B(); bird(b, 1); return D("blue_peacock_single", b, 100, 100)
+    b = B(); bird(b, 1); return D("blue_peacock_single", b, 120, 120)
+
+
+def bird_pair_into(b):
+    with b.at(-38, 0): bird(b, 1, "Left bird")
+    with b.at(38, 0): bird(b, -1, "Right bird")
+    daisy(b, 0, -4, 8.5, name="Centre daisy")
+    daisy(b, -13, -19, 3.6, petals=5, name="Centre small flower L"); daisy(b, 13, -19, 3.6, petals=5, name="Centre small flower R")
+    sprig(b, -3, 24, math.radians(-118), 16.0, 4, "Base fern L"); sprig(b, 3, 24, math.radians(-62), 16.0, 4, "Base fern R")
+    rosette(b, 0, 12, 3.4, "Centre rosette")
 
 
 def bird_pair():
-    b = B()
-    with b.at(-25, 0): bird(b, 1, "Left bird")
-    with b.at(25, 0): bird(b, -1, "Right bird")
-    daisy(b, 0, -3, 7.5, name="Centre daisy")
-    sprig(b, -6, 24, math.radians(-110), 12.0, 3, "Base sprig L"); sprig(b, 6, 24, math.radians(-70), 12.0, 3, "Base sprig R")
-    return D("blue_peacock_pair", b, 130, 100)
+    b = B(); bird_pair_into(b); return D("blue_peacock_pair", b, 200, 130)
 
 
 def neck_border():
-    b = B(); neck_band(b, [(-70 + k * 2.0, 0.0) for k in range(71)]); return D("blue_neck_border_band", b, 200, 60)
+    b = B(); neck_band(b, [(-80 + k * 2.0, 0.0) for k in range(81)]); return D("blue_neck_border_band", b, 220, 80)
 
 
 def front_neck():
     b = B()
-    neck_band(b, u_path())
-    with b.at(-97, -10): vine_spray(b, 100.0)
-    with b.at(97, -10): vine_spray(b, 100.0, flip=True)
-    for sgn in (-1, 1):
-        with b.at(sgn * 80, 66, rot=sgn * -62): vine_spray(b, 58.0, flip=(sgn > 0))
-    with b.at(0, 122):
-        with b.at(-25, 0): bird(b, 1, "Left bird")
-        with b.at(25, 0): bird(b, -1, "Right bird")
-        daisy(b, 0, -3, 7.5, name="Centre daisy")
-    for x, y, r in ((-122, 40, 4.8), (122, 40, 4.8), (-70, 150, 5.2), (70, 150, 5.2), (-112, 100, 4.8), (112, 100, 4.8)):
-        daisy(b, x, y, r, name="Scatter daisy")
-    return D("blue_front_neck_full", b, 300, 300)
+    path = u_path()
+    neck_band(b, path)
+    outer = offset(path, 34.0)
+    left_len = 175.0 + math.pi * 80.0 * 0.58                                  # down the side and round ~58 % of the curve, then the birds take over
+    left = []
+    acc = 0.0
+    for p, q in zip(outer, outer[1:]):
+        left.append(p); acc += math.hypot(q[0] - p[0], q[1] - p[1])
+        if acc > left_len: break
+    garland(b, left, step=34.0, name="Left garland")
+    with b.at(mirror=True): garland(b, left, step=34.0, name="Right garland")
+    with b.at(0, 160): bird_pair_into(b)
+    for i, (x, y, r) in enumerate(((-150, -60, 7.5), (150, -60, 7.5), (-152, 50, 7.5), (152, 50, 7.5), (-120, 190, 7.5), (120, 190, 7.5), (-60, 232, 7.5), (60, 232, 7.5), (0, 248, 7.5))):
+        daisy(b, x, y, r, rot=0.3 * i, name=f"Body daisy {i + 1}")
+    return D("blue_front_neck_full", b, 360, 480)
 
 
 # ---------------------------------------------------------------- pipeline
@@ -304,7 +373,7 @@ def write(d, out: Path, log):
 def cli(argv):
     out = Path(argv[0]) if argv else ROOT / "designs" / "blue_set"
     ok = True
-    for make in (daisy_large, daisy_small, copper_sprig, vine, bird_pair, neck_border, front_neck):
+    for make in (daisy_large, daisy_small, daisy_scatter, copper_sprig, vine, bird_pair, neck_border, front_neck):
         d, log = finish(make())
         ok &= bool(write(d, out, log)["export_allowed"])
     d, log = finish(bird_single())

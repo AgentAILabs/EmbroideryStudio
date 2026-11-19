@@ -2,15 +2,15 @@
  "engine_version": "0.9.0",
  "contract_version": "1.0",
  "format": "dst",
- "exported_utc": "2026-11-19T08:01:02+00:00",
- "sha256": "ea6bcbbb10139e50cff6bd464734179c343f13d805a41fe91265b5659f99e660",
- "bytes": 923,
- "records": 137,
+ "exported_utc": "2026-11-19T08:09:42+00:00",
+ "sha256": "6647213c708191370641c730578d687f17ef338660f6ac0fb812d31f9b6c0afe",
+ "bytes": 965,
+ "records": 151,
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 122
+   "stitches": 136
   },
   {
    "stage": "validate",
@@ -25,7 +25,7 @@
   {
    "stage": "checklist",
    "result": "PASS",
-   "passed": "15/15"
+   "passed": "14/15"
   },
   {
    "stage": "machine-profile",
@@ -35,19 +35,19 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 137
+   "records": 151
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 122,
+   "stitch": 136,
    "jump": 7,
    "color_change": 1,
    "trim_jumps": 6,
    "end": 1,
    "size_mm": [
     10.4,
-    9.8
+    9.4
    ]
   },
   {
@@ -57,7 +57,7 @@
   }
  ],
  "counts": {
-  "stitch": 122,
+  "stitch": 136,
   "jump": 7,
   "color_change": 1,
   "trim_jumps": 6,
@@ -65,16 +65,16 @@
  },
  "size_mm": [
   10.4,
-  9.8
+  9.4
  ],
  "quality": {
-  "score": 91,
+  "score": 92,
   "categories": {
    "geometry": 100,
-   "stitch_length": 43,
+   "stitch_length": 49,
    "density": 100,
    "underlay": 100,
-   "path": 87,
+   "path": 90,
    "jump_trim": 100,
    "hoop": 100,
    "dst_format": 100
@@ -87,7 +87,7 @@
    "carried": 5,
    "colour change": 1
   },
-  "jump_mm": 13.8,
+  "jump_mm": 9.9,
   "trims": 2,
   "colour_changes": 1,
   "distinct_threads": 2,

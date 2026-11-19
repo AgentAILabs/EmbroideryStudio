@@ -11,16 +11,27 @@
    "log": [],
    "status": "ok",
    "grade": "PASS",
-   "stitches": 1301,
+   "stitches": 2053,
    "colours": 2,
-   "trims": 14,
+   "trims": 23,
    "size_mm": [
-    50.44,
-    51.27
+    80.91,
+    67.03
    ],
-   "minutes": 3.6,
-   "sha256": "39bca6f924e32a59e63c777eed7ba22473ceaf99909a4ed36bdaa07298bc8b6a",
-   "notes": []
+   "minutes": 5.6,
+   "sha256": "37912169b4cf2cdd159bf027a10470ac418db7bb0dda900657f610af1067bbd0",
+   "notes": [
+    "c22: column is very narrow (1.0 mm)",
+    "c23: column is very narrow (1.0 mm)",
+    "c24: column is very narrow (0.9 mm)",
+    "c25: column is very narrow (0.9 mm)",
+    "c26: column is very narrow (0.9 mm)",
+    "c27: column is very narrow (0.9 mm)",
+    "c28: column is very narrow (0.9 mm)",
+    "r15: stitched before fill f16 which overlaps it - the fill will cover it. Move it after the fill.",
+    "r19: stitched before fill f20 which overlaps it - the fill will cover it. Move it after the fill.",
+    "r5: stitched before fill f6 which overlaps it - the fill will cover it. Move it after the fill."
+   ]
   },
   {
    "placement": "right",
@@ -33,16 +44,27 @@
    ],
    "status": "ok",
    "grade": "PASS",
-   "stitches": 1301,
+   "stitches": 2051,
    "colours": 2,
-   "trims": 14,
+   "trims": 23,
    "size_mm": [
-    50.44,
-    51.27
+    80.91,
+    67.03
    ],
-   "minutes": 3.6,
-   "sha256": "569b9875f9e66eb3f2921ff21507c4279625582e1358d00619d27458a5db2e20",
-   "notes": []
+   "minutes": 5.6,
+   "sha256": "6c85a879deb8cd079a17959c4b815e96d58b712b08b6d14077e82b489b37bf3f",
+   "notes": [
+    "c22: column is very narrow (1.0 mm)",
+    "c23: column is very narrow (1.0 mm)",
+    "c24: column is very narrow (0.9 mm)",
+    "c25: column is very narrow (0.9 mm)",
+    "c26: column is very narrow (0.9 mm)",
+    "c27: column is very narrow (0.9 mm)",
+    "c28: column is very narrow (0.9 mm)",
+    "r15: stitched before fill f16 which overlaps it - the fill will cover it. Move it after the fill.",
+    "r19: stitched before fill f20 which overlaps it - the fill will cover it. Move it after the fill.",
+    "r5: stitched before fill f6 which overlaps it - the fill will cover it. Move it after the fill."
+   ]
   }
  ]
 }

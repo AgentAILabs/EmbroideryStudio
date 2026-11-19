@@ -2,20 +2,20 @@
  "engine_version": "0.9.0",
  "contract_version": "1.0",
  "format": "dst",
- "exported_utc": "2026-11-19T08:01:02+00:00",
- "sha256": "408d3916afb12337dde280dbf37801a9b2a6869aca3417b6286fc9d23517c6f5",
- "bytes": 7529,
- "records": 2339,
+ "exported_utc": "2026-11-19T08:09:43+00:00",
+ "sha256": "1e8088aaba2e03ebe08f4a4e5321973147e064e2911ffc82009d367f46a613ba",
+ "bytes": 10487,
+ "records": 3325,
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 2138
+   "stitches": 3077
   },
   {
    "stage": "validate",
    "result": "PASS",
-   "warnings": 0
+   "warnings": 30
   },
   {
    "stage": "geometry",
@@ -25,7 +25,7 @@
   {
    "stage": "checklist",
    "result": "PASS",
-   "passed": "15/15"
+   "passed": "14/15"
   },
   {
    "stage": "machine-profile",
@@ -35,19 +35,19 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 2339
+   "records": 3325
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 2138,
-   "jump": 62,
+   "stitch": 3077,
+   "jump": 94,
    "color_change": 1,
-   "trim_jumps": 102,
+   "trim_jumps": 123,
    "end": 1,
    "size_mm": [
-    40.8,
-    111.8
+    43.8,
+    124.2
    ]
   },
   {
@@ -57,24 +57,24 @@
   }
  ],
  "counts": {
-  "stitch": 2138,
-  "jump": 62,
+  "stitch": 3077,
+  "jump": 94,
   "color_change": 1,
-  "trim_jumps": 102,
+  "trim_jumps": 123,
   "end": 1
  },
  "size_mm": [
-  40.8,
-  111.8
+  43.8,
+  124.2
  ],
  "quality": {
   "score": 92,
   "categories": {
    "geometry": 100,
-   "stitch_length": 71,
+   "stitch_length": 60,
    "density": 100,
-   "underlay": 98,
-   "path": 71,
+   "underlay": 96,
+   "path": 78,
    "jump_trim": 100,
    "hoop": 100,
    "dst_format": 100
@@ -84,18 +84,18 @@
  },
  "travel": {
   "verdicts": {
-   "trimmed": 32,
-   "carried": 28,
+   "trimmed": 39,
+   "carried": 53,
    "colour change": 1
   },
-  "jump_mm": 655.1,
-  "trims": 34,
+  "jump_mm": 669.2,
+  "trims": 41,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 208.6
+  "estimated_travel_seconds": 250.7
  },
  "validation": {
   "software": "PASSED: plan -> file -> decode -> compare (kind, count, position, size, orientation)",

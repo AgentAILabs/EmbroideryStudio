@@ -3,10 +3,10 @@
  "design": {
   "name": "blue_daisy_large",
   "size_mm": [
-   22.0,
-   20.8
+   21.2,
+   21.6
   ],
-  "objects": 7
+  "objects": 9
  },
  "machine_profile": {
   "id": "generic_tajima_dst",
@@ -36,18 +36,18 @@
   "thread": "120"
  },
  "counts": {
-  "stitches": 282,
-  "jumps": 15,
-  "trims": 2,
-  "trim_jump_records": 6,
+  "stitches": 345,
+  "jumps": 10,
+  "trims": 3,
+  "trim_jump_records": 9,
   "colour_changes": 1,
-  "dst_records": 305
+  "dst_records": 366
  },
  "thread_sequence": [
   {
    "order": 1,
    "hex": "#3fd6b4",
-   "stitches": 221,
+   "stitches": 257,
    "objects": [
     "Large daisy petal"
    ]
@@ -55,18 +55,19 @@
   {
    "order": 2,
    "hex": "#b85a2b",
-   "stitches": 61,
+   "stitches": 88,
    "objects": [
-    "Large daisy centre"
+    "Large daisy centre",
+    "Large daisy centre ring"
    ]
   }
  ],
  "estimated_time": {
-  "minutes": 0.9,
+  "minutes": 1.1,
   "note": "Estimated machine time. Not verified on any machine; real time depends on the machine's speed settings."
  },
  "quality": {
-  "score": 91,
+  "score": 94,
   "categories": [
    {
     "name": "Geometry",
@@ -74,7 +75,7 @@
    },
    {
     "name": "Stitch length",
-    "score": 47
+    "score": 71
    },
    {
     "name": "Density",
@@ -82,11 +83,11 @@
    },
    {
     "name": "Underlay",
-    "score": 86
+    "score": 88
    },
    {
     "name": "Path optimisation",
-    "score": 96
+    "score": 95
    },
    {
     "name": "Jumps and trims",
@@ -105,17 +106,18 @@
  },
  "travel": {
   "verdicts": {
-   "carried": 13,
-   "colour change": 1
+   "carried": 7,
+   "colour change": 1,
+   "trimmed": 1
   },
-  "jump_mm": 19.4,
-  "trims": 2,
+  "jump_mm": 22.6,
+  "trims": 3,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 12.1
+  "estimated_travel_seconds": 18.2
  },
  "warnings": [
   {
@@ -130,17 +132,17 @@
   }
  ],
  "file": {
-  "sha256": "3c1017f8830bce30fc1aa533f7a0ef59993c9343fa0a372ad7caa2d4062bac6e",
-  "bytes": 1427,
+  "sha256": "3e143f63c8d2a889be1994df578a26d6091504ee24196f6da4e631d7596fe609",
+  "bytes": 1610,
   "format": "dst"
  },
  "engine_version": "0.9.0",
- "exported_utc": "2026-11-19T08:01:02+00:00",
+ "exported_utc": "2026-11-19T08:09:42+00:00",
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 282
+   "stitches": 345
   },
   {
    "stage": "validate",
@@ -165,19 +167,19 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 305
+   "records": 366
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 282,
-   "jump": 15,
+   "stitch": 345,
+   "jump": 10,
    "color_change": 1,
-   "trim_jumps": 6,
+   "trim_jumps": 9,
    "end": 1,
    "size_mm": [
-    22.0,
-    20.8
+    21.2,
+    21.6
    ]
   },
   {

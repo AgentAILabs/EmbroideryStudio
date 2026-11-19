@@ -1,9 +1,9 @@
 {
  "log": [
   "profile: Maggam blouse neck on Silk, thread 120 (starting values - confirm with a stitch-out)",
-  "set cut_hidden on 8 object(s), min_row on 8 object(s), pull_comp on 66 object(s), shorten on 58 object(s)",
+  "set cut_hidden on 24 object(s), min_row on 24 object(s), pull_comp on 94 object(s), shorten on 70 object(s)",
   "centred in the hoop",
-  "sequence optimised (motifs): trims 34 -> 34, travel 935 -> 655 mm (colour order and layering kept)"
+  "sequence optimised (motifs): trims 43 -> 41, travel 863 -> 669 mm (colour order and layering kept)"
  ],
  "items": [
   {
@@ -16,19 +16,19 @@
    "n": 2,
    "title": "Design dimensions within hoop limits",
    "level": "PASS",
-   "evidence": "40.85 x 111.82 mm in a 130 x 160 mm hoop (margin 8 mm)"
+   "evidence": "43.75 x 124.23 mm in a 150 x 190 mm hoop (margin 8 mm)"
   },
   {
    "n": 3,
    "title": "Satin columns have suitable widths",
    "level": "PASS",
-   "evidence": "58 satin/column object(s), widths 1.2-3.9 mm"
+   "evidence": "70 satin/column object(s), widths 1.2-4.1 mm"
   },
   {
    "n": 4,
    "title": "Fill density appropriate for fabric",
    "level": "PASS",
-   "evidence": "target ~0.24 mm line spacing for this fabric + thread; 8 fill(s) in range"
+   "evidence": "target ~0.24 mm line spacing for this fabric + thread; 24 fill(s) in range"
   },
   {
    "n": 5,
@@ -46,77 +46,77 @@
    "n": 7,
    "title": "No excessive overlapping stitches",
    "level": "PASS",
-   "evidence": "0% of the filled area is covered by more than one fill object"
+   "evidence": "4% of the filled area is covered by more than one fill object"
   },
   {
    "n": 8,
    "title": "No excessively short stitches",
-   "level": "PASS",
-   "evidence": "0 stitch(es) under 0.3 mm; 0.0% in clusters of 2+ stitches < 0.5 mm (2.5% incl. lone row turns and locks)"
+   "level": "WARN",
+   "evidence": "30 stitch(es) under 0.3 mm; 0.44% in clusters of 2+ stitches < 0.5 mm (5.63% incl. lone row turns and locks)"
   },
   {
    "n": 9,
    "title": "Long stitches appropriately split",
    "level": "PASS",
-   "evidence": "longest stitch 4.8 mm (machine profile max 7 mm, DST limit 12.1 mm)"
+   "evidence": "longest stitch 5.8 mm (machine profile max 7 mm, DST limit 12.1 mm)"
   },
   {
    "n": 10,
    "title": "No unintended long jumps",
    "level": "PASS",
-   "evidence": "every travel over 3 mm is trimmed (34 trims)"
+   "evidence": "every travel over 3 mm is trimmed (41 trims)"
   },
   {
    "n": 11,
    "title": "Thread trims and colour stops checked",
    "level": "PASS",
-   "evidence": "1 colour stop(s) for 2 colour block(s); 34 trims; trim at colour change on"
+   "evidence": "1 colour stop(s) for 2 colour block(s); 41 trims; trim at colour change on"
   },
   {
    "n": 12,
    "title": "Tie-in and tie-off points checked",
    "level": "PASS",
-   "evidence": "119 lock stitches of 1 mm; 34 tie-in(s) over 34 thread start(s); 28 carried continuation(s) need none"
+   "evidence": "142 lock stitches of 1 mm; 41 tie-in(s) over 41 thread start(s); 53 carried continuation(s) need none"
   },
   {
    "n": 13,
    "title": "Stitch count within production limits",
    "level": "PASS",
-   "evidence": "2138 stitches, ~6.8 min at 700 spm (limit 150,000)"
+   "evidence": "3077 stitches, ~8.8 min at 700 spm (limit 150,000)"
   },
   {
    "n": 14,
    "title": "DST header and command sequence validated",
    "level": "PASS",
-   "evidence": "container PASS, encoding PASS; 2339 records, sha256 408d3916afb1"
+   "evidence": "container PASS, encoding PASS; 3325 records, sha256 1e8088aaba2e"
   },
   {
    "n": 15,
    "title": "DST reopened and simulated successfully",
    "level": "PASS",
-   "evidence": "reopened: 2138 stitch records, ends with END=True; simulation PASS (span 40.8x111.8 mm)"
+   "evidence": "reopened: 3077 stitch records, ends with END=True; simulation PASS (span 43.8x124.2 mm)"
   }
  ],
- "passed": 15,
+ "passed": 14,
  "total": 15,
  "export_allowed": true,
  "verify_grade": "PASS",
  "stats": {
-  "stitches": 2138,
+  "stitches": 3077,
   "color_changes": 1,
-  "trims": 34,
-  "width_mm": 40.85,
-  "height_mm": 111.82,
-  "est_minutes": 6.8
+  "trims": 41,
+  "width_mm": 43.75,
+  "height_mm": 124.23,
+  "est_minutes": 8.8
  },
  "colour_sequence": [
   {
    "hex": "#3fd6b4",
-   "stitches": 1254
+   "stitches": 1707
   },
   {
    "hex": "#b85a2b",
-   "stitches": 884
+   "stitches": 1370
   }
  ]
 }

@@ -2,15 +2,15 @@
  "engine_version": "0.9.0",
  "contract_version": "1.0",
  "format": "dst",
- "exported_utc": "2026-11-19T08:01:03+00:00",
- "sha256": "3eb0a2de2f3096a02849e49c30f13f168a589ad50d3cce887b7bed533bf4e67f",
- "bytes": 3974,
- "records": 1154,
+ "exported_utc": "2026-11-19T08:09:45+00:00",
+ "sha256": "2ae5e4d6c542cb35baef1367de1b22cad61606786c21beec65124c9000cfdcc3",
+ "bytes": 6377,
+ "records": 1955,
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 1058
+   "stitches": 1767
   },
   {
    "stage": "validate",
@@ -35,19 +35,19 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 1154
+   "records": 1955
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 1058,
-   "jump": 55,
+   "stitch": 1767,
+   "jump": 139,
    "color_change": 1,
-   "trim_jumps": 12,
+   "trim_jumps": 15,
    "end": 1,
    "size_mm": [
-    141.6,
-    8.0
+    160.8,
+    15.2
    ]
   },
   {
@@ -57,24 +57,24 @@
   }
  ],
  "counts": {
-  "stitch": 1058,
-  "jump": 55,
+  "stitch": 1767,
+  "jump": 139,
   "color_change": 1,
-  "trim_jumps": 12,
+  "trim_jumps": 15,
   "end": 1
  },
  "size_mm": [
-  141.6,
-  8.0
+  160.8,
+  15.2
  ],
  "quality": {
-  "score": 78,
+  "score": 75,
   "categories": {
    "geometry": 100,
-   "stitch_length": 48,
+   "stitch_length": 21,
    "density": 100,
-   "underlay": 2,
-   "path": 74,
+   "underlay": 1,
+   "path": 79,
    "jump_trim": 100,
    "hoop": 100,
    "dst_format": 100
@@ -84,18 +84,18 @@
  },
  "travel": {
   "verdicts": {
-   "carried": 51,
+   "trimmed": 3,
    "colour change": 1,
-   "trimmed": 2
+   "carried": 134
   },
-  "jump_mm": 344.0,
-  "trims": 4,
+  "jump_mm": 638.2,
+  "trims": 5,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 26.4
+  "estimated_travel_seconds": 34.5
  },
  "validation": {
   "software": "PASSED: plan -> file -> decode -> compare (kind, count, position, size, orientation)",

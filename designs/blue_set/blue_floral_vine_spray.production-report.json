@@ -3,10 +3,10 @@
  "design": {
   "name": "blue_floral_vine_spray",
   "size_mm": [
-   40.8,
-   111.8
+   43.8,
+   124.2
   ],
-  "objects": 74
+  "objects": 103
  },
  "machine_profile": {
   "id": "generic_tajima_dst",
@@ -24,8 +24,8 @@
   "validation_statement": "NOT VALIDATED: no stitch-out evidence recorded for this machine. The checks below compare the design with the numbers above only."
  },
  "hoop_mm": {
-  "w": 130,
-  "h": 160,
+  "w": 150,
+  "h": 190,
   "margin": 8
  },
  "fabric": {
@@ -36,53 +36,45 @@
   "thread": "120"
  },
  "counts": {
-  "stitches": 2138,
-  "jumps": 62,
-  "trims": 34,
-  "trim_jump_records": 102,
+  "stitches": 3077,
+  "jumps": 94,
+  "trims": 41,
+  "trim_jump_records": 123,
   "colour_changes": 1,
-  "dst_records": 2339
+  "dst_records": 3325
  },
  "thread_sequence": [
   {
    "order": 1,
    "hex": "#3fd6b4",
-   "stitches": 1254,
+   "stitches": 1707,
    "objects": [
-    "Vine stem",
-    "Vine daisy 1 petal",
-    "Vine daisy 2 petal",
-    "Vine daisy 3 petal",
-    "Vine daisy 4 petal",
-    "Vine leaf 1",
-    "Vine leaf 2",
-    "Vine leaf 3",
-    "Vine leaf 4",
-    "Vine leaf 5"
+    "Garland stem",
+    "Garland daisy petal",
+    "Garland leaf",
+    "Garland small flower petal",
+    "Garland small leaf"
    ]
   },
   {
    "order": 2,
    "hex": "#b85a2b",
-   "stitches": 884,
+   "stitches": 1370,
    "objects": [
-    "Vine bud 4 stem",
-    "Vine bud 4",
-    "Vine daisy 4 centre",
-    "Vine sprig 4 stem",
-    "Vine sprig 4 leaflet",
-    "Vine sprig 4 tip",
-    "Vine bud 3 stem",
-    "Vine bud 3",
-    "Vine daisy 3 centre",
-    "Vine sprig 3 stem",
-    "Vine sprig 3 leaflet",
-    "Vine sprig 3 tip"
+    "Garland fern stem",
+    "Garland fern leaflet",
+    "Garland fern tip",
+    "Garland small flower centre",
+    "Garland bud stem",
+    "Garland bud",
+    "Garland rosette lobe",
+    "Garland daisy centre",
+    "Garland daisy centre ring"
    ]
   }
  ],
  "estimated_time": {
-  "minutes": 6.8,
+  "minutes": 8.8,
   "note": "Estimated machine time. Not verified on any machine; real time depends on the machine's speed settings."
  },
  "quality": {
@@ -94,7 +86,7 @@
    },
    {
     "name": "Stitch length",
-    "score": 71
+    "score": 60
    },
    {
     "name": "Density",
@@ -102,11 +94,11 @@
    },
    {
     "name": "Underlay",
-    "score": 98
+    "score": 96
    },
    {
     "name": "Path optimisation",
-    "score": 71
+    "score": 78
    },
    {
     "name": "Jumps and trims",
@@ -125,18 +117,18 @@
  },
  "travel": {
   "verdicts": {
-   "trimmed": 32,
-   "carried": 28,
+   "trimmed": 39,
+   "carried": 53,
    "colour change": 1
   },
-  "jump_mm": 655.1,
-  "trims": 34,
+  "jump_mm": 669.2,
+  "trims": 41,
   "colour_changes": 1,
   "distinct_threads": 2,
   "minimum_colour_changes": 1,
   "avoidable_colour_changes": 0,
   "carried_over_empty_mm": 0.0,
-  "estimated_travel_seconds": 208.6
+  "estimated_travel_seconds": 250.7
  },
  "warnings": [
   {
@@ -152,42 +144,27 @@
   {
    "source": "design",
    "severity": "info",
-   "message": "c66: column is very narrow (0.9 mm)"
+   "message": "c24: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c67: column is very narrow (0.9 mm)"
+   "message": "c25: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c68: column is very narrow (0.9 mm)"
+   "message": "c26: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c69: column is very narrow (0.9 mm)"
+   "message": "c27: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c70: column is very narrow (0.9 mm)"
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "c71: column is very narrow (0.9 mm)"
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "c56: column is very narrow (0.9 mm)"
-  },
-  {
-   "source": "design",
-   "severity": "info",
-   "message": "c57: column is very narrow (0.9 mm)"
+   "message": "c28: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
@@ -212,17 +189,67 @@
   {
    "source": "design",
    "severity": "info",
-   "message": "c46: column is very narrow (0.9 mm)"
+   "message": "c62: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c47: column is very narrow (0.9 mm)"
+   "message": "c92: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c48: column is very narrow (0.9 mm)"
+   "message": "c93: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c94: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c95: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c96: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c83: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c84: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c85: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c86: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c87: column is very narrow (0.8 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c88: column is very narrow (0.8 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c89: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
@@ -242,71 +269,106 @@
   {
    "source": "design",
    "severity": "info",
-   "message": "c36: column is very narrow (0.9 mm)"
+   "message": "c52: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c37: column is very narrow (0.9 mm)"
+   "message": "c53: column is very narrow (0.8 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c38: column is very narrow (0.9 mm)"
+   "message": "c54: column is very narrow (0.8 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c39: column is very narrow (0.9 mm)"
+   "message": "c55: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c40: column is very narrow (0.9 mm)"
+   "message": "c15: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "c41: column is very narrow (0.9 mm)"
+   "message": "c16: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "r73: stitched before fill f74 which overlaps it - the fill will cover it. Move it after the fill."
+   "message": "c17: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "r63: stitched before fill f64 which overlaps it - the fill will cover it. Move it after the fill."
+   "message": "c18: column is very narrow (0.9 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "r53: stitched before fill f54 which overlaps it - the fill will cover it. Move it after the fill."
+   "message": "c19: column is very narrow (0.8 mm)"
   },
   {
    "source": "design",
    "severity": "info",
-   "message": "r43: stitched before fill f44 which overlaps it - the fill will cover it. Move it after the fill."
+   "message": "c20: column is very narrow (0.8 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c21: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "r80: stitched before fill f97 which overlaps it - the fill will cover it. Move it after the fill."
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "r90: stitched before fill f91 which overlaps it - the fill will cover it. Move it after the fill."
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "r46: stitched before fill f63 which overlaps it - the fill will cover it. Move it after the fill."
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "r56: stitched before fill f57 which overlaps it - the fill will cover it. Move it after the fill."
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "r12: stitched before fill f29 which overlaps it - the fill will cover it. Move it after the fill."
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "r22: stitched before fill f23 which overlaps it - the fill will cover it. Move it after the fill."
   }
  ],
  "file": {
-  "sha256": "408d3916afb12337dde280dbf37801a9b2a6869aca3417b6286fc9d23517c6f5",
-  "bytes": 7529,
+  "sha256": "1e8088aaba2e03ebe08f4a4e5321973147e064e2911ffc82009d367f46a613ba",
+  "bytes": 10487,
   "format": "dst"
  },
  "engine_version": "0.9.0",
- "exported_utc": "2026-11-19T08:01:02+00:00",
+ "exported_utc": "2026-11-19T08:09:43+00:00",
  "stages": [
   {
    "stage": "generate",
    "result": "PASS",
-   "stitches": 2138
+   "stitches": 3077
   },
   {
    "stage": "validate",
    "result": "PASS",
-   "warnings": 0
+   "warnings": 30
   },
   {
    "stage": "geometry",
@@ -316,7 +378,7 @@
   {
    "stage": "checklist",
    "result": "PASS",
-   "passed": "15/15"
+   "passed": "14/15"
   },
   {
    "stage": "machine-profile",
@@ -326,19 +388,19 @@
   {
    "stage": "write",
    "result": "PASS",
-   "records": 2339
+   "records": 3325
   },
   {
    "stage": "decode-compare",
    "result": "PASS",
-   "stitch": 2138,
-   "jump": 62,
+   "stitch": 3077,
+   "jump": 94,
    "color_change": 1,
-   "trim_jumps": 102,
+   "trim_jumps": 123,
    "end": 1,
    "size_mm": [
-    40.8,
-    111.8
+    43.8,
+    124.2
    ]
   },
   {
