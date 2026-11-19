@@ -1,0 +1,62 @@
+{
+ "design": "maggam_sleeve",
+ "source_side": "left",
+ "placements": [
+  {
+   "placement": "left",
+   "label": "Left sleeve / left side",
+   "file": "maggam_sleeve_left.dst",
+   "mirror": false,
+   "rotate": 0.0,
+   "log": [],
+   "status": "ok",
+   "grade": "PASS",
+   "stitches": 2103,
+   "colours": 2,
+   "trims": 21,
+   "size_mm": [
+    115.0,
+    50.7
+   ],
+   "minutes": 5.4,
+   "sha256": "dab452b49b186baa20f0ee672685e803cec48a07ed814c78e5bee30f91f8610e",
+   "notes": [
+    "r36: skipped (running stitch needs at least 2 points)",
+    "r47: skipped (running stitch needs at least 2 points)",
+    "r58: skipped (running stitch needs at least 2 points)",
+    "r69: skipped (running stitch needs at least 2 points)",
+    "r80: skipped (running stitch needs at least 2 points)",
+    "r91: skipped (running stitch needs at least 2 points)"
+   ]
+  },
+  {
+   "placement": "right",
+   "label": "Right sleeve / right side",
+   "file": "maggam_sleeve_right.dst",
+   "mirror": true,
+   "rotate": 0.0,
+   "log": [
+    "true mirror image (fill directions mirrored; lettering kept readable)"
+   ],
+   "status": "ok",
+   "grade": "PASS",
+   "stitches": 2103,
+   "colours": 2,
+   "trims": 21,
+   "size_mm": [
+    115.0,
+    50.7
+   ],
+   "minutes": 5.4,
+   "sha256": "71321c088d9aecd8116bd5b0aa0b6d5e394a3b3a4470216c9942cf2aebc9ed7d",
+   "notes": [
+    "r36: skipped (running stitch needs at least 2 points)",
+    "r47: skipped (running stitch needs at least 2 points)",
+    "r58: skipped (running stitch needs at least 2 points)",
+    "r69: skipped (running stitch needs at least 2 points)",
+    "r80: skipped (running stitch needs at least 2 points)",
+    "r91: skipped (running stitch needs at least 2 points)"
+   ]
+  }
+ ]
+}

@@ -35,14 +35,17 @@ def analyze(data: bytes, name: str = "") -> dict:
     stitches, jumps, ccs = 0, 0, 0
     runs = []                              # list of lists of (x_mm, y_mm) for consecutive stitch records
     cur, jump_runs, jr = [], [], 0
+    cut_flags, pending_cut = [], True        # does a run start a fresh thread (file start, after a trim train or a colour change)?
     blocks, blk = [], {"stitches": 0, "start": 0}
     for (dx, dy, cmd), (px, py) in zip(f.records, f.positions):
         X, Y = px / 10.0, py / 10.0
         if cmd == "stitch":
             if jr:
-                jump_runs.append(jr); jr = 0
+                jump_runs.append(jr)
+                pending_cut = pending_cut or jr >= 2
+                jr = 0
             if not cur:
-                cur = [(pts[-1][0], pts[-1][1])] if False else []
+                cut_flags.append(pending_cut); pending_cut = False
             cur.append((X, Y)); stitches += 1; blk["stitches"] += 1
         else:
             if cur:
@@ -50,7 +53,7 @@ def analyze(data: bytes, name: str = "") -> dict:
             if cmd == "jump":
                 jumps += 1; jr += 1
             elif cmd == "color_change":
-                ccs += 1
+                ccs += 1; pending_cut = True
                 if jr:
                     jump_runs.append(jr); jr = 0
                 blocks.append(blk); blk = {"stitches": 0}
@@ -73,11 +76,13 @@ def analyze(data: bytes, name: str = "") -> dict:
     short_cluster = sum(1 for l1, l2 in zip(lens, lens[1:]) if l1 < 0.5 and l2 < 0.5); long7 = sum(1 for l in lens if l > 7.0); over = sum(1 for l in lens if l > 12.1)
     # --- lock stitches: run begins/ends with >=2 tiny (<=1 mm) stitches
     locks = 0
-    for r in runs:
+    cut_runs = [r for r, c in zip(runs, cut_flags) if c]
+    for r in cut_runs:                     # only a fresh thread end needs a tie-in; a carried (uncut) jump does not
         if len(r) >= 4:
-            for seg in (r[:3], r[-3:]):
-                if all(math.dist(a, b) <= 1.0 for a, b in zip(seg, seg[1:])):
-                    locks += 1
+            seg = r[:3]
+            if all(math.dist(a, b) <= 1.2 for a, b in zip(seg, seg[1:])):     # a 1.0 mm lock on the 0.1 mm DST grid can measure 1.06
+                locks += 1
+    orphan_cut_runs = sum(1 for r in cut_runs if len(r) <= 2)
     # --- travel: jumps lengths
     jl, px_, py_ = [], 0.0, 0.0
     last = (0.0, 0.0)
@@ -129,7 +134,7 @@ def analyze(data: bytes, name: str = "") -> dict:
         "size_mm": [round(max(xs) - min(xs), 1), round(max(ys) - min(ys), 1)],
         "len_mean": round(sum(lens) / n, 2), "len_median": round(_pct(lens, 50), 2), "len_p95": round(_pct(lens, 95), 2), "len_max": round(max(lens or [0]), 2),
         "pct_short_lt0.5": round(100 * short / n, 2), "pct_short_clustered": round(100 * short_cluster / n, 2), "pct_gt7": round(100 * long7 / n, 2), "n_gt12.1": over,
-        "hist": hist, "lock_runs": locks, "runs": len(runs),
+        "hist": hist, "lock_runs": locks, "runs": len(runs), "cut_runs": len(cut_runs), "orphan_cut_runs": orphan_cut_runs,
         "dens_p50": round(_pct(dens, 50), 1), "dens_p90": round(_pct(dens, 90), 1), "dens_max": max(dens or [0]),
         "row_spacing_median": round(_pct(spac, 50), 2) if spac else None, "row_spacing_n": len(spac),
         "max_jump_mm": round(max(jl or [0]), 1), "mean_jump_mm": round(sum(jl) / max(1, len(jl)), 1),

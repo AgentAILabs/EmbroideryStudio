@@ -140,7 +140,7 @@ def evaluate(design: dict) -> dict:
     items.append(_item(11, "Thread trims and colour stops checked", "PASS" if ok_cc else "FAIL",
                        f"{st['color_changes']} colour stop(s) for {len(st['color_sequence'])} colour block(s); {st['trims']} trims; trim at colour change {'on' if m['trim_at_color_change'] else 'off'}"))
     # 12 tie-in / tie-off
-    lock_check = next((c for c in stage["5"]["checks"] if "lock" in c["what"]), None)
+    lock_check = next((c for c in stage["5"]["checks"] if "tied in" in c["what"]), None)
     items.append(_item(12, "Tie-in and tie-off points checked", ("PASS" if m["lock_len"] and lock_check and lock_check["level"] == "PASS" else "WARN"),
                        (f"{st.get('lock_stitches', 0)} lock stitches of {m['lock_len']:g} mm; " if m["lock_len"] else "lock stitches are OFF; ") + (lock_check["evidence"] if lock_check else "")))
     # 13 stitch count
