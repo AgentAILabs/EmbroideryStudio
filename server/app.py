@@ -38,10 +38,18 @@ MAX_BODY = 25 * 1024 * 1024
 MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json"}
 
 
-def compact(pattern):
-    """Stitches as parallel arrays for fast transfer: [x,y,cmdcode,thread]; cmd 0=stitch 1=jump 2=trim 3=colour 4=end."""
+def compact(pattern, ids=None):
+    """Stitches as arrays for fast transfer: [x,y,cmdcode,thread,objectIndex]; cmd 0=stitch 1=jump 2=trim 3=colour 4=end.
+    objectIndex points into the `ids` list (object ids in order of first appearance), -1 = none."""
     code = {Cmd.STITCH: 0, Cmd.JUMP: 1, Cmd.TRIM: 2, Cmd.COLOR_CHANGE: 3, Cmd.END: 4}
-    return [[round(s.x, 3), round(s.y, 3), code[s.cmd], s.thread] for s in pattern.stitches]
+    ids = [] if ids is None else ids
+    idx = {}
+    out = []
+    for s in pattern.stitches:
+        if s.object_id is not None and s.object_id not in idx:
+            idx[s.object_id] = len(ids); ids.append(s.object_id)
+        out.append([round(s.x, 3), round(s.y, 3), code[s.cmd], s.thread, idx.get(s.object_id, -1)])
+    return out
 
 
 def issues(rep):
@@ -95,8 +103,17 @@ def api_generate(d):
                 "notes": ["Nothing to stitch yet - embellishments and guides are not part of the DST."]}
     pattern, notes, st = generate(d)
     rep = run_checks(d, pattern)
-    return {"stitches": compact(pattern), "threads": [t.hex for t in pattern.threads], "stats": st,
-            "notes": notes, "issues": issues(rep)}
+    out = {"source": "plan", "notes": notes, "issues": issues(rep), "stats": st}
+    if d.get("decoded"):                         # simulate the DST FILE (decoded bytes), not the engine's floating-point plan
+        try:
+            sim = export_pipeline.decoded_simulation(d)
+            out.update(source="dst-file", sha256=sim["sha256"], stitches=sim["stitches"], objects=sim["objects"], threads=sim["threads"])
+            return out
+        except export_pipeline.ExportError as e:
+            out["notes"] = notes + [f"Simulation shows the stitch plan, not a DST file: {e}"]
+    ids = []
+    out.update(stitches=compact(pattern, ids), objects=ids, threads=[t.hex for t in pattern.threads])
+    return out
 
 
 def api_dst(d):

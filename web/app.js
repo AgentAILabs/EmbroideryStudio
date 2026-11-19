@@ -24,7 +24,7 @@ function commit() { S.viewDstB64 = null;
 }
 function undo() { if (S.hi > 0) { S.hi--; S.doc = JSON.parse(S.hist[S.hi]); fixSel(); afterDocChange(); } }
 function redo() { if (S.hi < S.hist.length - 1) { S.hi++; S.doc = JSON.parse(S.hist[S.hi]); fixSel(); afterDocChange(); } }
-function fixSel() { if (!S.doc.objects.find(o => o.id === S.sel)) S.sel = null; }
+function fixSel() { if (!S.doc.objects.find(o => o.id === S.sel)) S.sel = null; if (S.multi) S.multi = new Set([...S.multi].filter(id => S.doc.objects.some(o => o.id === id))); }
 function afterDocChange() { try { localStorage.setItem("es.autosave", snap()); } catch (e) {} regen(); renderAll(); }
 
 /* ---------------------------------------------------------------- engine calls */
@@ -34,9 +34,10 @@ async function doRegen() {
   const seq = ++regenSeq;
   if (!S.doc.objects.length) { S.gen = null; renderPanels(); draw(); return; }
   try {
-    const r = await fetch("/api/generate", {method: "POST", body: JSON.stringify(S.doc)});
+    const wantFile = !!($("#sFile") && $("#sFile").checked) && S.vmode !== "design";
+    const r = await fetch("/api/generate", {method: "POST", body: JSON.stringify(wantFile ? Object.assign({}, S.doc, {decoded: true}) : S.doc)});
     const j = await r.json(); if (seq !== regenSeq) return;
-    if (!r.ok) { S.gen = {error: j.error}; } else { S.gen = j; S.sim.i = Math.min(S.sim.i, j.stitches.length); if (!S.sim.playing && (S.vmode === "stitch" || S.vmode === "3d")) S.sim.i = j.stitches.length; }
+    if (!r.ok) { S.gen = {error: j.error}; } else { S.gen = j; S.insp = null; showInspector(); S.sim.i = Math.min(S.sim.i, j.stitches.length); if (!S.sim.playing && (S.vmode === "stitch" || S.vmode === "3d")) S.sim.i = j.stitches.length; }
   } catch (e) { S.gen = {error: "Engine not reachable: " + e.message}; }
   renderPanels(); draw();
 }
@@ -104,6 +105,24 @@ function hit(o, p, tol) {
   return false;
 }
 const selObj = () => S.doc.objects.find(o => o.id === S.sel);
+S.multi = new Set();
+const selIds = () => { const ids = new Set(S.multi); if (S.sel) ids.add(S.sel); return ids; };
+const selObjs = () => S.doc.objects.filter(o => selIds().has(o.id));
+function selectWithGroup(id, additive) {          // selecting a member selects its whole group; additive (Shift/Ctrl) toggles
+  const o = S.doc.objects.find(x => x.id === id); if (!o) return;
+  const members = o.group ? S.doc.objects.filter(x => x.group === o.group).map(x => x.id) : [id];
+  if (additive) { const cur = selIds(); const all = members.every(m => cur.has(m)); members.forEach(m => all ? cur.delete(m) : cur.add(m)); S.multi = cur; S.sel = cur.size ? [...cur][cur.size - 1] : null; if (S.sel) S.multi.delete(S.sel); }
+  else { S.sel = id; S.multi = new Set(members.filter(m => m !== id)); }
+}
+function groupSelected() {
+  const ids = selIds(); if (ids.size < 2) { alert("Select two or more objects first (Shift/Ctrl-click in the Objects list or Shift-click on the canvas)."); return; }
+  const used = new Set(S.doc.objects.map(o => o.group).filter(Boolean)); let n = 1; while (used.has("group" + n)) n++;
+  S.doc.objects.forEach(o => { if (ids.has(o.id)) o.group = "group" + n; }); commit(); renderAll();
+}
+function ungroupSelected() {
+  const gs = new Set(selObjs().map(o => o.group).filter(Boolean)); if (!gs.size) return;
+  S.doc.objects.forEach(o => { if (gs.has(o.group)) delete o.group; }); S.multi = new Set(); commit(); renderAll();
+}
 const P = (o, k) => (o.params && o.params[k] !== undefined) ? o.params[k] : DEF[o.type][k];
 
 /* ---------------------------------------------------------------- canvas */
@@ -128,7 +147,7 @@ function drawGrid(c) {
 }
 function drawObjects(c) {
   for (const o of S.doc.objects) {
-    if (o.hidden) continue; const on = o.id === S.sel;
+    if (o.hidden) continue; const on = o.id === S.sel || S.multi.has(o.id);
     c.save(); c.lineJoin = "round"; c.lineCap = "round";
     if (o.guide) { c.setLineDash([6, 4]); c.strokeStyle = "#6b7280"; c.lineWidth = 1.2; c.beginPath(); const pts = o.rings ? null : o.points || []; if (o.rings) o.rings.forEach(r => pathOf(c, r, true)); else pathOf(c, shown(o, pts, !!o.closed), !!o.closed); c.stroke(); }
     else if (o.type === "embellishment") drawEmbellishment(c, o);
@@ -164,26 +183,58 @@ function drawEmbellishment(c, o) {
 function drawStitches(c, upto, thick) {
   const g = S.gen; if (!g || !g.stitches) return; const st = g.stitches; let prev = null, th = st.length ? st[0][3] : 0;
   const lw = Math.max(thick ? 1.2 : .7, .3 * S.view.z); c.lineWidth = lw; c.lineCap = "round"; c.lineJoin = "round";
-  const showJumps = $("#sJumps") ? $("#sJumps").checked : true, jumps = new Path2D();
+  const showJumps = $("#sJumps") ? $("#sJumps").checked : true, showTrims = $("#sTrims") ? $("#sTrims").checked : true, jumps = new Path2D(), trims = [];
+  const hid = S.simHidden && S.simHidden.size ? S.simHidden : null, ids = g.objects || [];
   let batch = [], bcol = null;
   const flush = () => { if (batch.length) { c.strokeStyle = bcol; c.stroke(batch.path); } batch = []; };
   const mk = col => { flush(); bcol = col; batch = []; batch.path = new Path2D(); };
   mk(g.threads[th] || "#000"); let last = null;
   const n = Math.min(upto, st.length);
   for (let i = 0; i < n; i++) {
-    const [x, y, cmd, t] = st[i]; const q = toScreen([x, y]);
-    if (cmd === 3) { th = t; prev = prev; mk(g.threads[t] || "#000"); continue; }
-    if (cmd === 2 || cmd === 4) continue;
-    if (cmd === 1) { if (prev && showJumps) { jumps.moveTo(prev[0], prev[1]); jumps.lineTo(q[0], q[1]); } prev = q; continue; }
+    const [x, y, cmd, t, oi] = st[i]; const q = toScreen([x, y]);
+    if (cmd === 3) { th = t; mk(g.threads[t] || "#000"); continue; }
+    if (cmd === 2) { if (showTrims && prev) trims.push(prev); continue; }
+    if (cmd === 4) continue;
+    const hide = hid && oi >= 0 && hid.has(ids[oi]);
+    if (cmd === 1) { if (prev && showJumps && !hide) { jumps.moveTo(prev[0], prev[1]); jumps.lineTo(q[0], q[1]); } prev = q; continue; }
     if (t !== th) { th = t; mk(g.threads[t]); }
-    if (prev) { batch.path.moveTo(prev[0], prev[1]); batch.path.lineTo(q[0], q[1]); batch.push(1); }
+    if (prev && !hide) { batch.path.moveTo(prev[0], prev[1]); batch.path.lineTo(q[0], q[1]); batch.push(1); }
     prev = q; last = q;
   }
   flush();
   if (showJumps) { c.save(); c.strokeStyle = "#9ca3af"; c.lineWidth = 1; c.setLineDash([4, 3]); c.stroke(jumps); c.restore(); }
+  if (trims.length) { c.save(); c.strokeStyle = "#f97316"; c.lineWidth = 1.5; for (const q of trims) { c.beginPath(); c.moveTo(q[0] - 4, q[1] - 4); c.lineTo(q[0] + 4, q[1] + 4); c.moveTo(q[0] + 4, q[1] - 4); c.lineTo(q[0] - 4, q[1] + 4); c.stroke(); } c.restore(); }
+  if (S.insp != null && st[S.insp]) { const q = toScreen([st[S.insp][0], st[S.insp][1]]); c.save(); c.strokeStyle = "#2563eb"; c.lineWidth = 2; c.beginPath(); c.arc(q[0], q[1], 7, 0, 7); c.stroke(); c.restore(); }
   return n > 0 && n <= st.length ? toScreen([st[Math.min(n, st.length) - 1][0], st[Math.min(n, st.length) - 1][1]]) : null;
 }
-function updateSimBar() { const n = S.gen && S.gen.stitches ? S.gen.stitches.length : 0; $("#sPos").max = n; $("#sPos").value = S.sim.i; $("#sInfo").textContent = `${S.sim.i} / ${n}`; }
+function niceStep(z) { const t = 60 / z; for (const s of [1, 2, 5, 10, 20, 50, 100]) if (s >= t) return s; return 200; }
+function drawRulers(c) {
+  const W = cv.clientWidth, H = cv.clientHeight, step = niceStep(S.view.z), a = toWorld(0, 0), b = toWorld(W, H);
+  c.save(); c.fillStyle = "#e2e8f0e6"; c.fillRect(0, 0, W, 16); c.fillRect(0, 0, 16, H); c.fillStyle = "#334155"; c.strokeStyle = "#64748b"; c.font = "10px sans-serif"; c.lineWidth = 1;
+  for (let x = Math.ceil(a[0] / step) * step; x <= b[0]; x += step) { const q = toScreen([x, 0])[0]; c.beginPath(); c.moveTo(q, 10); c.lineTo(q, 16); c.stroke(); c.fillText(x + "", q + 2, 9); }
+  for (let y = Math.ceil(a[1] / step) * step; y <= b[1]; y += step) { const q = toScreen([0, y])[1]; c.beginPath(); c.moveTo(10, q); c.lineTo(16, q); c.stroke(); c.save(); c.translate(9, q - 2); c.rotate(-Math.PI / 2); c.fillText(y + "", 0, 0); c.restore(); }
+  c.fillText("mm", 2, 10); c.restore();
+}
+function updateSimBar() {
+  const g = S.gen, n = g && g.stitches ? g.stitches.length : 0; $("#sPos").max = n; $("#sPos").value = S.sim.i;
+  const st = g && g.stats; $("#sInfo").textContent = `${S.sim.i} / ${n}` + (st && st.width_mm ? ` · ${st.width_mm} × ${st.height_mm} mm · ${st.stitches} st · ${st.color_changes} col` : "") + (g && g.source ? (g.source === "dst-file" ? " · from DST file" : " · from plan") : "");
+  const box = $("#sObjs"); if (g && g.objects && box.dataset.sig !== g.objects.join("|")) {
+    box.dataset.sig = g.objects.join("|"); S.simHidden = new Set([...(S.simHidden || [])].filter(i => g.objects.includes(i)));
+    box.innerHTML = g.objects.map(id => { const o = S.doc.objects.find(x => x.id === id); return `<label><input type="checkbox" data-oid="${esc(id)}" ${S.simHidden.has(id) ? "" : "checked"}> ${esc(o && o.name || id)}</label>`; }).join("") || "<small>no objects</small>";
+    box.querySelectorAll("input").forEach(cb => cb.onchange = () => { cb.checked ? S.simHidden.delete(cb.dataset.oid) : S.simHidden.add(cb.dataset.oid); draw(); });
+  }
+}
+function inspectAt(sx, sy) {
+  const g = S.gen; if (!g || !g.stitches) return; const st = g.stitches, n = Math.min(S.sim.i, st.length); let best = -1, bd = 10 * 10;
+  for (let i = 0; i < n; i++) { const c = st[i][2]; if (c !== 0 && c !== 1) continue; const q = toScreen([st[i][0], st[i][1]]), d = (q[0] - sx) ** 2 + (q[1] - sy) ** 2; if (d <= bd) { bd = d; best = i; } }
+  S.insp = best < 0 ? null : best; showInspector(); draw();
+}
+function showInspector() {
+  const box = $("#sInspect"), g = S.gen; if (S.insp == null || !g || !g.stitches[S.insp]) { box.hidden = true; return; }
+  const i = S.insp, [x, y, c, t, oi] = g.stitches[i]; let len = "-"; for (let k = i - 1; k >= 0; k--) { const p = g.stitches[k]; if (p[2] === 0 || p[2] === 1) { len = Math.hypot(x - p[0], y - p[1]).toFixed(2) + " mm"; break; } }
+  const o = oi >= 0 && g.objects ? S.doc.objects.find(q => q.id === g.objects[oi]) : null;
+  box.hidden = false; box.innerHTML = `<b>Stitch #${i}</b> (${c === 0 ? "stitch" : "jump"})<br>x ${x.toFixed(2)} mm, y ${y.toFixed(2)} mm<br>length from previous ${len}<br>object ${esc(o ? (o.name || o.id) : (oi >= 0 && g.objects ? g.objects[oi] : "-"))}<br>thread <span style="display:inline-block;width:10px;height:10px;background:${esc(g.threads[t] || "#000")};border:1px solid #fff8"></span> #${t + 1}`;
+}
 function draw() {
   if (S.vmode === "3d") { feed3d(false); updateSimBar(); return; }
   const d = devicePixelRatio || 1; ctx.setTransform(d, 0, 0, d, 0, 0); ctx.clearRect(0, 0, cv.clientWidth, cv.clientHeight);
@@ -195,7 +246,8 @@ function draw() {
     if (needle) { ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(needle[0], needle[1], 4, 0, 7); ctx.fill(); }
   } else drawObjects(ctx);
   if (S.draft) drawDraft();
-  const n = S.gen && S.gen.stitches ? S.gen.stitches.length : 0; $("#sPos").max = n; $("#sPos").value = S.sim.i; $("#sInfo").textContent = `${S.sim.i} / ${n}`;
+  if ($("#sRulers") && $("#sRulers").checked) drawRulers(ctx);
+  updateSimBar();
 }
 function drawDraft() {
   const dr = S.draft, c = ctx; c.save(); c.strokeStyle = "#2563eb"; c.lineWidth = 2; c.setLineDash([5, 3]);
@@ -262,12 +314,14 @@ cv.addEventListener("pointerdown", e => {
   cv.setPointerCapture(e.pointerId); const [sx, sy] = evP(e); const w = toWorld(sx, sy);
   if (e.button === 1 || e.button === 2 || spaceDown) { drag = {type: "pan", sx, sy, vx: S.view.x, vy: S.view.y}; return; }
   const t = S.tool;
+  if (S.vmode === "stitch" && t === "select") { inspectAt(sx, sy); return; }
   if (t === "select") {
     const o = selObj();
     if (o && o.type !== "text") { const tolPx = 8 / S.view.z; const lists = o.rings ? o.rings : o.rail1 ? [o.rail1, o.rail2] : [o.points]; for (const arr of lists) { for (let i = 0; i < arr.length; i++) if (dist2(arr[i], w) < tolPx * tolPx) { drag = {type: "vertex", arr, i}; return; } } }
     const tol = 5 / S.view.z; let found = null;
     for (let i = S.doc.objects.length - 1; i >= 0; i--) if (hit(S.doc.objects[i], w, tol)) { found = S.doc.objects[i]; break; }
-    S.sel = found ? found.id : null; renderAll();
+    if (found) selectWithGroup(found.id, e.shiftKey || e.ctrlKey || e.metaKey); else { S.sel = null; S.multi = new Set(); }
+    renderAll();
     if (found) drag = {type: "move", last: w, moved: false}; return;
   }
   if (t === "rect" || t === "ellipse") { const p = snapP(w, e.altKey); S.draft = {kind: t, a: p, b: p}; drag = {type: "shape"}; return; }
@@ -286,7 +340,7 @@ cv.addEventListener("pointermove", e => {
   $("#hint").textContent = TOOLHINT[S.tool] + `   [${w[0].toFixed(1)}, ${w[1].toFixed(1)} mm]`;
   if (!drag) { if (S.draft) draw(); return; }
   if (drag.type === "pan") { S.view.x = drag.vx - (sx - drag.sx) / S.view.z; S.view.y = drag.vy - (sy - drag.sy) / S.view.z; }
-  else if (drag.type === "move") { const o = selObj(); let dx = w[0] - drag.last[0], dy = w[1] - drag.last[1]; mapPts(o, p => [p[0] + dx, p[1] + dy]); drag.last = w; drag.moved = true; }
+  else if (drag.type === "move") { let dx = w[0] - drag.last[0], dy = w[1] - drag.last[1]; selObjs().forEach(o => mapPts(o, p => [p[0] + dx, p[1] + dy])); drag.last = w; drag.moved = true; }
   else if (drag.type === "vertex") { const p = snapP(w, e.altKey); drag.arr[drag.i][0] = p[0]; drag.arr[drag.i][1] = p[1]; drag.moved = true; }
   else if (drag.type === "shape") S.draft.b = S.cursor;
   draw();
@@ -304,8 +358,13 @@ addEventListener("keydown", e => {
   if ((e.ctrlKey || e.metaKey) && k === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if ((e.ctrlKey || e.metaKey) && k === "y") { e.preventDefault(); redo(); return; }
   if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); saveProject(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === "g") { e.preventDefault(); e.shiftKey ? ungroupSelected() : groupSelected(); return; }
   if ((e.ctrlKey || e.metaKey) && k === "d") { e.preventDefault(); duplicate(0, 0); return; }
   if (e.key === "Escape") { S.draft = null; S.colRail = null; draw(); return; }
+  if ((S.vmode === "stitch" || S.vmode === "3d") && (e.key === "ArrowLeft" || e.key === "ArrowRight") && S.gen && S.gen.stitches) {
+    e.preventDefault(); S.sim.playing = false; const d = (e.shiftKey ? 10 : 1) * (e.key === "ArrowLeft" ? -1 : 1); S.sim.i = Math.max(0, Math.min(S.gen.stitches.length, S.sim.i + d));
+    if (S.insp != null) { S.insp = Math.max(0, Math.min(S.gen.stitches.length - 1, S.sim.i - 1)); showInspector(); } draw(); return;
+  }
   if (e.key === "Enter" && S.draft) { finishDraft(); return; }
   if ((e.key === "Delete" || e.key === "Backspace") && S.sel) { deleteSel(); return; }
   const map = {v: "select", f: "fill", s: "satin", c: "column", r: "run", t: "text", a: "applique", e: "bead"};
@@ -317,7 +376,7 @@ addEventListener("keydown", e => {
 addEventListener("keyup", e => { if (e.key === " ") spaceDown = false; });
 
 /* ---------------------------------------------------------------- operations */
-function deleteSel() { S.doc.objects = S.doc.objects.filter(o => o.id !== S.sel); S.sel = null; commit(); renderAll(); }
+function deleteSel() { const ids = selIds(); S.doc.objects = S.doc.objects.filter(o => !ids.has(o.id)); S.sel = null; S.multi = new Set(); commit(); renderAll(); }
 function duplicate(dx, dy, n = 1) {
   const o = selObj(); if (!o) return; let last = null;
   for (let i = 1; i <= n; i++) { const c = clone(o); c.id = "o" + (S.n++); c.name = o.name + " copy"; mapPts(c, p => [p[0] + (dx || 3) * i, p[1] + (dy || 3) * i]); S.doc.objects.push(c); last = c; }
@@ -385,6 +444,19 @@ function importSummary(r, scaled) {
   if (e) l.push(e.skipped ? "Enhancer: skipped (" + e.skipped + ")." : "Enhancer: " + e.source_px.join("×") + " → " + e.result_px.join("×") + " px (" + e.steps.join(", ") + ")" + (e.photographic ? " – photo: only lightly sharpened." : "."));
   return l;
 }
+function objArea(o) { if (!o.rings) return null; const ar = r => Math.abs(r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0) / 2); return Math.max(0, ar(o.rings[0]) - o.rings.slice(1).reduce((a, r) => a + ar(r), 0)); }
+function reviewRegions(objs) {      // segmentation review: keep / recolour / merge colours / drop specks BEFORE anything is stitched
+  return new Promise(resolve => {
+    const dlg = $("#dlgSeg"), by = {}; objs.forEach(o => { const c = (o.color || "#000000").toLowerCase(); (by[c] = by[c] || []).push(o); });
+    const cols = Object.keys(by).sort((a, b) => by[b].length - by[a].length);
+    $("#segRows").innerHTML = cols.map((c, i) => `<div class="row" data-c="${c}"><label><input type="checkbox" class="sk" checked> <i style="display:inline-block;width:14px;height:14px;background:${c};border:1px solid #0004;vertical-align:middle"></i> ${by[c].length} region(s), ${Math.round(by[c].reduce((a, o) => a + (objArea(o) || 0), 0))} mm²</label><input type="color" class="sc" value="${c}"></div>`).join("");
+    const result = () => { const out = [], min = +$("#segMin").value; $("#segRows").querySelectorAll(".row").forEach(row => { if (!row.querySelector(".sk").checked) return; const nc = row.querySelector(".sc").value;
+      by[row.dataset.c].forEach(o => { const a = objArea(o); if (a !== null && a < min) return; out.push(Object.assign({}, o, {color: nc})); }); }); return out; };
+    const sum = () => { $("#segMinV").textContent = $("#segMin").value; const r = result(); $("#segSum").textContent = `${r.length} of ${objs.length} regions will be imported.`; };
+    $("#segMin").oninput = sum; $("#segRows").onchange = sum; sum();
+    dlg.onclose = () => resolve(dlg.returnValue === "go" ? result() : null); dlg.showModal();
+  });
+}
 async function importFile(file) {
   if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") { alert("PDF import is not currently supported. Please export your artwork as SVG, PNG or JPG."); return; }
   try {
@@ -395,6 +467,7 @@ async function importFile(file) {
       const buf = new Uint8Array(await file.arrayBuffer()); let bin = ""; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
       res = await post("/api/import/raster", {data: btoa(bin), width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e});
       if (res.report) { res.report.objectsN = res.objects.length; res.notes = importSummary(res.report).concat(res.notes || []); }
+      if (res.objects.length) { const kept = await reviewRegions(res.objects); if (!kept) return; res.objects = kept; }
     }
     if (!res.objects.length) { alert((res.notes || []).join("\n") || "Nothing to digitize. For images, use flat-colour artwork on a plain background."); return; }
     res.objects.forEach(o => { o.id = "o" + (S.n++); o.name = o.name || o.id; });
@@ -680,11 +753,11 @@ function renderProps() {
 function regenSoft() { regen(); }
 function swatches(el, cur, cb) { el.innerHTML = PALETTE.map(c => `<i style="background:${c}" data-c="${c}" class="${c === cur ? "on" : ""}" title="${c}"></i>`).join(""); el.onclick = e => { if (e.target.dataset.c) cb(e.target.dataset.c); }; }
 function renderObjs() {
-  $("#objs").innerHTML = S.doc.objects.map(o => `<li data-id="${o.id}" class="${o.id === S.sel ? "on" : ""} ${o.hidden ? "hid" : ""}"><span class="c" style="background:${o.color}"></span><span class="n">${esc(o.name || o.id)} <small>${o.type}</small></span><button data-a="up" title="Stitch earlier">▲</button><button data-a="dn" title="Stitch later">▼</button><button data-a="eye" title="Hide/show">${o.hidden ? "◌" : "◉"}</button></li>`).join("") || `<li class="note">No objects yet.</li>`;
+  $("#objs").innerHTML = S.doc.objects.map(o => `<li data-id="${o.id}" class="${o.id === S.sel || S.multi.has(o.id) ? "on" : ""} ${o.hidden ? "hid" : ""}"><span class="c" style="background:${o.color}"></span><span class="n">${esc(o.name || o.id)} <small>${o.type}${o.group ? " · " + esc(o.group) : ""}</small></span><button data-a="up" title="Stitch earlier">▲</button><button data-a="dn" title="Stitch later">▼</button><button data-a="eye" title="Hide/show">${o.hidden ? "◌" : "◉"}</button></li>`).join("") || `<li class="note">No objects yet.</li>`;
   $("#objs").onclick = e => { const li = e.target.closest("li[data-id]"); if (!li) return; const id = li.dataset.id, a = e.target.dataset.a;
     if (a === "up") return moveOrder(id, -1); if (a === "dn") return moveOrder(id, 1);
     if (a === "eye") { const o = S.doc.objects.find(o => o.id === id); o.hidden = !o.hidden; commit(); return renderAll(); }
-    S.sel = id; renderAll(); };
+    selectWithGroup(id, e.shiftKey || e.ctrlKey || e.metaKey); renderAll(); };
 }
 function renderDesign() {
   const d = S.doc, el = $("#designProps");
@@ -807,6 +880,7 @@ function setView(v) {
   // simulation controls (which call setView), must NOT move the position - it used to, so Step and the slider read back the end.
   if ((v === "stitch" || v === "3d") && was === "design" && !S.sim.playing && S.gen && S.gen.stitches) S.sim.i = S.gen.stitches.length;
   if (v === "3d") { Viewer3D.resize(); feed3d(true); }
+  if ((v === "stitch" || v === "3d") && was === "design" && !S.viewDstB64 && $("#sFile").checked && S.gen && S.gen.source === "plan") regen();
   draw();
 }
 const simView = () => S.vmode === "3d" ? "3d" : "stitch";      // the simulation controls keep you in the 3D view instead of dropping you back to 2D
@@ -840,7 +914,8 @@ $("#bOpen").onclick = () => $("#fileOpen").click(); $("#bImport").onclick = () =
 $("#fileOpen").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); if (!j.doc || !Array.isArray(j.doc.objects)) throw new Error("not an EmbroideryStudio project"); loadDoc(j.doc); } catch (err) { alert("Could not open: " + err.message); } e.target.value = ""; };
 $("#fileImport").onchange = e => { const f = e.target.files[0]; if (f) importFile(f); e.target.value = ""; };
 $("#docName").oninput = e => { S.doc.name = e.target.value; }; $("#docName").onchange = () => commit();
-$("#sJumps").onchange = draw; $("#sPlay").onclick = togglePlay; $("#sStep").onclick = () => { S.sim.playing = false; setView(simView()); if (S.gen) S.sim.i = Math.min(S.gen.stitches.length, S.sim.i + 1); draw(); };
+$("#bGroup").onclick = groupSelected; $("#bUngroup").onclick = ungroupSelected; $("#sJumps").onchange = draw; $("#sTrims").onchange = draw; $("#sRulers").onchange = draw; $("#sFile").onchange = () => { if (!S.viewDstB64) regen(); };
+$("#sBack").onclick = () => { S.sim.playing = false; $("#sPlay").textContent = "▶"; setView(simView()); S.sim.i = Math.max(0, S.sim.i - 1); draw(); }; $("#sPlay").onclick = togglePlay; $("#sStep").onclick = () => { S.sim.playing = false; setView(simView()); if (S.gen) S.sim.i = Math.min(S.gen.stitches.length, S.sim.i + 1); draw(); };
 $("#sReset").onclick = () => { S.sim.playing = false; $("#sPlay").textContent = "▶"; setView(simView()); S.sim.i = 0; draw(); };
 $("#sPos").oninput = e => { const v = +e.target.value;   /* read first: setView() redraws and re-syncs the slider to the old position */
   S.sim.playing = false; $("#sPlay").textContent = "▶"; setView(simView()); S.sim.i = v; draw(); };
@@ -852,5 +927,5 @@ addEventListener("resize", () => { resize(); if (S.vmode === "3d") Viewer3D.resi
   resize(); if (saved) { try { const d = JSON.parse(saved); if (d.objects) { S.doc = Object.assign(newDoc(), d); S.n = 1 + Math.max(0, ...S.doc.objects.map(o => parseInt(String(o.id).replace(/\D/g, "")) || 0)); } } catch (e) {} }
   $("#docName").value = S.doc.name; commit(); renderAll(); fit(); setTool("select");
   renderTemplates();
-  window.__ES = S; window.__ESapi = {commit, renderAll};      // test hooks (e2e)
+  window.__ES = S; window.__ESapi = {commit, renderAll, toScreen};      // test hooks (e2e)
 })();

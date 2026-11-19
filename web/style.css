@@ -117,3 +117,9 @@ dialog#dlgLetter .row2{display:flex;justify-content:flex-end;gap:8px;margin-top:
 dialog#dlgStatus{border:1px solid var(--line);border-radius:10px;padding:16px;width:min(620px,94vw);background:var(--panel);color:var(--ink)}
 dialog#dlgStatus .row2{display:flex;justify-content:flex-end;margin-top:10px}.statuslist{padding-left:18px;line-height:1.5}.statuslist li{margin:6px 0}
 .advice{display:block;color:var(--mute);font-size:12px}
+
+#sObjsBox{position:relative;display:inline-block}#sObjsBox summary{cursor:pointer;font-size:12px}
+#sObjs{position:absolute;bottom:28px;left:0;background:#fff;color:#111;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;max-height:220px;overflow:auto;min-width:170px;z-index:20;box-shadow:0 4px 14px #0003}
+#sObjs label{display:flex;gap:6px;align-items:center;font-size:12px;white-space:nowrap}
+#sInspect{position:absolute;right:8px;bottom:44px;background:#0f172a;color:#e2e8f0;border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.5;z-index:15}
+.qscore table{border-collapse:collapse;font-size:12px}.qscore td{padding:2px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top}

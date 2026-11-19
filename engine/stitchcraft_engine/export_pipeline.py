@@ -91,7 +91,7 @@ class ExportResult:
     warnings: List[str] = field(default_factory=list)
 
 
-def compare_with_plan(pattern: Pattern, data: bytes, trim_jumps: int) -> dict:
+def compare_with_plan(pattern: Pattern, data: bytes, trim_jumps: int, want_sim: bool = False) -> dict:
     """Decode `data` and walk the stitch plan against it. Returns a result dict; raises ExportError on the first mismatch.
     Written independently of dst.write_dst's loop: it recomputes the centring offset and the expected absolute position itself."""
     recs, pos, hdr = independent_decode(data)
@@ -102,6 +102,7 @@ def compare_with_plan(pattern: Pattern, data: bytes, trim_jumps: int) -> dict:
     i = 0
     counts = {"stitch": 0, "jump": 0, "color_change": 0, "trim_jumps": 0, "end": 0}
     pts = []
+    sim = []          # (x_mm, y_mm, Stitch) with the position DECODED FROM THE FILE, mapped back to design coordinates
 
     def fail(msg, code="EXPORT_MISMATCH"):
         raise ExportError(f"The generated file does not match the stitch plan: {msg}. The export was refused.", "decode-compare", code)
@@ -116,6 +117,7 @@ def compare_with_plan(pattern: Pattern, data: bytes, trim_jumps: int) -> dict:
             if recs[i][2] != "color_change":
                 fail(f"record {i} should be a colour change but is a {recs[i][2]}")
             counts["color_change"] += 1; i += 1
+            if want_sim: sim.append((None, None, s))
         elif s.cmd == Cmd.TRIM:
             need(trim_jumps)
             for j in range(trim_jumps):
@@ -123,11 +125,13 @@ def compare_with_plan(pattern: Pattern, data: bytes, trim_jumps: int) -> dict:
                 if c != "jump" or dx or dy:
                     fail(f"record {i + j} should be a zero-move jump (trim) but is a {c} of ({dx},{dy})")
             counts["trim_jumps"] += trim_jumps; i += trim_jumps
+            if want_sim: sim.append((None, None, s))
         elif s.cmd == Cmd.END:
             need(1)
             if recs[i][2] != "end":
                 fail(f"record {i} should be END but is a {recs[i][2]}", "EXPORT_BAD_END")
             counts["end"] += 1; i += 1
+            if want_sim: sim.append((None, None, s))
         else:
             want_kind = "jump" if s.cmd == Cmd.JUMP else "stitch"
             px, py = (pos[i - 1] if i else (0, 0))
@@ -144,6 +148,7 @@ def compare_with_plan(pattern: Pattern, data: bytes, trim_jumps: int) -> dict:
                 fail(f"stitch {k} should end at ({tx / 10:.2f}, {ty / 10:.2f}) mm but the file puts it at ({gx / 10:.2f}, {gy / 10:.2f}) mm (record {i + n - 1})")
             counts[want_kind] += 1; i += n
             pts.append((gx, gy))
+            if want_sim: sim.append((gx / UNITS_PER_MM + ox, -gy / UNITS_PER_MM + oy, s))
     if i != len(recs):
         fail(f"the file has {len(recs) - i} extra record(s) after END", "EXPORT_EXTRA_RECORDS")
     consumed = HEADER_SIZE + 3 * len(recs)
@@ -167,7 +172,10 @@ def compare_with_plan(pattern: Pattern, data: bytes, trim_jumps: int) -> dict:
     want = [max([0] + xs), -min([0] + xs), max([0] + ys), -min([0] + ys)]
     if any(abs(a - b) > 1 for a, b in zip(ext, want)):
         fail(f"header extents {ext} do not match the decoded extents {want}", "EXPORT_BAD_HEADER")
-    return {"counts": counts, "size_mm": [round(w, 2), round(h, 2)], "records": len(recs), "colour_changes_in_header": co}
+    out = {"counts": counts, "size_mm": [round(w, 2), round(h, 2)], "records": len(recs), "colour_changes_in_header": co}
+    if want_sim:
+        out["sim"] = sim
+    return out
 
 
 def independent_reader(data: bytes, expected_stitches: int) -> dict:
@@ -245,3 +253,24 @@ def export_dst(design: dict, *, use_checklist: bool = True) -> ExportResult:
         },
     }
     return ExportResult(res.data, res.sha256, res.record_count, report, list(res.warnings))
+
+
+def decoded_simulation(design: dict) -> dict:
+    """Stitches for the simulator taken from the DST bytes themselves (quantised to 0.1 mm), proven equal to the plan by compare_with_plan.
+    Raises ExportError if the file cannot be produced (the caller falls back to the plan and says so)."""
+    pattern, notes, st = generate(design)
+    m = machine(design)
+    res = write_dst(pattern, trim_jumps=m["trim_jumps"])
+    cmp = compare_with_plan(pattern, res.data, m["trim_jumps"], want_sim=True)
+    code = {Cmd.STITCH: 0, Cmd.JUMP: 1, Cmd.TRIM: 2, Cmd.COLOR_CHANGE: 3, Cmd.END: 4}
+    ids, idx, out, last = [], {}, [], (0.0, 0.0)
+    for x, y, s in cmp["sim"]:
+        if x is None:
+            x, y = last
+        else:
+            last = (x, y)
+        if s.object_id is not None and s.object_id not in idx:
+            idx[s.object_id] = len(ids); ids.append(s.object_id)
+        out.append([round(x, 3), round(y, 3), code[s.cmd], s.thread, idx.get(s.object_id, -1)])
+    return {"stitches": out, "objects": ids, "threads": [t.hex for t in pattern.threads], "stats": st, "notes": notes,
+            "sha256": res.sha256, "pattern": pattern}

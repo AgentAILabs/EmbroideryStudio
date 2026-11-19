@@ -126,6 +126,16 @@
     <div class="row2"><button value="close" class="primary">Close</button></div>
   </form>
 </dialog>
+<dialog id="dlgSeg">
+  <form method="dialog" id="segForm">
+    <h3>Review detected regions</h3>
+    <p class="hint">The image was split into colour regions. Untick a colour to leave it out (e.g. background), pick a new colour to recolour it - give two colours the same value to merge them - and drop tiny specks with the slider. Nothing is stitched until you continue.</p>
+    <div id="segRows"></div>
+    <label>Drop fills smaller than <input type="range" id="segMin" min="0" max="50" value="0" step="0.5"> <b id="segMinV">0</b> mm²</label>
+    <div id="segSum" class="hint"></div>
+    <div class="row"><button value="cancel" id="segCancel">Cancel import</button><button value="go" class="primary" id="segGo">Use these regions</button></div>
+  </form>
+</dialog>
 <dialog id="dlgImport">
   <form method="dialog" id="impForm">
     <h3>Import image as embroidery</h3>
@@ -166,16 +176,22 @@
     <button id="sPlay" title="Play / pause (P)">▶</button>
     <button id="sStep" title="Step forward">⏭</button>
     <button id="sReset" title="Back to start">⏮</button>
+    <button id="sBack" title="Step back (Left arrow)">⏪</button>
     <input type="range" id="sPos" min="0" max="0" value="0" aria-label="Simulation position">
     <label>Speed <input type="range" id="sSpeed" min="1" max="100" value="30"></label>
     <label class="chk2"><input type="checkbox" id="sJumps" checked> Jumps</label>
+    <label class="chk2"><input type="checkbox" id="sTrims" checked> Trims</label>
+    <label class="chk2"><input type="checkbox" id="sRulers"> Rulers</label>
+    <label class="chk2" title="Draw the stitches decoded from the DST file itself (0.1 mm units) instead of the engine's plan"><input type="checkbox" id="sFile" checked> From DST file</label>
+    <details id="sObjsBox"><summary>Objects</summary><div id="sObjs"></div></details>
     <span id="sInfo">0 / 0</span>
+    <div id="sInspect" hidden></div>
   </div>
 </main>
 
 <aside id="side">
   <section><h3>Properties</h3><div id="props"></div></section>
-  <section><h3>Objects <small>(stitch order, top = first)</small></h3><ul id="objs"></ul></section>
+  <section><h3>Objects <small>(stitch order, top = first)</small></h3><div class="btns"><button id="bGroup" title="Group the selected objects (Ctrl/Shift-click in the list or Shift-click on the canvas to select several). Ctrl+G">Group</button><button id="bUngroup" title="Ungroup (Ctrl+Shift+G)">Ungroup</button></div><ul id="objs"></ul></section>
   <section><h3>Templates</h3><div id="tpl"></div></section>
   <section><h3>Design</h3><div id="designProps"></div></section>
   <section><h3>Colour sequence</h3><div id="seq"></div></section>
