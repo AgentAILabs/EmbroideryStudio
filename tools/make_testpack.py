@@ -133,14 +133,20 @@ def designs():
     # 17-22. fabric-specific: one small design per PROVISIONAL fabric preset (30 mm tatami square + 40 mm satin column + outline), parameters
     #     exactly as the editor applies that preset. Stitch each on that fabric; none of the preset values has been verified on a machine.
     from stitchcraft_engine.design import FABRICS
-    PACK_FABRICS = ["cotton", "silk", "georgette", "velvet", "denim", "knit"]      # the original six; satin / net / thick are experimental and get their own pack when you want to test them
+    PACK_FABRICS = ["cotton", "silk", "georgette", "velvet", "denim", "knit"]      # the original six; satin / net / thick are experimental and have their own pack: --extra-fabrics
+    if EXTRA:
+        out = {}
+        PACK_FABRICS = ["satin_fabric", "net", "thick"]
     for k, (fab, vals) in enumerate((f, FABRICS[f]) for f in PACK_FABRICS):
         pr = {"spacing": vals["spacing"], "pull_comp": vals["pull_comp"]}
-        out[f"{17 + k}_fabric_{fab}"] = D(f"{17 + k}_fabric_{fab}", [
+        out[f"{(23 if EXTRA else 17) + k}_fabric_{fab}"] = D(f"{(23 if EXTRA else 17) + k}_fabric_{fab}", [
             {"id": "f", "type": "fill", "color": RED, "rings": [rect(-15, -22, 30, 22)], "params": dict(pr)},
             {"id": "s", "type": "satin", "color": BLUE, "points": [[-20, 14], [20, 14]], "params": dict(pr, width=3)},
             {"id": "o", "type": "run", "color": BLACK, "closed": True, "points": rect(-15, -22, 30, 22)}], fabric=fab)
     return out
+
+
+EXTRA = False                                   # --extra-fabrics: only the experimental satin / net / thick designs (testpack/v2_extra_fabrics)
 
 
 COLS = ["design", "file", "dst_version_sha256_12", "stitch_count", "size_mm", "est_min_UNVERIFIED", "colour_changes",
@@ -166,7 +172,7 @@ def build(out_dir: Path):
         (out_dir / f"{name}.preview.svg").write_text(preview_svg(p, HOOP["w"], HOOP["h"]))
         rows.append({"design": name, "file": f"{name}.dst", "dst_version_sha256_12": res.sha256[:12], "stitch_count": st["stitches"],
                      "size_mm": f"{st['width_mm']} x {st['height_mm']}", "est_min_UNVERIFIED": st["est_minutes"], "colour_changes": st["color_changes"],
-                     "hoop": f"{d['hoop']['w']} x {d['hoop']['h']} mm", "fabric": d.get("fabric", "") if name[:2] in ("17", "18", "19", "20", "21", "22") else "",
+                     "hoop": f"{d['hoop']['w']} x {d['hoop']['h']} mm", "fabric": d.get("fabric", "") if name[:2] in ("17", "18", "19", "20", "21", "22", "23", "24", "25") else "",
                      "warnings": "; ".join(sorted({i.code for i in rep.warnings} | set())), "sha256": res.sha256})
     with open(out_dir / "RESULTS.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=COLS, extrasaction="ignore"); w.writeheader(); w.writerows(rows)
@@ -195,7 +201,9 @@ if __name__ == "__main__":
         spec = sys.argv[sys.argv.index("--hoop") + 1]; args = [a for a in args if a != spec]
         parts = [float(v) for v in spec.lower().split("x")]
         HOOP.update(w=parts[0], h=parts[1], margin=parts[2] if len(parts) > 2 else HOOP["margin"])
-    out = Path(args[0]) if args else ROOT / "testpack" / "v2"
+    if "--extra-fabrics" in sys.argv:
+        EXTRA = True
+    out = Path(args[0]) if args else ROOT / "testpack" / ("v2_extra_fabrics" if EXTRA else "v2")
     rows, problems = build(out)
     for r in rows: print(f"OK  {r['design']:20} {r['stitch_count']:>6} st  {r['size_mm']:>12} mm  ~{r['est_min_UNVERIFIED']} min (unverified)  {r['warnings']}")
     for n, m in problems: print("FAIL", n, m)

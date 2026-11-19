@@ -29,6 +29,7 @@ from stitchcraft_engine.model import Cmd                                        
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
 from stitchcraft_engine.raster import digitize_image, enhance_image, RasterUnavailable        # noqa: E402
 from stitchcraft_engine.schema import validate_design                                       # noqa: E402
+import openapi                                                                                # noqa: E402
 import ops                                                                                  # noqa: E402
 from stitchcraft_engine import machines, report as report_mod, templates, dst_analyze, dst_verify, checklist, profiles, sequence, export_pipeline, placements as placements_mod                                        # noqa: E402
 from stitchcraft_engine.outline import column_from_outline                      # noqa: E402
@@ -476,6 +477,8 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, data, ctype, extra)
         if path == "/api/templates":
             return self._send(200, {"templates": templates.catalog()})
+        if path == "/api/openapi.json":
+            return self._send(200, openapi.spec())
         if path == "/api/machines":
             return self._send(200, {"machines": machines.catalog(), "note": "No machine profile is validated. Output format: DST only."})
         if path == "/api/fabrics":

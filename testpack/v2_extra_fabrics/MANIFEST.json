@@ -1,0 +1,30 @@
+{
+ "pack": "EmbroideryStudio machine test pack",
+ "hoop_mm": [
+  100,
+  100,
+  3
+ ],
+ "physically_validated": false,
+ "note": "Every design below is UNSTITCHED. No result, pass or fail, exists for any file until a person records it in RESULTS.",
+ "files": [
+  {
+   "file": "23_fabric_satin_fabric.dst",
+   "sha256": "e187ed18e3219ac5bfe85626d9ca5adb5730343d06499c02250bde31956999b8",
+   "stitches": 865,
+   "size_mm": "40.0 x 37.71"
+  },
+  {
+   "file": "24_fabric_net.dst",
+   "sha256": "0ed6ab9b8713a446377d5523bf9ec88b71fa77b723c36be30dc456826762720b",
+   "stitches": 800,
+   "size_mm": "40.0 x 37.76"
+  },
+  {
+   "file": "25_fabric_thick.dst",
+   "sha256": "5512ec0b4d5fce8eb4c3d735f8e73e236331532ab8319f75ddc867ba012f0915",
+   "stitches": 978,
+   "size_mm": "40.0 x 37.63"
+  }
+ ]
+}

@@ -1,0 +1,4 @@
+design,file,dst_version_sha256_12,stitch_count,size_mm,est_min_UNVERIFIED,colour_changes,machine_model,fabric,stabiliser,thread,needle,hoop,speed_spm,thread_breaks,puckering,registration,jump_trim_behaviour,colour_change_position,overall_result,notes
+23_fabric_satin_fabric,23_fabric_satin_fabric.dst,e187ed18e321,865,40.0 x 37.71,2.3,2,,satin_fabric,,,,100 x 100 mm,,,,,,,,
+24_fabric_net,24_fabric_net.dst,0ed6ab9b8713,800,40.0 x 37.76,2.2,2,,net,,,,100 x 100 mm,,,,,,,,
+25_fabric_thick,25_fabric_thick.dst,5512ec0b4d5f,978,40.0 x 37.63,2.5,2,,thick,,,,100 x 100 mm,,,,,,,,

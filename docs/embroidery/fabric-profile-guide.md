@@ -18,7 +18,7 @@ No profile has been stitched out on a machine by this project, and none is "vali
 
 "Underlay shift" moves the automatic underlay one step lighter / heavier (see `profiles.py`). Selecting a profile in the editor shows its explanation and warning; applying one logs the warning (`warning: ...`). `GET /api/fabrics` returns the catalogue with `experimental: true, validated: false` for every entry.
 
-The physical test pack (`testpack/v2`) still covers the original six presets. Satin, net and thick have no test files yet: build them with `tools/make_testpack.py` when you want to test those materials, and record the result in your own report before trusting a preset.
+The physical test pack (`testpack/v2`) still covers the original six presets. Satin, net and thick have their own pack, `testpack/v2_extra_fabrics` (`python3 tools/make_testpack.py --extra-fabrics`; files 23-25, blank result sheets, `physically_validated: false`). Record the result in your own report before trusting a preset.
 
 # Machine profiles
 `GET /api/machines` lists: Generic Tajima-compatible DST, Ricoma (unvalidated, user-editable) and Custom. Hoop size and needle count are blank until you enter your machine's values; a blank value is reported as "not checked", never assumed. Export is blocked only by a limit you entered (for example a design larger than your maximum hoop). Every profile reports `validated: false`; a note you type in `validated_by` is quoted as your statement, not as verification.

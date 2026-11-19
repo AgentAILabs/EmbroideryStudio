@@ -42,7 +42,9 @@ save/reopen, SVG + PNG import, versions) with zero page errors / HTTP 5xx.
 | Production report (software / independent reader / physical = NOT DONE) | ✅ | `report.py`, in every export package |
 | Logging, rate limit, upload policy, headers, perf budgets | ✅ thin slice | `server/ops.py`; no auth/ownership/DB/jobs (roadmap) |
 | Physical machine validation | 🧪 **pending - nothing stitched** | `docs/testing/physical-machine-test-plan.md` |
-| React/TS + ASP.NET + PostgreSQL | ❌ roadmap (staged plan documented) | `docs/architecture/enterprise-architecture.md` |
+| Bezier node handles, erase brush on source pixels, strict schema + fuzz-tested API, OpenAPI contract | ✅ software-tested | `tests/test_bezier.py`, `tests/test_robustness.py`, `tests/test_openapi.py`; e2e steps |
+| Test pack for satin / net / thick | 🧪 generated, unstitched | `testpack/v2_extra_fabrics` |
+| React/TS + ASP.NET + PostgreSQL | ❌ roadmap (stage 1 contract done; stages 2-5 not started) | `docs/architecture/enterprise-architecture.md` |
 Audit register: `docs/testing/technical-audit-report.md`. Roadmap: `docs/roadmap/enterprise-feature-roadmap.md`.
 
 ## A. Review decisions (requirements §A)

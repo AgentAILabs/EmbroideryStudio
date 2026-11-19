@@ -29,7 +29,7 @@ No authentication, no per-user ownership, no database, no job queue / cancellati
 | Observability | OpenTelemetry traces + the existing JSON log schema | |
 
 ### Staged migration (each stage ships and is tested before the next)
-1. **Freeze the contract:** publish OpenAPI for the existing endpoints; add contract tests (the current API tests become the suite).
+1. **Freeze the contract - DONE:** `GET /api/openapi.json` (`server/openapi.py`); `tests/test_openapi.py` fails if a route and the document drift apart or key response shapes change.
 2. **API host:** ASP.NET Core in front, calling the Python engine as a service; auth + rate limit move here. Python server keeps running unchanged behind it.
 3. **Persistence:** projects/versions/exports in PostgreSQL; the `.esproj` file stays an import/export format.
 4. **UI:** React/TS rebuilt screen by screen against the same API (the vanilla-JS UI keeps working until parity is proven by the e2e suite).

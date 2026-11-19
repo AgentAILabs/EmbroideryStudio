@@ -1,0 +1,88 @@
+{
+ "app": "EmbroideryStudio",
+ "version": 1,
+ "doc": {
+  "name": "24_fabric_net",
+  "hoop": {
+   "w": 100,
+   "h": 100,
+   "margin": 3
+  },
+  "fabric": "net",
+  "objects": [
+   {
+    "id": "f",
+    "type": "fill",
+    "color": "#c8102e",
+    "rings": [
+     [
+      [
+       -15,
+       -22
+      ],
+      [
+       15,
+       -22
+      ],
+      [
+       15,
+       0
+      ],
+      [
+       -15,
+       0
+      ]
+     ]
+    ],
+    "params": {
+     "spacing": 0.5,
+     "pull_comp": 0.3
+    }
+   },
+   {
+    "id": "s",
+    "type": "satin",
+    "color": "#1e3a8a",
+    "points": [
+     [
+      -20,
+      14
+     ],
+     [
+      20,
+      14
+     ]
+    ],
+    "params": {
+     "spacing": 0.5,
+     "pull_comp": 0.3,
+     "width": 3
+    }
+   },
+   {
+    "id": "o",
+    "type": "run",
+    "color": "#000000",
+    "closed": true,
+    "points": [
+     [
+      -15,
+      -22
+     ],
+     [
+      15,
+      -22
+     ],
+     [
+      15,
+      0
+     ],
+     [
+      -15,
+      0
+     ]
+    ]
+   }
+  ]
+ }
+}

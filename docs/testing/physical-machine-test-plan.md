@@ -16,7 +16,7 @@ Before you start: confirm the files are current (`python3 tools/dst_provenance.p
 | 7 | Satin widths and corners | `08_satin_widths` | thread breaks, loops, coverage per width | no repeated breaks at widths you intend to use |
 | 8 | Small lettering | `02..04_lettering_*`, `14_running_small` | legibility at 5/8/12 mm | legible at the smallest height you will sell |
 | 9 | Applique | `10_applique` | placement/tack-down/cover registration | cover hides the edge |
-| 10 | Fabric presets | `17..22_fabric_*` (+ satin / net / thick if you generate them) | puckering, show-through, sinking, per fabric | per fabric decision: keep / adjust / reject the preset |
+| 10 | Fabric presets | `17..22_fabric_*`; `testpack/v2_extra_fabrics/23..25` (satin / net / thick) | puckering, show-through, sinking, per fabric | per fabric decision: keep / adjust / reject the preset |
 | 11 | Needle breaks, thread breaks, skipped stitches, bird nests | all | counts per file and where (stitch number from the inspector) | zero tolerated or your own limit |
 
 Evidence required per row: file name + SHA-256 prefix (from the export report), photo, measured values, who/when, notes. A row without evidence stays "not tested".
