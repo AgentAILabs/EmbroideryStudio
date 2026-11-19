@@ -190,6 +190,15 @@ await step('G1: density/risk overlay, micro-stitch cleaning field, split for hoo
   const [dl]=await Promise.all([pg.waitForEvent('download',{timeout:30000}),pg.click('#bSplit')]);await dl.saveAs(SP+'/split.zip');await wait(500);
   if(!/Split into \d+ hooping/.test(msg))throw new Error('split msg: '+msg);if(fs.statSync(SP+'/split.zip').size<500)throw new Error('empty zip');
   pg.removeAllListeners('dialog');pg.on('dialog',d=>d.accept());return 'risk '+JSON.stringify(risk)+'; '+msg.split('\n')[0]});
+await step('I7: image fidelity workspace - nine passes, overlay/diff modes, inventory row highlights, bundle with the untouched original',async()=>{
+  await pg.click('#bNew');await wait(300);pg.removeAllListeners('dialog');pg.on('dialog',d=>d.accept());await pg.setInputFiles('#fileImport',ROOT+'/tools/e2e_art.png');await pg.waitForSelector('#dlgImport[open]');await pg.selectOption('#impQ','high');await pg.click('#impGo');await pg.waitForSelector('#dlgSeg[open]');await pg.click('#segGo');await wait(2500);
+  await pg.click('#bFid');await pg.waitForFunction(()=>document.querySelectorAll('#fidPasses .fp').length===9,null,{timeout:60000});
+  const v=await pg.evaluate(()=>document.querySelector('#fidVerdict').innerText);if(!/Software validation/.test(v)||!/PENDING/i.test(v))throw new Error('verdict '+v);
+  for(const m of ['over','diff','side','slide','orig']){await pg.click('#fidMode [data-m="'+m+'"]');await wait(150)}
+  const rows=await pg.evaluate(()=>document.querySelectorAll('#fidInv tr[data-id]').length);if(!rows)throw new Error('no inventory rows');
+  await pg.click('#fidInv tr[data-id]');await wait(200);if(await pg.evaluate(()=>document.querySelector('#fidHi').hidden))throw new Error('highlight hidden');
+  const [dl]=await Promise.all([pg.waitForEvent('download',{timeout:60000}),pg.click('#fidBundle')]);await dl.saveAs(SP+'/fid.zip');if(fs.statSync(SP+'/fid.zip').size<2000)throw new Error('bundle too small');
+  await pg.click('#fidClose');return v.replace(/\n/g,' ').slice(0,120)+' | '+rows+' inventory rows'});
 await pg.screenshot({path:SP+'/e2e-final.png'});
 for(const r of res)console.log(r[0],'|',r[1],'|',r[2]);
 console.log('page errors:',errs.length?errs:'none','| HTTP 5xx:',bad.length?bad:'none');console.log('artifacts in',SP);await b.close();

@@ -126,6 +126,26 @@
     <div class="row2"><button value="close" class="primary">Close</button></div>
   </form>
 </dialog>
+<dialog id="dlgFid">
+  <div class="fidwrap">
+    <div class="fidhead"><h3 id="fidTitle">Image fidelity report</h3><div id="fidVerdict"></div><small id="fidDisc"></small></div>
+    <div class="fidbody">
+      <div class="fidleft">
+        <div class="btns"><span class="seg" id="fidMode"><button data-m="orig" class="on">Original</button><button data-m="over">Stitched (decoded DST)</button><button data-m="diff">Difference</button><button data-m="side">Side by side</button><button data-m="slide">Slider</button></span>
+          <label id="fidSlideBox" hidden>original <input type="range" id="fidSlide" min="0" max="100" value="50"> stitched</label><button type="button" id="fidFit">Fit</button></div>
+        <div id="fidStage"><div id="fidPan"><img id="fidA" alt="original"><img id="fidB" alt="stitched"><div id="fidHi" hidden></div></div></div>
+        <small>Wheel = zoom, drag = pan. Red = ink with no stitching, blue = stitching with no ink, green = matched. The original is shown unmodified; the other images are derived from it.</small>
+      </div>
+      <div class="fidright">
+        <h4>Validation passes</h4><div id="fidPasses"></div>
+        <h4>Remaining risks</h4><ul id="fidRisks"></ul>
+        <h4>Detail inventory <select id="fidFilter"><option value="">all</option><option value="not_stitchable">not stitchable</option><option value="micro_representation">micro representation</option><option value="digitized">digitized</option></select></h4>
+        <div id="fidInv"></div>
+      </div>
+    </div>
+    <div class="row"><button type="button" id="fidBundle">Download bundle (zip)</button><button type="button" id="fidClose">Close</button></div>
+  </div>
+</dialog>
 <dialog id="dlgSeg">
   <form method="dialog" id="segForm">
     <h3>Review detected regions</h3>
@@ -145,7 +165,7 @@
     <p class="hint">Flat-colour artwork (logos, line art, lettering) on a plain background digitizes best. Photos will not.</p>
     <label>Width in the hoop (mm) <input type="number" id="impW" min="5" max="1000" step="1"></label>
     <label>Thread colours <input type="number" id="impC" min="2" max="8" value="6"></label>
-    <label>Quality <select id="impQ"><option value="draft">Draft (fast, coarse)</option><option value="standard" selected>Standard</option><option value="high">High (keeps small details)</option></select></label>
+    <label>Quality <select id="impQ"><option value="draft">Draft (fast, coarse)</option><option value="standard">Standard</option><option value="high" selected>High (keeps small details)</option><option value="maximum">Maximum (finest detail, slower)</option></select></label>
     <label>Enhance image (2× upscale + sharpen) <select id="impE"><option value="auto" selected>Auto – only if blurry / low-res</option><option value="always">Always</option><option value="off">Off</option></select></label>
     <div id="impReport" hidden></div>
     <div class="row"><button value="cancel" id="impCancel">Cancel</button><button value="go" class="primary" id="impGo">Import</button></div>

@@ -529,6 +529,60 @@ function reviewRegions(objs, extent) {      // segmentation review: keep / recol
     dlg.onclose = () => resolve(dlg.returnValue === "go" ? result() : dlg.returnValue === "redo" ? {redo: JSON.parse(dlg.dataset.redo || "[]")} : null); dlg.showModal();
   });
 }
+/* ---------------------------------------------------------------- fidelity workspace */
+const FID = {mode: "orig", z: 1, x: 0, y: 0, rep: null, imgs: {}};
+function fidApply() {
+  $("#fidPan").style.transform = `translate(${FID.x}px,${FID.y}px) scale(${FID.z})`;
+  const A = $("#fidA"), B = $("#fidB"), m = FID.mode, W = A.naturalWidth || 1, H = A.naturalHeight || 1, scale = 640 / Math.max(W, 1);
+  [A, B].forEach(i => { i.style.width = (W * scale) + "px"; i.style.height = (H * scale) + "px"; });
+  A.src !== FID.imgs.orig && (A.src = FID.imgs.orig); B.style.left = "0"; B.style.clipPath = "none"; A.style.display = "block"; B.style.display = "block"; $("#fidSlideBox").hidden = m !== "slide";
+  const second = m === "diff" ? FID.imgs.diff : FID.imgs.over;
+  if (m === "orig") B.style.display = "none"; else { if (B.src !== second) B.src = second; }
+  if (m === "over" || m === "diff") A.style.display = "none";
+  if (m === "side") { B.style.left = (W * scale + 8) + "px"; }
+  if (m === "slide") { const v = +$("#fidSlide").value; B.style.clipPath = `inset(0 0 0 ${v}%)`; }
+}
+function fidFit() { const st = $("#fidStage"), A = $("#fidA"), W = (A.naturalWidth ? 640 : 640) * (FID.mode === "side" ? 2.02 : 1), H = (A.naturalHeight / Math.max(A.naturalWidth, 1)) * 640; FID.z = Math.min(st.clientWidth / W, st.clientHeight / H) * .98; FID.x = (st.clientWidth - W * FID.z) / 2; FID.y = (st.clientHeight - H * FID.z) / 2; fidApply(); }
+function fidHighlight(it) {
+  const hi = $("#fidHi"), A = $("#fidA"); if (!it || !FID.rep) { hi.hidden = true; return; } const k = 640 / FID.rep.width_mm, b = it.bbox_mm;
+  hi.style.left = (b[0] * k - 3) + "px"; hi.style.top = (b[1] * k - 3) + "px"; hi.style.width = ((b[2] - b[0]) * k + 6) + "px"; hi.style.height = ((b[3] - b[1]) * k + 6) + "px"; hi.hidden = false;
+  const st = $("#fidStage"), z = Math.min(8, Math.max(1.5, Math.min(st.clientWidth, st.clientHeight) / Math.max(30, Math.max(b[2] - b[0], b[3] - b[1]) * k * 4)));
+  FID.z = z; FID.x = st.clientWidth / 2 - (b[0] + b[2]) / 2 * k * z; FID.y = st.clientHeight / 2 - (b[1] + b[3]) / 2 * k * z; fidApply();
+}
+function fidRenderInv() {
+  const f = $("#fidFilter").value, rows = (FID.rep.inventory || []).filter(r => !f || r.status === f).slice(0, 400);
+  $("#fidInv").innerHTML = `<table><tr><th>id</th><th>size mm</th><th>status</th><th>stitch</th><th>reason</th></tr>${rows.map(r => `<tr data-id="${r.id}"><td>${r.id}</td><td>${r.size_mm[0]}×${r.size_mm[1]}</td><td>${esc(r.status)}</td><td>${esc(r.strategy)}</td><td title="${esc(r.reason)}">${esc(r.reason.slice(0, 70))}</td></tr>`).join("")}</table>`;
+  $("#fidInv").querySelectorAll("tr[data-id]").forEach(tr => tr.onclick = () => fidHighlight(FID.rep.inventory.find(x => x.id === tr.dataset.id)));
+}
+async function openFidelity() {
+  if (!S.imgSrc) { alert("Import a PNG or JPEG image first - the fidelity report compares the exported DST with the original upload."); return; }
+  const dlg = $("#dlgFid"); $("#fidVerdict").innerHTML = "Running the nine validation passes…"; $("#fidPasses").innerHTML = ""; $("#fidRisks").innerHTML = ""; $("#fidInv").innerHTML = ""; dlg.showModal();
+  try {
+    const o = S.imgSrc.opts, useDoc = S.doc.objects.some(x => /^img\d+$/.test(x.id));
+    const rep = await post("/api/image/validate", Object.assign({data: S.imgSrc.b64, width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e, images: true, hoop_w: S.doc.hoop.w, hoop_h: S.doc.hoop.h, name: S.doc.name}, useDoc ? {design: S.doc} : {}));
+    FID.rep = rep; FID.imgs = {orig: S.imgSrc.url, over: "data:image/png;base64," + rep.derived_images["overlay.png"], diff: "data:image/png;base64," + rep.derived_images["difference.png"]};
+    $("#fidVerdict").innerHTML = `<span class="vd ${rep.software_validation}">Software validation: ${rep.software_validation.replace(/_/g, " ")}</span> <span class="vd FAILED" style="background:#6b7280">Physical machine validation: ${esc(rep.physical_validation.split(" - ")[0])}</span>`;
+    $("#fidDisc").textContent = rep.disclaimer;
+    $("#fidPasses").innerHTML = rep.passes.map(p => `<div class="fp ${p.result}"><b>${p.pass}. ${p.result}</b><span>${esc(p.name)}<br><small>${esc(p.detail)}</small></span></div>`).join("");
+    $("#fidRisks").innerHTML = rep.remaining_risks.map(r => `<li>${esc(r)}</li>`).join("") || "<li>none recorded</li>";
+    fidRenderInv(); FID.mode = "orig"; document.querySelectorAll("#fidMode button").forEach(b => b.classList.toggle("on", b.dataset.m === "orig"));
+    const A = $("#fidA"); A.onload = () => { fidFit(); }; A.src = FID.imgs.orig; if (A.complete) fidFit();
+  } catch (e) { $("#fidVerdict").textContent = "Validation failed: " + e.message; }
+}
+async function fidelityBundle() {
+  const o = S.imgSrc.opts, r = await fetch("/api/image/bundle", {method: "POST", body: JSON.stringify({data: S.imgSrc.b64, width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e, hoop_w: S.doc.hoop.w, hoop_h: S.doc.hoop.h, name: S.doc.name})});
+  if (!r.ok) { const j = await r.json().catch(() => ({})); alert("Bundle not produced: " + (j.error || r.statusText)); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(await r.blob()); a.download = (S.doc.name || "design").replace(/[^\w-]+/g, "_") + "-image-to-dst.zip"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+(() => {
+  const st = $("#fidStage"); let drag = null;
+  st.addEventListener("wheel", e => { e.preventDefault(); const r = st.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, f = e.deltaY < 0 ? 1.2 : 1 / 1.2; FID.x = mx - (mx - FID.x) * f; FID.y = my - (my - FID.y) * f; FID.z = Math.max(.2, Math.min(40, FID.z * f)); fidApply(); }, {passive: false});
+  st.addEventListener("pointerdown", e => { drag = {x: e.clientX - FID.x, y: e.clientY - FID.y}; st.setPointerCapture(e.pointerId); st.style.cursor = "grabbing"; });
+  st.addEventListener("pointermove", e => { if (drag) { FID.x = e.clientX - drag.x; FID.y = e.clientY - drag.y; fidApply(); } });
+  st.addEventListener("pointerup", () => { drag = null; st.style.cursor = "grab"; });
+  document.querySelectorAll("#fidMode button").forEach(b => b.onclick = () => { FID.mode = b.dataset.m; document.querySelectorAll("#fidMode button").forEach(x => x.classList.toggle("on", x === b)); fidApply(); fidFit(); });
+  $("#fidSlide").oninput = fidApply; $("#fidFit").onclick = fidFit; $("#fidFilter").onchange = () => FID.rep && fidRenderInv(); $("#fidClose").onclick = () => $("#dlgFid").close(); $("#fidBundle").onclick = fidelityBundle;
+})();
 async function importFile(file) {
   if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") { alert("PDF import is not currently supported. Please export your artwork as SVG, PNG or JPG."); return; }
   try {
@@ -537,6 +591,7 @@ async function importFile(file) {
     else {
       const o = await askImport(); if (!o || !o.w) return;
       const buf = new Uint8Array(await file.arrayBuffer()); let bin = ""; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
+      S.imgSrc = {name: file.name, b64: btoa(bin), url: URL.createObjectURL(file), opts: o};       // the original stays in memory exactly as uploaded
       let erase = [];
       for (;;) {                                   // review -> (optional) erase pixels in the source image -> re-detect -> review again
         res = await post("/api/import/raster", {data: btoa(bin), width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e, erase});
@@ -862,7 +917,7 @@ function renderDesign() {
   <div class="row"><label title="Limits the design is checked against. No machine profile is validated: none has been stitched out.">Machine profile</label><select id="mProf">${(S.machines || [{id: "generic_tajima_dst", model: "Generic Tajima-compatible DST"}]).map(m => `<option value="${m.id}" ${m.id === ((d.machine_profile || {}).id || "generic_tajima_dst") ? "selected" : ""}>${esc((m.manufacturer ? m.manufacturer + " " : "") + m.model)}</option>`).join("")}</select></div>
   <div class="row"><label title="Largest hoop of YOUR machine (mm). Blank = not checked.">Machine max hoop W × H</label><span style="display:flex;gap:4px"><input type="number" id="mpW" value="${(((d.machine_profile || {}).overrides || {}).max_hoop || {}).w ?? ""}" style="width:50%" min="10"><input type="number" id="mpH" value="${(((d.machine_profile || {}).overrides || {}).max_hoop || {}).h ?? ""}" style="width:50%" min="10"></span></div>
   <div class="row"><label title="Number of needles / thread colours your machine holds. Blank = not checked.">Machine needles</label><input type="number" id="mpN" value="${((d.machine_profile || {}).overrides || {}).needles ?? ""}" min="1" max="64"></div>
-  <div class="note"><b>Not validated:</b> no stitch-out evidence exists for any machine profile. These limits only check the design against the numbers you enter. <button id="bReport" style="padding:1px 6px">Production report</button> <button id="bSplit" style="padding:1px 6px" title="Design bigger than your hoop: one DST per hooping with alignment marks">Split for hoop</button></div>
+  <div class="note"><b>Not validated:</b> no stitch-out evidence exists for any machine profile. These limits only check the design against the numbers you enter. <button id="bReport" style="padding:1px 6px">Production report</button> <button id="bSplit" style="padding:1px 6px" title="Design bigger than your hoop: one DST per hooping with alignment marks">Split for hoop</button> <button id="bFid" style="padding:1px 6px" title="Compare the exported DST with the original image you imported: nine software validation passes, overlay and difference map, detail inventory">Image fidelity</button></div>
   <div class="row"><label>Max stitch mm</label><input type="number" id="mMax" value="${(d.machine || {}).max_stitch ?? 7}" step=".5" min="1" max="12.1"></div>
   <div class="row"><label title="Jumps longer than this get a trim">Trim above mm</label><input type="number" id="mTrim" value="${(d.machine || {}).trim_distance ?? 3}" step=".5" min=".5"></div>
   <div class="row"><label title="DST has no trim command; machines differ. Confirm on yours.">Trim jumps</label><input type="number" id="mJ" value="${(d.machine || {}).trim_jumps ?? 3}" step="1" min="1" max="6"></div>
@@ -918,7 +973,7 @@ function renderDesign() {
   const hoopMP = () => setMP(mp => { const w = +$("#mpW").value, h = +$("#mpH").value; if (w > 0 && h > 0) mp.overrides.max_hoop = {w, h}; else delete mp.overrides.max_hoop; });
   $("#mpW").onchange = hoopMP; $("#mpH").onchange = hoopMP;
   $("#mpN").onchange = () => setMP(mp => { const n = parseInt($("#mpN").value); if (n >= 1) mp.overrides.needles = n; else delete mp.overrides.needles; });
-  $("#bReport").onclick = downloadReport; $("#bSplit").onclick = splitForHoop;
+  $("#bReport").onclick = downloadReport; $("#bSplit").onclick = splitForHoop; $("#bFid").onclick = openFidelity;
 }
 async function splitForHoop() {
   if (!S.doc.objects.length) { alert("Nothing to split yet."); return; }

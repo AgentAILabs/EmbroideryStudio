@@ -645,7 +645,8 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
         notes.append(f"{kinds['run']} thin line(s) became running stitch.")
     if not ordered:
         notes.append("Nothing to digitize. For images, use flat-colour artwork on a plain background.")
-    return {"objects": ordered, "notes": notes, "size_mm": (width_mm, height_mm), "report": report, "inventory": inventory}
+    return {"objects": ordered, "notes": notes, "size_mm": (width_mm, height_mm), "report": report, "inventory": inventory,
+            "_work": {"labels": labels, "pal": pal[:k], "bg": bg, "mm_per_px": mm}}
 
 
 def digitize_raster(data: bytes, width_mm: float, max_colors: int = 6, min_area_mm2: float = 4.0, simplify_mm: float = 0.25,

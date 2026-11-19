@@ -135,3 +135,11 @@ dialog#dlgStatus .row2{display:flex;justify-content:flex-end;margin-top:10px}.st
 #tools{background:var(--nav);border-right:1px solid var(--navline)}
 #tools button{background:var(--nav2);border-color:var(--navline);color:var(--navink)}#tools button span{color:#94a3b8}
 #tools button.on{background:#2563eb;border-color:#2563eb}#tools hr{border-top-color:var(--navline)}#tools .chk{color:#94a3b8}
+
+#dlgFid{width:min(1200px,96vw);max-height:94vh;padding:12px}.fidwrap{display:flex;flex-direction:column;gap:8px}.fidbody{display:grid;grid-template-columns:1.3fr 1fr;gap:12px;min-height:0}
+#fidStage{position:relative;height:60vh;overflow:hidden;background:#d1d5db;border:1px solid #9ca3af;border-radius:6px;cursor:grab}#fidPan{position:absolute;left:0;top:0;transform-origin:0 0}
+#fidPan img{display:block;position:absolute;left:0;top:0;image-rendering:pixelated;max-width:none}#fidHi{position:absolute;border:2px solid #f59e0b;background:#f59e0b33;pointer-events:none}
+.fidright{overflow:auto;max-height:66vh;font-size:12px}.fidright h4{margin:8px 0 4px}.fp{display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #e5e7eb}.fp b{min-width:84px}
+.fp.PASSED b{color:#15803d}.fp.WARNING b{color:#b45309}.fp.FAILED b{color:#b91c1c}.fp small{color:#555}
+#fidInv table{border-collapse:collapse;width:100%}#fidInv td,#fidInv th{padding:2px 4px;border-bottom:1px solid #e5e7eb;text-align:left;cursor:pointer}#fidInv tr:hover{background:#eef2ff}
+.vd{display:inline-block;padding:2px 8px;border-radius:10px;font-weight:600;color:#fff}.vd.PASSED{background:#15803d}.vd.PASSED_WITH_WARNINGS{background:#b45309}.vd.FAILED{background:#b91c1c}

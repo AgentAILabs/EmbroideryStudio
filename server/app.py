@@ -281,7 +281,12 @@ def api_checklist(d):
 def api_autodigitize(d):
     """Professional auto-digitizing pipeline: image -> clean + vectorise -> stitch types -> fabric/category profile
     (density, underlay, pull comp, shortening) -> safe auto-fix -> sequence optimisation -> 15-item checklist."""
-    imp = api_raster({k: d[k] for k in ("data", "width_mm", "colors", "quality", "enhance") if k in d})
+    out, _full, _orig = _autodigitize_core(d)
+    return out
+
+
+def _autodigitize_core(d):
+    imp, full, original = _raster_full({k: d[k] for k in ("data", "width_mm", "colors", "quality", "enhance", "erase") if k in d})
     if not imp["objects"]:
         raise ValueError("; ".join(imp["notes"]) or "nothing to digitize")
     hoop = {"w": float(d.get("hoop_w", 100)), "h": float(d.get("hoop_h", 100)), "margin": 3}
@@ -297,7 +302,50 @@ def api_autodigitize(d):
     design, l2 = profiles.apply_profile(design, str(d.get("fabric", "cotton")), str(d.get("category", "blouse_neck")), overwrite=True)
     design, l3 = placements_mod.autofix(design)
     design, l4 = sequence.optimize_sequence(design)
-    return {"design": design, "log": log + l2 + l3 + l4, "import_report": imp.get("report"), "source": imp.get("source"), "checklist": checklist.evaluate(design)}
+    return ({"design": design, "log": log + l2 + l3 + l4, "import_report": imp.get("report"), "source": imp.get("source"), "inventory": imp.get("inventory", []),
+             "checklist": checklist.evaluate(design)}, full, original)
+
+
+def api_image_validate(d):
+    """Nine-pass image-to-DST validation (software). Runs the auto-digitize pipeline (or uses the supplied `design` from the editor) and compares the DECODED DST
+    with the original upload. Derived images (overlay, difference map) are returned base64; the original is never modified."""
+    from stitchcraft_engine import image_validation
+    out, full, original = _autodigitize_core(d)
+    design = d.get("design") if isinstance(d.get("design"), dict) else out["design"]
+    check_design(design)
+    rep = image_validation.validate(original, float(d.get("width_mm", 80)), full, design)
+    if not d.get("images"):
+        rep.pop("derived_images", None)
+    return dict(rep, design_name=design.get("name"), inventory=out["inventory"], import_report=out["import_report"], width_mm=float(d.get("width_mm", 80)), height_mm=full["size_mm"][1])
+
+
+def api_image_bundle(d):
+    """ZIP: the untouched original + SOURCE.json + overlay / difference images + inventory + validation report + DST + project + production report."""
+    from stitchcraft_engine import image_validation
+    out, full, original = _autodigitize_core(d)
+    design = out["design"]
+    check_design(design)
+    try:
+        res = export_pipeline.export_dst(design)
+    except export_pipeline.ExportError as e:
+        return None, e.to_dict()
+    rep = image_validation.validate(original, float(d.get("width_mm", 80)), full, design, res)
+    derived = {k: base64.b64decode(v) for k, v in rep.pop("derived_images", {}).items()}
+    n = sheet._safe(design.get("name"))
+    derived[f"../{n}.dst"] = res.data
+    derived[f"../{n}.esproj"] = json.dumps({"app": "EmbroideryStudio", "version": 1, "doc": design}, indent=1).encode()
+    prod = report_mod.build_report(design, res)
+    zdata = fidelity.make_bundle(original, {k: v for k, v in derived.items() if not k.startswith("../")},
+                                 {"inventory": out["inventory"], "image-validation": rep, "import-report": out["import_report"], "production-report": prod, "log": out["log"]}, n)
+    import zipfile, io
+    zin = zipfile.ZipFile(io.BytesIO(zdata)); buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zo:
+        for item in zin.namelist():
+            zo.writestr(item, zin.read(item))
+        zo.writestr(f"{n}.dst", res.data)
+        zo.writestr(f"{n}.esproj", derived[f"../{n}.esproj"])
+        zo.writestr(f"{n}.production-report.html", report_mod.render_html(prod))
+    return buf.getvalue(), {"software_validation": rep.get("software_validation"), "dst_sha256": res.sha256, "passes": [(p["pass"], p["result"]) for p in rep.get("passes", [])]}
 
 
 def api_profile(d):
@@ -403,6 +451,11 @@ def _erase_pixels(raw: bytes, width_mm: float, strokes) -> bytes:
 
 
 def api_raster(d):
+    return _raster_full(d)[0]
+
+
+def _raster_full(d):
+    """-> (JSON-safe API dict, the full digitize_image result incl. the internal label map). Only server code uses the second value."""
     ops.check_base64_upload(d.get("data"), "image")
     raw = base64.b64decode(d["data"])
     if raw[:4] == b"%PDF":
@@ -427,8 +480,8 @@ def api_raster(d):
         r = digitize_image(raw, float(d.get("width_mm", 80)), int(d.get("colors", 6)), str(d.get("quality", "standard")))
     except OSError as e:                                  # PIL: truncated / damaged / unrecognised image data
         raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
-    return {"objects": r["objects"], "notes": r["notes"], "width_mm": r["size_mm"][0], "height_mm": r["size_mm"][1], "report": dict(r["report"], enhance=enh),
-            "source": fidelity.source_record(original, float(d.get("width_mm", 80))), "inventory": r.get("inventory", [])}
+    return ({"objects": r["objects"], "notes": r["notes"], "width_mm": r["size_mm"][0], "height_mm": r["size_mm"][1], "report": dict(r["report"], enhance=enh),
+             "source": fidelity.source_record(original, float(d.get("width_mm", 80))), "inventory": r.get("inventory", [])}, r, original)
 
 
 def api_enhance(d):
@@ -582,6 +635,13 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_lettering(d))
             if path == "/api/to_manual":
                 return self._send(200, api_to_manual(d))
+            if path == "/api/image/validate":
+                return self._send(200, api_image_validate(d))
+            if path == "/api/image/bundle":
+                data, info = api_image_bundle(d)
+                if data is None:
+                    return self._send(422, info)
+                return self._send(200, data, "application/zip", {"Content-Disposition": 'attachment; filename="image-to-dst-bundle.zip"', "X-Bundle-Summary": base64.b64encode(json.dumps(info).encode()).decode()})
             if path == "/api/split":
                 data, rep = api_split(d)
                 return self._send(200, data, "application/zip", {"Content-Disposition": f'attachment; filename="{sheet._safe(d.get("name"))}-split.zip"',

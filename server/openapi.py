@@ -26,6 +26,8 @@ ROUTES = {
     ("post", "/api/export/exp"): ("EXP (experimental, disabled unless enabled by the operator)", DESIGN_BODY, {"description": "exp bytes"}, ["400", "422"]),
     ("post", "/api/report"): ("Production report (three validation sections); html=true adds an HTML rendering", DESIGN_BODY, JSON200("report"), ["400"]),
     ("post", "/api/split"): ("Split an oversize design into hoopings with alignment marks (zip of DSTs)", DESIGN_BODY, {"description": "zip; header X-Split-Report"}, ["400"]),
+    ("post", "/api/image/validate"): ("Nine-pass image-to-DST validation (software only; physical = PENDING)", {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}}, JSON200("passes, remaining_risks, derived_images"), ["400"]),
+    ("post", "/api/image/bundle"): ("ZIP: untouched original, inventory, overlay/difference images, validation report, DST, project", {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}}, {"description": "zip"}, ["400", "422"]),
     ("post", "/api/quality"): ("8-category software quality score", DESIGN_BODY, JSON200("score, categories, issues"), ["400"]),
     ("post", "/api/travel"): ("Travel and trim analysis", DESIGN_BODY, JSON200("moves, verdicts, totals"), ["400"]),
     ("post", "/api/checklist"): ("15-item production checklist", DESIGN_BODY, JSON200("items"), ["400"]),
