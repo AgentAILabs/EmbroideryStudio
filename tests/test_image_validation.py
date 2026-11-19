@@ -82,6 +82,17 @@ class Validation(unittest.TestCase):
         self.assertAlmostEqual(tr["scale"], 0.8, places=2)
 
 @unittest.skipUnless(HAVE, "Pillow/NumPy not installed")
+class EditorIds(unittest.TestCase):
+    def test_objects_renamed_by_the_editor_are_matched_through_src(self):
+        data = D.encode(D.plate(D.elements()), 1000); imp = digitize_image(data, 80, 8, "high")
+        objs = []
+        for i, o in enumerate(imp["objects"]):
+            o2 = dict(o); o2["src"] = o["id"]; o2["id"] = f"o{i + 40}"; objs.append(o2)
+        design = {"name": "e", "hoop": {"w": 120, "h": 120, "margin": 3}, "objects": objs}
+        rep = V.validate(data, 80, imp, design); tr = [p for p in rep["passes"] if p["pass"] == 5][0]["metrics"]
+        self.assertTrue(tr["transform"]["ok"]); self.assertEqual(tr["transform"]["common"], len(objs)); self.assertEqual(results(rep)[8], "PASSED"); self.assertEqual(tr["removed"], [])
+
+@unittest.skipUnless(HAVE, "Pillow/NumPy not installed")
 class ServerPipeline(unittest.TestCase):
     def test_full_autodigitize_pipeline_validates_and_bundle_keeps_the_original_byte_for_byte(self):
         data = D.encode(D.plate(D.elements()), 1000)

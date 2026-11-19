@@ -76,7 +76,7 @@ def validate_design(d) -> None:
         w = f"object {oid}"
         if o.get("type") not in TYPES:
             raise ValueError(f"{w}: unknown type {o.get('type')!r}")
-        for k in ("color", "name", "group"):
+        for k in ("color", "name", "group", "src"):
             if o.get(k) is not None and (not isinstance(o[k], str) or len(o[k]) > 200):
                 raise ValueError(f"{w}: {k} must be short text")
         for k in ("hidden", "guide", "smooth", "closed"):

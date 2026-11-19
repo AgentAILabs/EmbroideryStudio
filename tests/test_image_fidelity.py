@@ -158,4 +158,36 @@ class ComplexArtworkBudget(unittest.TestCase):
             self.assertLess(dt, budget, (q, dt)); self.assertEqual(r["report"]["work_px"][0], 1000)           # 80 mm / 0.08 mm per px
             self.assertEqual(sum(r["report"]["inventory_status"].values()), len(r["inventory"]))
 
+
+@unittest.skipUnless(HAVE, "Pillow/NumPy not installed")
+class ReviewDecisions(unittest.TestCase):
+    """The user's review of details that are too small to stitch: tack dot or accept omission."""
+    def body(self, **kw):
+        import detail_bench as D
+        data = D.encode(D.plate(D.elements()), 1000)
+        return dict({"data": base64.b64encode(data).decode(), "width_mm": 80, "colors": 8, "quality": "high"}, **kw)
+    def test_tack_decision_adds_a_tack_dot_and_resolves_the_item(self):
+        base = server.api_raster(self.body()); bad = base["report"]["unresolved"]; self.assertEqual(len(bad), 1)
+        r = server.api_raster(self.body(decisions={bad[0]: "tack"}))
+        self.assertEqual(r["report"]["unresolved"], []); self.assertEqual(len(r["objects"]), len(base["objects"]) + 1)
+        it = [i for i in r["inventory"] if i["id"] == bad[0]][0]; self.assertEqual(it["status"], "micro_representation"); self.assertIn("you chose", it["reason"])
+    def test_omit_decision_resolves_without_an_object(self):
+        base = server.api_raster(self.body()); bad = base["report"]["unresolved"][0]
+        r = server.api_raster(self.body(decisions={bad: "omit"}))
+        self.assertEqual(r["report"]["unresolved"], []); self.assertEqual(len(r["objects"]), len(base["objects"]))
+        self.assertEqual([i for i in r["inventory"] if i["id"] == bad][0]["status"], "omitted_by_user")
+    def test_bad_decisions_are_refused(self):
+        for bad in ({"d001": "delete"}, [1], {"d001": 5}):
+            with self.assertRaises(ValueError): server.api_raster(self.body(decisions=bad))
+    def test_time_guard_stops_with_a_clear_message(self):
+        from stitchcraft_engine import raster
+        old = raster.TIME_BUDGET_S; raster.TIME_BUDGET_S = -1
+        try:
+            with self.assertRaises(ValueError) as cm: server.api_raster(self.body())
+        finally: raster.TIME_BUDGET_S = old
+        self.assertIn("took longer", str(cm.exception))
+    def test_validation_exposes_every_comparison_image(self):
+        r = server.api_image_validate(dict(self.body(), hoop_w=120, hoop_h=120, images=True))
+        self.assertEqual(set(r["derived_images"]), {"overlay.png", "difference.png", "analysis.png", "segmented.png", "vector.png"})
+
 if __name__ == "__main__": unittest.main()

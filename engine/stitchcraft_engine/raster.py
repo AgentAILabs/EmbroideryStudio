@@ -149,6 +149,7 @@ MIN_FILL_MM2 = 1.0          # below this a tatami fill cannot form rows (auto-fi
 TACK_MAX_EQ_DIAMETER_MM = 2.2   # small blobs up to this equivalent diameter become a tack dot (3-stitch star) instead of a fill
 INVENTORY_LIMIT = 2500
 MAX_HIRES_PX = 3300          # longest side of the up-sampled mask used for contour tracing (time / memory budget)
+TIME_BUDGET_S = 150          # a single import is stopped with a clear message after this long
 MAX_WORK_PX = 1600          # memory / time budget for the working image (longest side)
 DETAIL_MM_PER_PX = 0.08     # adaptive working resolution aims for <= this many mm per working pixel
 THIN_MM = 1.0            # estimated width below this -> running stitch along the middle
@@ -601,8 +602,10 @@ def _photographic(rgb):
     return len(np.unique(t.reshape(-1, 3), axis=0)) > 400
 
 
-def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: str = "standard"):
-    """Image -> editable objects with a quality report. Returns {"objects", "notes", "size_mm", "report"}."""
+def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: str = "standard", decisions=None):
+    """Image -> editable objects with a quality report. Returns {"objects", "notes", "size_mm", "report", "inventory"}.
+    `decisions` = {inventory id: "tack" | "omit"}: the user's review of details that are too small to stitch safely (tack = force a tack dot, omit = accept leaving it out).
+    A run that exceeds TIME_BUDGET_S stops with a clear message instead of tying up the server."""
     if not (data[:8] == b"\x89PNG\r\n\x1a\n" or data[:3] == b"\xff\xd8\xff"):
         raise ValueError("unsupported image type: only PNG and JPEG are accepted")
     if not 0 < width_mm <= 1000:
@@ -686,6 +689,8 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
         queue = [(o_, h_, None) for o_, h_ in comps]
         while queue:
             outer, holes, is_resid = queue.pop(0)
+            if time.time() - t0 > TIME_BUDGET_S:
+                raise ValueError(f"this image took longer than {TIME_BUDGET_S} s to analyse; use a smaller width, lower quality, or a simpler image")
             x0, y0, x1, y1 = _bbox_mm(outer); ext = max(x1 - x0, y1 - y0); a_out = _area(outer)
             if is_resid is None: ink_area += a_out
             kept_holes = []
@@ -716,7 +721,14 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
                     elif cov_ < 0.88:
                         o, kind = _force_fill(outer, holes, color), "fill"
                         reason = f"fill (a line / column would have covered only {100 * cov_:.0f} % of this shape)"; score = min(score, 0.9)
-            rec = {"id": f"d{len(inventory) + 1:03d}", "colour": color, "bbox_mm": [round(x0, 2), round(y0, 2), round(x1, 2), round(y1, 2)], "size_mm": [round(x1 - x0, 2), round(y1 - y0, 2)],
+            rid = f"d{len(inventory) + 1:03d}"
+            dec = (decisions or {}).get(rid)
+            if status == "not_stitchable" and dec == "tack":
+                cx_, cy_ = (x0 + x1) / 2, (y0 + y1) / 2
+                o, kind, status, reason, score = _tack_dot(cx_, cy_, max(ext, 1.0), color), "tack", "micro_representation", f"{reason.split(';')[0]}; you chose a tack dot", 0.4
+            elif status == "not_stitchable" and dec == "omit":
+                status, reason = "omitted_by_user", f"{reason.split(';')[0]}; you accepted leaving it out"
+            rec = {"id": rid, "colour": color, "bbox_mm": [round(x0, 2), round(y0, 2), round(x1, 2), round(y1, 2)], "size_mm": [round(x1 - x0, 2), round(y1 - y0, 2)],
                    "area_mm2": round(a_out, 2), "strategy": kind, "status": status, "reason": reason, "stitchability": round(score, 2), "object": None}
             if len(inventory) < INVENTORY_LIMIT: inventory.append(rec)
             if o is None:
@@ -744,7 +756,7 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
     status_n = {}
     for rec in inventory:
         status_n[rec["status"]] = status_n.get(rec["status"], 0) + 1
-    unresolved = [r["id"] for r in inventory if r["status"] in ("not_stitchable", "needs_review")]
+    unresolved = [r["id"] for r in inventory if r["status"] in ("not_stitchable", "needs_review")]       # omitted_by_user is a resolved decision
     coverage = {"ink_area_mm2": round(ink_area, 2), "stitched_area_mm2": round(covered_area, 2),
                 "stitched_fraction": round(covered_area / ink_area, 4) if ink_area else 1.0,
                 "noise_specks": {"count": noise["count"], "area_mm2": round(noise["area_mm2"], 3), "rule": f"under {NOISE_FLOOR_MM:g} mm across or {NOISE_AREA_MM2:g} mm2 in area (below one thread width)"},

@@ -92,7 +92,7 @@ def recover_transform(before: List[dict], after: List[dict]) -> dict:
             return None
         xs, ys = [p[0] for p in pts], [p[1] for p in pts]
         return min(xs), min(ys), max(xs), max(ys)
-    A = {o["id"]: box(o) for o in before if box(o)}; B = {o["id"]: box(o) for o in after if box(o)}
+    A = {o["id"]: box(o) for o in before if box(o)}; B = {(o.get("src") or o["id"]): box(o) for o in after if box(o)}        # editor objects keep the import id in `src`
     common = [i for i in A if i in B]
     if not common:
         return {"ok": False, "reason": "no object kept its id; the frame cannot be recovered", "scale": 1.0, "dx": 0.0, "dy": 0.0, "residual_mm": None, "common": 0}
@@ -211,9 +211,10 @@ def validate(original: bytes, width_mm: float, imp: dict, design: Optional[dict]
         risks.append(f"export refused: {exp_err}")
     # ---- 5 optimisation (objects before vs after, measured)
     after = design.get("objects", [])
-    ids_b = {o["id"] for o in objs_before}; ids_a = {o["id"] for o in after}
+    key = lambda o: o.get("src") or o["id"]
+    ids_b = {o["id"] for o in objs_before}; ids_a = {key(o) for o in after}
     removed = sorted(ids_b - ids_a); added = sorted(ids_a - ids_b)
-    am = _object_masks([o for o in after if o["id"] in ids_b], W, H, ppm, np, Image, ImageDraw, tf)
+    am = _object_masks([o for o in after if key(o) in ids_b], W, H, ppm, np, Image, ImageDraw, tf)
     after_all = np.zeros((H, W), bool)
     for m in am.values():
         after_all |= m
@@ -308,7 +309,14 @@ def validate(original: bytes, width_mm: float, imp: dict, design: Optional[dict]
         diff[ink_all & near_thread] = (90, 190, 120)                                   # green: ink with thread
         diff[ink_all & ~near_thread] = (220, 38, 38)                                   # red: ink with no stitching (missing)
         diff[near_thread & ~_dilate(ink_all, spill_px, np, Image, ImageFilter)] = (37, 99, 235)   # blue: stitching with no ink (extra)
-        derived = {"overlay.png": _png(over, np, Image), "difference.png": _png(diff, np, Image)}
+        seg = np.full((H, W, 3), 255, np.uint8)                                          # what the analysis saw: the palette label map
+        for c_, m_ in ink_by.items():
+            seg[m_] = c_
+        vec = np.full((H, W, 3), 255, np.uint8)                                          # the digitized shapes (before stitching), flat colours
+        for c_, m_ in _object_masks(after, W, H, ppm, np, Image, ImageDraw, tf).items():
+            vec[m_] = _hex(c_)
+        derived = {"overlay.png": _png(over, np, Image), "difference.png": _png(diff, np, Image), "analysis.png": _png(base.astype(np.uint8), np, Image),
+                   "segmented.png": _png(seg, np, Image), "vector.png": _png(vec, np, Image)}
         if recall < THRESHOLDS["ink_recall"]:
             risks.append(f"{100 * (1 - recall):.1f} % of the original's ink has no stitching under it (red in the difference map)")
         if spill > THRESHOLDS["stitched_spill"]:

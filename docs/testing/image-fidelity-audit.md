@@ -39,3 +39,19 @@ A 1600 px source gives the same result as a 400 px one: the source resolution is
 | high | 48 / 52 | **51 / 52** |
 | maximum | (not available) | **51 / 52** |
 The one element not reproduced (a 0.5 mm dot) is listed as `not_stitchable` with its reason. One-pixel lines: 0 of 13 objects before (standard, high), 13 of 13 after.
+
+| F15 | Med | Re-importing after a review decision duplicated every image object (34 -> 69) and the editor's renamed ids broke the image-to-design frame | found by the e2e step: objects get editor ids (`o12`) while the filter looked for `img*` | e2e "Review" step | imported objects keep their import id in `src`; the swap removes by `src`; validation matches through `src` | `EditorIds`, e2e | **Fixed - verified** |
+
+## Completeness check against the plan (2026-11-19)
+| Plan item | State |
+|---|---|
+| P1 benchmark + register | done |
+| P2 original preserved, hash, bundle | done |
+| P3 adaptive resolution; majority / fringe feature-aware; budget + time guard | done (time guard `TIME_BUDGET_S` = 150 s). **Not done:** tile-wise contour extraction beyond the 1,600 px budget (capped instead) |
+| P4 inventory + coverage | done |
+| P5 strategies + stitchability; optimisation diff | done; the diff is shown in validation pass 5 |
+| P5/P7 "review before export" | done: tack / omit decisions per item (re-import applies them), export asks for confirmation while details are unresolved. Not a hard server block |
+| P6 nine passes, overlay / difference | done |
+| P7 workspace: original, analysis copy, segmented, vector, stitched (decoded DST), difference, side-by-side, slider, zoom / pan, inventory with locate | done. "Enhanced" = the analysis copy (resized original, no AI enhancement) |
+| Wizard wired to fidelity | done (records the source, shows inventory counts) |
+| P8 perf budgets, docs, end-to-end | done |

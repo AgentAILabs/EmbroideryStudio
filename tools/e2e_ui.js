@@ -199,6 +199,19 @@ await step('I7: image fidelity workspace - nine passes, overlay/diff modes, inve
   await pg.click('#fidInv tr[data-id]');await wait(200);if(await pg.evaluate(()=>document.querySelector('#fidHi').hidden))throw new Error('highlight hidden');
   const [dl]=await Promise.all([pg.waitForEvent('download',{timeout:60000}),pg.click('#fidBundle')]);await dl.saveAs(SP+'/fid.zip');if(fs.statSync(SP+'/fid.zip').size<2000)throw new Error('bundle too small');
   await pg.click('#fidClose');return v.replace(/\n/g,' ').slice(0,120)+' | '+rows+' inventory rows'});
+await step('Review: tack-dot decision, all comparison views, export confirmation, wizard feeds the fidelity report',async()=>{
+  await pg.click('#bNew');await wait(300);let dlgMsg='';pg.removeAllListeners('dialog');pg.on('dialog',d=>{dlgMsg+='|'+d.message();d.accept()});
+  await pg.setInputFiles('#fileImport',ROOT+'/tools/e2e_plate.png');await pg.waitForSelector('#dlgImport[open]');await pg.fill('#impW','80');await pg.selectOption('#impQ','high');await pg.click('#impGo');await pg.waitForSelector('#dlgSeg[open]');await pg.click('#segGo');await wait(3000);
+  const before=(await S()).n;const un=await pg.evaluate(()=>__ES.imgSrc.unresolved);if(!un)throw new Error('expected an unresolved detail');
+  dlgMsg='';await pg.click('#bExport');await wait(800);if(!/too small to stitch/.test(dlgMsg))throw new Error('no export confirmation: '+dlgMsg);
+  await pg.click('#bFid');await pg.waitForFunction(()=>document.querySelectorAll('#fidPasses .fp').length===9,null,{timeout:60000});
+  for(const m of ['ana','seg','vec','over','diff'])await pg.click('#fidMode [data-m="'+m+'"]');
+  await pg.click('#fidInv button[data-dec="tack"]');await pg.waitForFunction(()=>document.querySelectorAll('#fidPasses .fp').length===9&&!document.querySelector('#fidInv button[data-dec]'),null,{timeout:60000});
+  const after=(await S()).n;if(after!==before+1)throw new Error('objects '+before+' -> '+after);if(await pg.evaluate(()=>__ES.imgSrc.unresolved))throw new Error('still unresolved');
+  await pg.click('#fidClose');
+  await pg.click('#bNew');await wait(300);await pg.click('#bWizard');await pg.waitForSelector('#dlgWizard[open]');await pg.setInputFiles('#wzFile',ROOT+'/tools/e2e_art.png');await pg.click('#wzGo');await pg.waitForFunction(()=>__ES.imgSrc&&__ES.imgSrc.name==='e2e_art.png',null,{timeout:90000});await wait(500);
+  if(!await pg.evaluate(()=>!!__ES.imgSrc))throw new Error('wizard did not record the source image');
+  await pg.evaluate(()=>document.querySelector('#dlgWizard').close());return 'tack decision +1 object; wizard source recorded'});
 await pg.screenshot({path:SP+'/e2e-final.png'});
 for(const r of res)console.log(r[0],'|',r[1],'|',r[2]);
 console.log('page errors:',errs.length?errs:'none','| HTTP 5xx:',bad.length?bad:'none');console.log('artifacts in',SP);await b.close();

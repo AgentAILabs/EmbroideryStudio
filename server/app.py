@@ -286,7 +286,7 @@ def api_autodigitize(d):
 
 
 def _autodigitize_core(d):
-    imp, full, original = _raster_full({k: d[k] for k in ("data", "width_mm", "colors", "quality", "enhance", "erase") if k in d})
+    imp, full, original = _raster_full({k: d[k] for k in ("data", "width_mm", "colors", "quality", "enhance", "erase", "decisions") if k in d})
     if not imp["objects"]:
         raise ValueError("; ".join(imp["notes"]) or "nothing to digitize")
     hoop = {"w": float(d.get("hoop_w", 100)), "h": float(d.get("hoop_h", 100)), "margin": 3}
@@ -477,7 +477,10 @@ def _raster_full(d):
         else:
             enh = dict(info, skipped="image is already sharp and high-resolution")
     try:
-        r = digitize_image(raw, float(d.get("width_mm", 80)), int(d.get("colors", 6)), str(d.get("quality", "standard")))
+        dec = d.get("decisions") or {}
+        if not isinstance(dec, dict) or len(dec) > 2000 or any(v not in ("tack", "omit") for v in dec.values()):
+            raise ValueError("decisions must be {inventory id: \"tack\" | \"omit\"}")
+        r = digitize_image(raw, float(d.get("width_mm", 80)), int(d.get("colors", 6)), str(d.get("quality", "standard")), dec)
     except OSError as e:                                  # PIL: truncated / damaged / unrecognised image data
         raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
     return ({"objects": r["objects"], "notes": r["notes"], "width_mm": r["size_mm"][0], "height_mm": r["size_mm"][1], "report": dict(r["report"], enhance=enh),

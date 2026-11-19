@@ -536,9 +536,9 @@ function fidApply() {
   const A = $("#fidA"), B = $("#fidB"), m = FID.mode, W = A.naturalWidth || 1, H = A.naturalHeight || 1, scale = 640 / Math.max(W, 1);
   [A, B].forEach(i => { i.style.width = (W * scale) + "px"; i.style.height = (H * scale) + "px"; });
   A.src !== FID.imgs.orig && (A.src = FID.imgs.orig); B.style.left = "0"; B.style.clipPath = "none"; A.style.display = "block"; B.style.display = "block"; $("#fidSlideBox").hidden = m !== "slide";
-  const second = m === "diff" ? FID.imgs.diff : FID.imgs.over;
+  const second = {diff: FID.imgs.diff, seg: FID.imgs.seg, vec: FID.imgs.vec, ana: FID.imgs.ana}[m] || FID.imgs.over;
   if (m === "orig") B.style.display = "none"; else { if (B.src !== second) B.src = second; }
-  if (m === "over" || m === "diff") A.style.display = "none";
+  if (["over", "diff", "seg", "vec", "ana"].includes(m)) A.style.display = "none";
   if (m === "side") { B.style.left = (W * scale + 8) + "px"; }
   if (m === "slide") { const v = +$("#fidSlide").value; B.style.clipPath = `inset(0 0 0 ${v}%)`; }
 }
@@ -551,16 +551,22 @@ function fidHighlight(it) {
 }
 function fidRenderInv() {
   const f = $("#fidFilter").value, rows = (FID.rep.inventory || []).filter(r => !f || r.status === f).slice(0, 400);
-  $("#fidInv").innerHTML = `<table><tr><th>id</th><th>size mm</th><th>status</th><th>stitch</th><th>reason</th></tr>${rows.map(r => `<tr data-id="${r.id}"><td>${r.id}</td><td>${r.size_mm[0]}×${r.size_mm[1]}</td><td>${esc(r.status)}</td><td>${esc(r.strategy)}</td><td title="${esc(r.reason)}">${esc(r.reason.slice(0, 70))}</td></tr>`).join("")}</table>`;
+  $("#fidInv").innerHTML = `<table><tr><th>id</th><th>size mm</th><th>status</th><th>stitch</th><th>reason</th></tr>${rows.map(r => `<tr data-id="${r.id}"><td>${r.id}</td><td>${r.size_mm[0]}×${r.size_mm[1]}</td><td>${esc(r.status)}</td><td>${esc(r.strategy)}</td><td title="${esc(r.reason)}">${esc(r.reason.slice(0, 70))}${r.status === "not_stitchable" ? ` <button data-dec="tack" data-id="${r.id}" title="Stitch a tack dot (6-stitch star) here anyway">tack</button> <button data-dec="omit" data-id="${r.id}" title="Accept leaving it out">omit</button>` : ""}</td></tr>`).join("")}</table>`;
+  $("#fidInv").querySelectorAll("button[data-dec]").forEach(b => b.onclick = async e => { e.stopPropagation(); S.imgSrc.decisions = Object.assign(S.imgSrc.decisions || {}, {[b.dataset.id]: b.dataset.dec}); await applyDecisions(); await openFidelity(true); });
   $("#fidInv").querySelectorAll("tr[data-id]").forEach(tr => tr.onclick = () => fidHighlight(FID.rep.inventory.find(x => x.id === tr.dataset.id)));
 }
-async function openFidelity() {
+async function applyDecisions() {      // re-import with the user's review decisions and swap the image-derived objects in the editor (undoable)
+  const o = S.imgSrc.opts, res = await post("/api/import/raster", {data: S.imgSrc.b64, width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e, erase: S.imgSrc.erase || [], decisions: S.imgSrc.decisions || {}});
+  res.objects.forEach(x => { x.src = x.id; x.id = "o" + (S.n++); x.name = x.name || x.id; });
+  S.doc.objects = S.doc.objects.filter(x => !x.src); fitObjects(res.objects, null); S.doc.objects.push(...res.objects); S.imgSrc.unresolved = (res.report.unresolved || []).length; commit(); renderAll();
+}
+async function openFidelity(keepOpen) {
   if (!S.imgSrc) { alert("Import a PNG or JPEG image first - the fidelity report compares the exported DST with the original upload."); return; }
-  const dlg = $("#dlgFid"); $("#fidVerdict").innerHTML = "Running the nine validation passes…"; $("#fidPasses").innerHTML = ""; $("#fidRisks").innerHTML = ""; $("#fidInv").innerHTML = ""; dlg.showModal();
+  const dlg = $("#dlgFid"); $("#fidVerdict").innerHTML = "Running the nine validation passes…"; $("#fidPasses").innerHTML = ""; $("#fidRisks").innerHTML = ""; $("#fidInv").innerHTML = ""; if (!dlg.open) dlg.showModal();
   try {
-    const o = S.imgSrc.opts, useDoc = S.doc.objects.some(x => /^img\d+$/.test(x.id));
-    const rep = await post("/api/image/validate", Object.assign({data: S.imgSrc.b64, width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e, images: true, hoop_w: S.doc.hoop.w, hoop_h: S.doc.hoop.h, name: S.doc.name}, useDoc ? {design: S.doc} : {}));
-    FID.rep = rep; FID.imgs = {orig: S.imgSrc.url, over: "data:image/png;base64," + rep.derived_images["overlay.png"], diff: "data:image/png;base64," + rep.derived_images["difference.png"]};
+    const o = S.imgSrc.opts, useDoc = S.doc.objects.some(x => x.src || /^img\d+$/.test(x.id));
+    const rep = await post("/api/image/validate", Object.assign({data: S.imgSrc.b64, width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e, images: true, hoop_w: S.doc.hoop.w, hoop_h: S.doc.hoop.h, name: S.doc.name, decisions: S.imgSrc.decisions || {}}, useDoc ? {design: S.doc} : {}));
+    FID.rep = rep; FID.imgs = {orig: S.imgSrc.url, over: "data:image/png;base64," + rep.derived_images["overlay.png"], diff: "data:image/png;base64," + rep.derived_images["difference.png"], seg: "data:image/png;base64," + rep.derived_images["segmented.png"], vec: "data:image/png;base64," + rep.derived_images["vector.png"], ana: "data:image/png;base64," + rep.derived_images["analysis.png"]};
     $("#fidVerdict").innerHTML = `<span class="vd ${rep.software_validation}">Software validation: ${rep.software_validation.replace(/_/g, " ")}</span> <span class="vd FAILED" style="background:#6b7280">Physical machine validation: ${esc(rep.physical_validation.split(" - ")[0])}</span>`;
     $("#fidDisc").textContent = rep.disclaimer;
     $("#fidPasses").innerHTML = rep.passes.map(p => `<div class="fp ${p.result}"><b>${p.pass}. ${p.result}</b><span>${esc(p.name)}<br><small>${esc(p.detail)}</small></span></div>`).join("");
@@ -570,7 +576,7 @@ async function openFidelity() {
   } catch (e) { $("#fidVerdict").textContent = "Validation failed: " + e.message; }
 }
 async function fidelityBundle() {
-  const o = S.imgSrc.opts, r = await fetch("/api/image/bundle", {method: "POST", body: JSON.stringify({data: S.imgSrc.b64, width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e, hoop_w: S.doc.hoop.w, hoop_h: S.doc.hoop.h, name: S.doc.name})});
+  const o = S.imgSrc.opts, r = await fetch("/api/image/bundle", {method: "POST", body: JSON.stringify({data: S.imgSrc.b64, width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e, hoop_w: S.doc.hoop.w, hoop_h: S.doc.hoop.h, name: S.doc.name, decisions: S.imgSrc.decisions || {}})});
   if (!r.ok) { const j = await r.json().catch(() => ({})); alert("Bundle not produced: " + (j.error || r.statusText)); return; }
   const a = document.createElement("a"); a.href = URL.createObjectURL(await r.blob()); a.download = (S.doc.name || "design").replace(/[^\w-]+/g, "_") + "-image-to-dst.zip"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
@@ -600,11 +606,12 @@ async function importFile(file) {
         const kept = await reviewRegions(res.objects);
         if (!kept) return;
         if (kept.redo) { erase = erase.concat(kept.redo); continue; }
+        S.imgSrc.erase = erase; S.imgSrc.unresolved = (res.report.unresolved || []).length;
         res.objects = kept; break;
       }
     }
     if (!res.objects.length) { alert((res.notes || []).join("\n") || "Nothing to digitize. For images, use flat-colour artwork on a plain background."); return; }
-    res.objects.forEach(o => { o.id = "o" + (S.n++); o.name = o.name || o.id; });
+    res.objects.forEach(o => { o.src = o.id; o.id = "o" + (S.n++); o.name = o.name || o.id; });
     const f = fitObjects(res.objects, null); S.doc.objects.push(...res.objects); S.sel = null; commit(); renderAll(); fit();
     const msg = (res.notes || []).concat(f && f < 1 ? ["Artwork was scaled down to fit the hoop."] : []); if (msg.length) alert(msg.join("\n"));
   } catch (e) { alert("Import failed: " + e.message); }
@@ -613,6 +620,7 @@ function download(name, data, type) { const a = document.createElement("a"); a.h
 function saveProject() { download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + ".esproj", JSON.stringify({app: "EmbroideryStudio", version: 1, doc: S.doc}, null, 1), "application/json"); }
 function loadDoc(d) { S.doc = Object.assign(newDoc(), d); S.doc.hoop = Object.assign({margin: 3}, S.doc.hoop); S.sel = null; S.n = 1 + Math.max(0, ...S.doc.objects.map(o => parseInt(String(o.id).replace(/\D/g, "")) || 0)); S.hist = []; S.hi = -1; commit(); renderAll(); fit(); }
 async function exportDst() {
+  if (S.imgSrc && S.imgSrc.unresolved > 0 && !confirm(S.imgSrc.unresolved + " detail(s) of the imported image are too small to stitch safely and are NOT in this DST.\nOpen 'Image fidelity' to review them (tack dot or accept omission).\n\nExport anyway?")) return;
   const r = await fetch("/api/export/dst", {method: "POST", body: JSON.stringify(S.doc)});
   if (!r.ok) { const j = await r.json(); alert("This design cannot be exported yet:\n\n" + (j.issues || [{message: j.error}]).filter(i => !i.severity || i.severity === "error").map(i => "• " + friendlyLine(i)).join("\n")); return; }
   download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + ".dst", await r.arrayBuffer(), "application/octet-stream");
@@ -710,6 +718,9 @@ async function wizardRun() {
     const data = b64(new Uint8Array(await f.arrayBuffer()));
     const r = await post("/api/autodigitize", {data, name: $("#wzName").value || f.name.replace(/\.[^.]+$/, ""), width_mm: +$("#wzW").value || 80, colors: +$("#wzC").value || 6,
       quality: $("#wzQ").value, enhance: "auto", fabric: $("#wzFab").value, category: $("#wzCat").value, thread: $("#wzThr").value, hoop_w: +$("#wzHW").value || 130, hoop_h: +$("#wzHH").value || 180});
+    S.imgSrc = {name: f.name, b64: data, url: URL.createObjectURL(f), opts: {w: +$("#wzW").value || 80, c: +$("#wzC").value || 6, q: $("#wzQ").value, e: "auto"}, unresolved: ((r.import_report || {}).unresolved || []).length, decisions: {}};
+    const ist = (r.import_report || {}).inventory_status || {};
+    r.log.push("detail inventory: " + Object.entries(ist).map(([k, v]) => v + " " + k.replace(/_/g, " ")).join(", ") + (S.imgSrc.unresolved ? " - " + S.imgSrc.unresolved + " detail(s) need your review (Image fidelity button)" : ""));
     WZ.res = r; $("#wzLog").textContent = $("#wzLog2").textContent = "• " + r.log.join("\n• ");
     const sv = await fetch("/api/export/svg", {method: "POST", body: JSON.stringify(r.design)});
     $("#wzPrev").innerHTML = sv.ok ? `<img alt="stitch preview" src="${URL.createObjectURL(new Blob([await sv.text()], {type: "image/svg+xml"}))}">` : "Preview not available";

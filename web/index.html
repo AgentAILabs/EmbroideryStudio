@@ -77,7 +77,7 @@
       <label>Width in the hoop (mm) <input type="number" id="wzW" value="80" min="10" max="400"></label>
       <label>Hoop W × H (mm) <span><input type="number" id="wzHW" value="130" style="width:70px"> <input type="number" id="wzHH" value="180" style="width:70px"></span></label>
       <label>Thread colours <input type="number" id="wzC" value="6" min="2" max="8"></label>
-      <label>Detail <select id="wzQ"><option value="standard">Standard</option><option value="high" selected>High (small details)</option><option value="draft">Draft</option></select></label>
+      <label>Detail <select id="wzQ"><option value="standard">Standard</option><option value="high" selected>High (small details)</option><option value="maximum">Maximum (finest detail)</option><option value="draft">Draft</option></select></label>
       <p class="hint">Rule-based digitizing: image clean-up, colour regions, stitch-type choice by shape width (running &lt; 1 mm, satin to ~5.5 mm, fill above), then density / underlay / pull compensation from the fabric profile. Starting values - always stitch a sample.</p>
       <div id="wzErr" class="err"></div>
       <div class="row2"><button value="cancel">Close</button><button id="wzGo" class="primary">Digitize</button></div>
@@ -131,7 +131,7 @@
     <div class="fidhead"><h3 id="fidTitle">Image fidelity report</h3><div id="fidVerdict"></div><small id="fidDisc"></small></div>
     <div class="fidbody">
       <div class="fidleft">
-        <div class="btns"><span class="seg" id="fidMode"><button data-m="orig" class="on">Original</button><button data-m="over">Stitched (decoded DST)</button><button data-m="diff">Difference</button><button data-m="side">Side by side</button><button data-m="slide">Slider</button></span>
+        <div class="btns"><span class="seg" id="fidMode"><button data-m="orig" class="on">Original</button><button data-m="ana">Analysis copy</button><button data-m="seg">Segmented</button><button data-m="vec">Vector</button><button data-m="over">Stitched (decoded DST)</button><button data-m="diff">Difference</button><button data-m="side">Side by side</button><button data-m="slide">Slider</button></span>
           <label id="fidSlideBox" hidden>original <input type="range" id="fidSlide" min="0" max="100" value="50"> stitched</label><button type="button" id="fidFit">Fit</button></div>
         <div id="fidStage"><div id="fidPan"><img id="fidA" alt="original"><img id="fidB" alt="stitched"><div id="fidHi" hidden></div></div></div>
         <small>Wheel = zoom, drag = pan. Red = ink with no stitching, blue = stitching with no ink, green = matched. The original is shown unmodified; the other images are derived from it.</small>
