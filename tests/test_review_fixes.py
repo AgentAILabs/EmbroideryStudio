@@ -97,3 +97,58 @@ class CoveringShapesUseStitchedGeometry(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BeanStitch(unittest.TestCase):
+    def test_triple_pass_and_same_line(self):
+        def gen(style):
+            return generate(doc({"id": "r", "type": "run", "color": "#000", "points": [[0, 0], [20, 0]], "params": {"style": style}}))
+        single, bean = gen("single"), gen("bean")
+        from stitchcraft_engine.stitches import running_stitch
+        segments = len(running_stitch([(0, 0), (20, 0)], 2.5)) - 1
+        self.assertEqual(bean[2]["stitches"] - single[2]["stitches"], 2 * segments)          # every segment: forward, back, forward
+        pts = {(round(s.x, 3), round(s.y, 3)) for s in bean[0].stitches if s.cmd == Cmd.STITCH}
+        self.assertTrue(all(abs(y) < 1e-6 for _, y in pts))                       # still exactly on the line
+
+
+class SatinCorners(unittest.TestCase):
+    @staticmethod
+    def crossings(c):
+        def cross(p1, p2, p3, p4):
+            d = lambda a, b, q: (b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0])
+            return d(p1, p2, p3) * d(p1, p2, p4) < 0 and d(p3, p4, p1) * d(p3, p4, p2) < 0
+        d = doc({"id": "s", "type": "satin", "color": "#00f", "points": [[0, 0], [20, 0], [8, 9], [24, 16]], "params": {"width": 4, "corners": c, "underlay": "none"}})
+        p, notes, _ = generate(d); runs, cur = [], []
+        for s in p.stitches:
+            if s.cmd == Cmd.STITCH: cur.append((s.x, s.y))
+            elif cur: runs.append(cur); cur = []
+        n = 0
+        for r in runs + ([cur] if cur else []):
+            segs = list(zip(r, r[1:]))
+            n += sum(1 for i in range(len(segs)) for j in range(i + 2, min(len(segs), i + 6)) if cross(*segs[i], *segs[j]))
+        return n, run_checks(d, p).ok, notes
+    def test_split_removes_folded_stitches(self):
+        before, ok0, _ = self.crossings(False); after, ok1, notes = self.crossings(True)
+        self.assertGreater(before, 20); self.assertEqual(after, 0); self.assertTrue(ok1)
+        self.assertTrue(any("sharp corner" in n for n in notes))
+    def test_gentle_curve_is_not_split(self):
+        from stitchcraft_engine.design import corner_pieces
+        arc = [(10 * math.cos(t / 10), 10 * math.sin(t / 10)) for t in range(12)]
+        self.assertEqual(len(corner_pieces(arc, 3.0)), 1)
+        self.assertEqual(len(corner_pieces([(0, 0), (10, 0), (0, 5)], 3.0)), 2)
+    def test_profile_turns_corners_on_for_satins(self):
+        from stitchcraft_engine import profiles
+        d, _ = profiles.apply_profile(doc({"id": "s", "type": "satin", "color": "#00f", "points": [[0, 0], [20, 0]], "params": {"width": 3}}), "cotton", "logo")
+        self.assertTrue(d["objects"][0]["params"]["corners"])
+
+
+class AppliqueCutTemplate(unittest.TestCase):
+    def test_package_contains_a_1to1_template(self):
+        import io, zipfile, sheet
+        ring = [[0, 0], [30, 0], [30, 20], [0, 20]]
+        d = doc({"id": "a", "type": "applique", "color": "#0a0", "name": "Patch", "rings": [ring], "params": {"width": 3}})
+        z, err = sheet.package(d); self.assertIsNone(err)
+        names = zipfile.ZipFile(io.BytesIO(z)).namelist(); self.assertIn("t.applique-cut.svg", names)
+        svg = zipfile.ZipFile(io.BytesIO(z)).read("t.applique-cut.svg").decode()
+        self.assertIn('mm"', svg); self.assertIn("50 mm", svg); self.assertIn("Patch (+1.0 mm)", svg)
+        self.assertIsNone(sheet.applique_cut_svg(doc({"id": "f", "type": "fill", "color": "#f00", "rings": [ring]})))

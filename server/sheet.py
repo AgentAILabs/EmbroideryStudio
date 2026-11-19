@@ -70,6 +70,31 @@ h1{{margin:0}}.m{{color:#555}}.sw{{display:inline-block;width:16px;height:16px;b
 <div style="clear:both"></div><p class="m">{E(DISCLAIMER)}</p></body></html>"""
 
 
+def applique_cut_svg(design: dict):
+    """1:1 cutting template for appliqué patches: the cut line is the placement outline grown by a third of the cover-satin width, so
+    the satin hides the raw edge; the placement line is drawn dashed. Includes a 50 mm scale bar to check the print scale. None when
+    the design has no appliqué."""
+    from stitchcraft_engine.geometry import outset_ring
+    apps = [o for o in design.get("objects", []) if o.get("type") == "applique" and not o.get("hidden") and o.get("rings")]
+    if not apps:
+        return None
+    shapes = []
+    for o in apps:
+        ring = [tuple(p) for p in o["rings"][0]]
+        w = float((o.get("params") or {}).get("width", 2.5))
+        cut = outset_ring(ring, w / 3) or ring
+        shapes.append((o.get("name") or o["id"], ring, cut, w / 3))
+    xs = [p[0] for _, _, c, _ in shapes for p in c]; ys = [p[1] for _, _, c, _ in shapes for p in c]
+    x0, y0 = min(xs) - 10, min(ys) - 10; W, H = max(xs) - x0 + 10, max(ys) - y0 + 25
+    path = lambda r: "M " + " L ".join(f"{p[0] - x0:.2f},{p[1] - y0:.2f}" for p in r) + " Z"
+    body = "".join(f'<path d="{path(c)}" fill="none" stroke="#000" stroke-width="0.3"/><path d="{path(r)}" fill="none" stroke="#888" stroke-width="0.2" stroke-dasharray="1.5 1"/>'
+                   f'<text x="{sum(p[0] for p in r) / len(r) - x0:.1f}" y="{sum(p[1] for p in r) / len(r) - y0:.1f}" font-size="3" text-anchor="middle">{E(n)} (+{m:.1f} mm)</text>'
+                   for n, r, c, m in shapes)
+    bar = f'<path d="M 10,{H - 8:.1f} h 50" stroke="#000" stroke-width="0.4"/><text x="10" y="{H - 3:.1f}" font-size="3">50 mm - print at 100 %, check this bar</text>'
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.1f}mm" height="{H:.1f}mm" viewBox="0 0 {W:.1f} {H:.1f}">'
+            f'<title>Appliqué cutting template - {E(design.get("name", "design"))}</title>{body}{bar}</svg>')
+
+
 def package(design: dict):
     """Returns (zip_bytes, None) or (None, {'error', 'issues'}). Blocked on validation errors, like the DST export."""
     pattern, notes, st = generate(design)
@@ -92,6 +117,9 @@ def package(design: dict):
         f"{n}.exp": write_exp(pattern, trim_jumps=m["trim_jumps"]),
         f"{n}.colours.csv": colour_report_csv(design, st).encode(),
     }
+    cut = applique_cut_svg(design)
+    if cut:
+        files[f"{n}.applique-cut.svg"] = cut.encode()
     checks = "\n".join([f"{i.severity.upper()} {i.code}: {i.message}" for i in rep.issues] + [f"NOTE {x}" for x in notes]) or "No problems found"
     manifest = "\n".join([f"EmbroideryStudio export package · {datetime.now().isoformat(timespec='seconds')}",
                           f"design: {design.get('name', 'design')}", f"stitches: {st['stitches']}  colour changes: {st['color_changes']}",

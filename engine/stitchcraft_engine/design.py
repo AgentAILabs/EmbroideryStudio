@@ -22,8 +22,9 @@ DEFAULTS = {
     "fill": {"angle": 45.0, "spacing": 0.4, "stitch_len": 3.5, "underlay": "tatami", "pull_comp": 0.2, "pattern": "tatami", "cross_size": 2.0,
              "regions": True, "cut_hidden": False, "overlap_mm": 0.6, "push_comp": 0.0,
              "expand_mm": 0.0, "comp_x": 0.0, "comp_y": 0.0, "min_row": 0.0},          # stitch holes / U-shapes region by region instead of jumping the gap on every row
-    "satin": {"width": 3.0, "spacing": 0.4, "underlay": "auto", "pull_comp": 0.2, "push_comp": 0.0, "style": "satin"},
-    "run": {"stitch_len": 2.5},
+    "satin": {"width": 3.0, "spacing": 0.4, "underlay": "auto", "pull_comp": 0.2, "push_comp": 0.0, "style": "satin",
+              "corners": False, "corner_angle": 60.0},
+    "run": {"stitch_len": 2.5, "style": "single"},
     "column": {"spacing": 0.4, "underlay": "auto", "pull_comp": 0.2, "push_comp": 0.0, "style": "satin", "comp_x": 0.0, "comp_y": 0.0},
     "text": {"spacing": 1.0, "underlay": "auto", "pull_comp": 0.1},
     "applique": {"width": 2.5, "spacing": 0.4, "stitch_len": 2.5, "cover_color": None},
@@ -137,6 +138,43 @@ def _satin_objs(oid, th, path, width, spacing, pull, underlay, split=0.0, shorte
     if back:
         top = _join_return(top, under)
     return StitchObject(oid, "satin", th, [top], under)
+
+
+def bean_stitch(run):
+    """Bean / triple running stitch: every stitch is sewn forward, back and forward again - a bold, raised line for outlines and stems."""
+    out = [tuple(run[0])]
+    for a, b in zip(run, run[1:]):
+        out += [tuple(b), tuple(a), tuple(b)]
+    return out
+
+
+def corner_pieces(path, width, max_turn_deg=60.0):
+    """Satin corner handling: split a centre line at vertices that turn by more than `max_turn_deg`. Each piece runs past the corner
+    by half the satin width so the pieces overlap there - instead of one satin whose edges fold over each other (bunched, stacked
+    penetrations, thread breaks) on the inside of a sharp corner."""
+    pts = [tuple(p) for p in path]
+    if len(pts) < 3:
+        return [pts]
+    cuts = []
+    for i in range(1, len(pts) - 1):
+        a, b, c = pts[i - 1], pts[i], pts[i + 1]
+        v1, v2 = (b[0] - a[0], b[1] - a[1]), (c[0] - b[0], c[1] - b[1])
+        l1, l2 = math.hypot(*v1), math.hypot(*v2)
+        if l1 < 1e-9 or l2 < 1e-9:
+            continue
+        turn = math.degrees(math.acos(max(-1.0, min(1.0, (v1[0] * v2[0] + v1[1] * v2[1]) / (l1 * l2)))))
+        if turn > max_turn_deg:
+            cuts.append(i)
+    if not cuts:
+        return [pts]
+    pieces, start = [], 0
+    for i in cuts + [len(pts) - 1]:
+        piece = list(pts[start:i + 1])
+        if i != len(pts) - 1:                                    # run past the corner by half the width
+            a, b = piece[-2], piece[-1]; l = math.hypot(b[0] - a[0], b[1] - a[1])
+            piece[-1] = (b[0] + (b[0] - a[0]) / l * width / 2, b[1] + (b[1] - a[1]) / l * width / 2)
+        pieces.append(piece); start = i
+    return [p for p in pieces if len(p) >= 2]
 
 
 def _underlay_ends_far(under, start, end) -> bool:
@@ -306,9 +344,14 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                 if push > 0 and not ob.get("closed"):
                     path = trim_polyline(path, push / 2, push / 2)
                 zz = _p(ob, "style") == "zigzag"
-                objs.append(_satin_objs(oid, th, path, _p(ob, "width"), max(_p(ob, "spacing"), 1.2) if zz else _p(ob, "spacing"),
-                                        _p(ob, "pull_comp") or 0.0, "none" if zz else _p(ob, "underlay"), split_of(ob), bool(_p(ob, "shorten")) and not zz,
-                                        bool(_p(ob, "end_at_start"))))
+                pieces = corner_pieces(path, float(_p(ob, "width")), float(_p(ob, "corner_angle") or 60.0)) \
+                    if _p(ob, "corners") and not ob.get("closed") and not _p(ob, "end_at_start") else [path]
+                parts = [_satin_objs(oid, th, pc, _p(ob, "width"), max(_p(ob, "spacing"), 1.2) if zz else _p(ob, "spacing"),
+                                     _p(ob, "pull_comp") or 0.0, "none" if zz else _p(ob, "underlay"), split_of(ob), bool(_p(ob, "shorten")) and not zz,
+                                     bool(_p(ob, "end_at_start"))) for pc in pieces]
+                if len(parts) > 1:
+                    notes.append(f"{oid}: satin split at {len(parts) - 1} sharp corner(s) (overlapping ends, no folded stitches)")
+                objs.append(StitchObject(oid, "satin", th, [r for pt in parts for r in pt.runs], [r for pt in parts for r in pt.underlay_runs]))
             elif typ == "column":
                 r1, r2 = _pts(ob["rail1"], ob), _pts(ob["rail2"], ob)
                 cx_, cy_ = _axis_comp(r1 + r2, ob)
@@ -323,8 +366,10 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                                     bool(_p(ob, "end_at_start"))))
             elif typ == "run":
                 pts = _pts(ob["points"], ob, bool(ob.get("closed")))
-                objs.append(StitchObject(oid, "running", th,
-                                         [running_stitch(pts, _p(ob, "stitch_len"), bool(ob.get("closed")))]))
+                run_pts = running_stitch(pts, _p(ob, "stitch_len"), bool(ob.get("closed")))
+                if _p(ob, "style") == "bean":
+                    run_pts = bean_stitch(run_pts)
+                objs.append(StitchObject(oid, "running", th, [run_pts]))
             elif typ == "text":
                 h = float(ob.get("height", 10))
                 width = _p(ob, "width") or max(1.0, min(h * 0.16, 4.0))

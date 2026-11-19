@@ -138,3 +138,13 @@ the code's tables) and by `tests/test_crosscheck.py` in CI. What is still unprov
 | Colour sequence CSV, machine test record | ✅ | ChecklistTests, sheet |
 | Push compensation (fills + columns), overlap cutting with under-lap, zig-zag style | ✅ | `tests/test_overlap_push.py`; lotus -38 % stitches with cutting |
 | Stitch-out approval | ⏳ | needs the machine |
+
+## Code review 2026-11-19 + partial items
+| Item | State | Evidence |
+|---|---|---|
+| 9 review findings (full-length stitch with end_at_start + edge underlay, motif containment / layering, cubic 2-opt, closed satin ring opened by auto-fix, density relief overriding user values, end_at_start exits, cut-outs ignoring compensation, fern pairs, mirrored fill angles) | ✅ fixed | `tests/test_review_fixes.py` |
+| Sequencer determinism (work budget, not wall-clock) | ✅ | same DST on any machine |
+| Bean / triple running stitch | ✅ | BeanStitch tests |
+| Satin corner handling | ✅ | SatinCorners tests (folded stitches 73 → 0) |
+| Appliqué cutting template | ✅ | AppliqueCutTemplate test |
+| Still not built (larger features) | ❌ | TrueType / Indic lettering, text on path, Bezier handles, stitch-level editing, PES/JEF, machine hoop database, motif runs |
