@@ -20,6 +20,7 @@ function commit() { S.viewDstB64 = null;
   if (S.hist[S.hi] === s) return;
   S.hist = S.hist.slice(0, S.hi + 1); S.hist.push(s); if (S.hist.length > 200) S.hist.shift(); S.hi = S.hist.length - 1;
   try { localStorage.setItem("es.autosave", s); } catch (e) {}
+  try { mtSchedule(); } catch (e) {}
   regen();
 }
 function undo() { if (S.hi > 0) { S.hi--; S.doc = JSON.parse(S.hist[S.hi]); fixSel(); afterDocChange(); } }
@@ -568,6 +569,77 @@ async function photoDst() {
 $("#phRun").onclick = photoRun; $("#phClose").onclick = () => $("#dlgPhoto").close(); $("#phFile").onchange = e => e.target.files[0] && phLoad(e.target.files[0]);
 $("#phUse").onclick = () => { loadDoc(PH.res.design); $("#dlgPhoto").close(); setView("stitch"); };
 $("#phDst").onclick = photoDst; $("#bPhoto").onclick = () => openPhoto(null, null);
+/* ---------------------------------------------------------------- physical machine validation (evidence) */
+const MT = {sha: null, status: null, timer: null};
+const MT_TEXT = {PENDING: "PENDING - not yet physically validated", INCOMPLETE: "INCOMPLETE - test record has missing fields", STALE: "STALE - design changed since the physical test", FAILED: "FAILED on the machine", PASSED_WITH_NOTES: "PASSED WITH NOTES (physical test recorded)", PASSED: "PASSED (physical test recorded)"};
+function mtChip(st, extra) {
+  const t = $("#sbMachT"), b = $("#sbMach"); if (!t) return; MT.status = st;
+  t.textContent = (MT_TEXT[st] || st) + (extra ? " · " + extra : ""); b.classList.toggle("ok", st === "PASSED" || st === "PASSED_WITH_NOTES"); b.classList.toggle("warn", st !== "PASSED" && st !== "PASSED_WITH_NOTES"); b.classList.toggle("bad", st === "FAILED");
+}
+async function mtDocSha() {
+  if (!S.doc.objects.length) return null;
+  const r = await fetch("/api/export/dst", {method: "POST", body: JSON.stringify(S.doc)});
+  if (!r.ok) return null; return r.headers.get("X-SHA256");
+}
+async function mtRefresh() {
+  try {
+    const sha = await mtDocSha(); MT.sha = sha;
+    if (!sha) { mtChip("PENDING", S.doc.objects.length ? "no valid DST yet" : "no design"); return null; }
+    const st = await (await fetch(`/api/evidence?sha=${sha}&name=${encodeURIComponent(S.doc.name || "")}`)).json(); mtChip(st.status); return st;
+  } catch (e) { return null; }
+}
+function mtSchedule() { clearTimeout(MT.timer); const t = $("#sbMachT"); if (t) { t.textContent = "checking the DST checksum…"; $("#sbMach").classList.add("warn"); } MT.timer = setTimeout(mtRefresh, 3000); }
+async function mtOpen() {
+  $("#dlgMachine").showModal(); $("#mtStatus").textContent = "Checking the current DST…";
+  const cl = await (await fetch("/api/evidence/checklist")).json(); $("#mtList").innerHTML = cl.checklist.map(c => `<li>${esc(c.text)}</li>`).join("");
+  const st = await mtRefresh(); const recs = (await (await fetch("/api/evidence/records")).json()).records;
+  $("#mtStatus").innerHTML = st ? `<b>Status for the current DST:</b> <span class="mtst ${st.status}">${st.status}</span> · SHA-256 <code>${(MT.sha || "").slice(0, 16)}…</code><br>${esc(st.detail || "")}${st.missing && st.missing.length ? "<br>Missing: " + st.missing.join(", ") : ""}` : "No valid DST for the current design yet (the export check refused it or the design is empty).";
+  $("#mtRecs").innerHTML = "<b>Stored records</b> (" + recs.length + ")" + recs.map(r => `<div>${esc(r.id)} · ${esc(r.created)} · ${esc(r.design_name || "?")} · ${r.dst_sha256 === MT.sha ? "this DST" : "other DST"} · ${esc(r.final_inspection || "incomplete")}</div>`).join("");
+  $("#mtExport").disabled = !recs.length; MT.recs = recs;
+  if (!$("#mt_design_name").value) $("#mt_design_name").value = S.doc.name || "";
+  const g = S.gen && S.gen.stats; if (g && !$("#mt_stitch_count").value) $("#mt_stitch_count").value = g.stitches;
+}
+async function mtSave() {
+  if (!MT.sha) { alert("There is no valid DST for the current design yet."); return; }
+  const rec = {dst_sha256: MT.sha}; document.querySelectorAll("#dlgMachine [id^=mt_]").forEach(el => { const k = el.id.slice(3); if (el.value === "") return; rec[k] = el.type === "number" ? +el.value : (k === "puckering" ? +el.value : el.value); });
+  try { const r = await post("/api/evidence", rec); mtChip(r.status.status); await mtOpen(); } catch (e) { alert("Record not saved: " + e.message); }
+}
+$("#sbMach").onclick = mtOpen; $("#mtClose").onclick = () => $("#dlgMachine").close(); $("#mtSave").onclick = mtSave;
+$("#mtExport").onclick = () => { const r = (MT.recs || []).filter(x => x.dst_sha256 === MT.sha); download("machine-test-" + (MT.sha || "").slice(0, 12) + ".json", JSON.stringify(r.length ? r[r.length - 1] : MT.recs[MT.recs.length - 1], null, 2), "application/json"); };
+$("#mtImportB").onclick = () => $("#mtImport").click();
+$("#mtImport").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { await post("/api/evidence/import", JSON.parse(await f.text())); await mtOpen(); } catch (er) { alert("Record refused: " + er.message); } e.target.value = ""; };
+/* ---------------------------------------------------------------- garment-photo motif isolation */
+const GA = {b64: null, url: null, name: "garment", res: null, file: null};
+async function gaLoad(file) {
+  GA.file = file; GA.name = file.name.replace(/\.[^.]+$/, ""); GA.url = URL.createObjectURL(file); GA.b64 = b64(new Uint8Array(await file.arrayBuffer())); GA.res = null;
+  $("#gaOrig").src = GA.url; $("#gaOver").removeAttribute("src"); $("#gaMotifs").innerHTML = ""; $("#gaInfo").textContent = ""; $("#gaPhoto").disabled = $("#gaVec").disabled = true;
+}
+function gaRegion() { const v = id => (+$(id).value || 0) / 100, r = [v("#gaX0"), v("#gaY0"), v("#gaX1") || 1, v("#gaY1") || 1]; return (r[0] === 0 && r[1] === 0 && r[2] === 1 && r[3] === 1) ? null : r; }
+function gaSelected() { return [...document.querySelectorAll("#gaMotifs input:checked")].map(i => i.value); }
+async function gaRun(extract) {
+  if (!GA.b64) { alert("Choose a garment photo first."); return null; }
+  $("#gaInfo").textContent = "Analysing…"; $("#gaRun").disabled = true;
+  try {
+    const sel = GA.res ? gaSelected() : null;
+    const r = await post("/api/image/isolate", {data: GA.b64, threshold: +$("#gaTh").value, region: gaRegion(), select: sel && sel.length ? sel : undefined, extract: !!extract});
+    if (!r.ran) { $("#gaInfo").textContent = r.reason || "Not available."; return null; }
+    const first = !GA.res; GA.res = r; $("#gaOver").src = "data:image/png;base64," + r.overlay_png;
+    if (first || !sel) $("#gaMotifs").innerHTML = "<b>Motifs</b> (untick to leave one out, then Analyse again)" + r.motifs.map(m => `<label><input type="checkbox" value="${m.id}" checked> ${m.id} · ${(m.embroidery_area_frac * 100).toFixed(1)} % of picture · ${m.confidence}</label>`).join("");
+    const cv = Object.entries(r.coverage_by_threshold).map(([k, v]) => `${k}: ${(v * 100).toFixed(0)} %`).join(" · ");
+    $("#gaInfo").innerHTML = `Fabric colour estimated <span style="background:${r.fabric_hex};padding:0 10px;border:1px solid #888">&nbsp;</span> ${r.fabric_hex} · embroidery ${(r.embroidery_fraction * 100).toFixed(1)} % of the picture · shadow ${(r.suppressed.shadow_fraction * 100).toFixed(1)} % / fold ${(r.suppressed.fold_fraction * 100).toFixed(1)} % suppressed<br>Coverage by threshold - ${cv}<br>${r.warnings.map(esc).join("<br>")}`;
+    $("#gaPhoto").disabled = $("#gaVec").disabled = !r.motifs.length; return r;
+  } catch (e) { $("#gaInfo").textContent = "Isolation failed: " + e.message; return null; } finally { $("#gaRun").disabled = false; }
+}
+async function gaSend(where) {
+  const r = await gaRun(true); if (!r || !r.motif_png) return;
+  const bin = atob(r.motif_png), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  const f = new File([u], GA.name + "_motif.png", {type: "image/png"}); $("#dlgGarment").close();
+  if (where === "photo") openPhoto(f, +$("#gaW").value || 100); else importFile(f);
+}
+$("#bGarment").onclick = () => { $("#mMore").open = false; $("#dlgGarment").showModal(); };
+$("#gaFile").onchange = e => e.target.files[0] && gaLoad(e.target.files[0]);
+$("#gaRun").onclick = () => gaRun(false); $("#gaClose").onclick = () => $("#dlgGarment").close(); $("#gaTh").oninput = () => { $("#gaThV").textContent = (+$("#gaTh").value).toFixed(2); };
+$("#gaPhoto").onclick = () => gaSend("photo"); $("#gaVec").onclick = () => gaSend("vector");
 /* ---------------------------------------------------------------- fidelity workspace */
 const FID = {mode: "orig", z: 1, x: 0, y: 0, rep: null, imgs: {}};
 function fidApply() {

@@ -29,6 +29,7 @@
   <button id="bSet" title="Make the same design for left / right / neck ... as separate, named, verified DST files">Placement set</button>
   <button id="bQuality" title="Run the six-stage DST verification on this design (or on the .dst you are viewing)">Quality check</button>
   <details class="menu" id="mMore"><summary title="More exports and tools">More ▾</summary><div class="pop">
+    <button id="bGarment" title="Garment photo: find the embroidery in a photo of a finished garment (ignoring folds, shadows, background), then send it to the vector or photo workflow">Garment photo…</button>
     <button id="bPhoto" title="Photo stitch: turn a photograph into tonal thread hatching (separate from vector artwork)">Photo stitch…</button>
     <button id="bEnhance" title="Upscale a PNG / JPG 200 % and sharpen it if it is blurry or small, then download it (also built into the import dialog)">Enhance image 2×…</button>
     <button id="bLetter" title="Lettering from a TrueType / OpenType font - Telugu, Devanagari, Tamil ... with proper shaping">TrueType lettering…</button>
@@ -46,7 +47,7 @@
 </header>
 <footer id="statusbar" aria-label="Product status">
   <span class="sb ok" title="DST is the only supported machine format"><b>Export:</b> <span id="sbFmt">DST only</span></span>
-  <span class="sb warn" title="No design from this software has been stitched on a physical machine yet"><b>Machine validation:</b> not yet physically validated</span>
+  <button type="button" id="sbMach" class="sb warn" title="Physical machine-test status for the CURRENT DST checksum. Click to record or review a real machine test."><b>Machine validation:</b> <span id="sbMachT">PENDING - not yet physically validated</span></button>
   <span class="sb warn" title="Fabric values are starting points until stitched on a machine"><b>Fabric presets:</b> experimental</span>
   <span class="sb warn" title="Time is calculated from an assumed machine speed"><b>Stitch time:</b> estimated, not verified</span>
   <button id="sbMore" class="linkbtn">What does this mean?</button>
@@ -126,6 +127,33 @@
     <div id="qBody" class="qbody">Running…</div>
     <div class="row2"><button value="close" class="primary">Close</button></div>
   </form>
+</dialog>
+<dialog id="dlgMachine">
+  <div class="fidwrap">
+    <div class="fidhead"><h3>Machine test (physical validation)</h3><small>Record what you observed on a REAL machine for the exact DST below. Nothing is marked passed by the software; PASSED needs every field, inspection = pass and a matching DST checksum. Change the design and the record becomes STALE.</small></div>
+    <div class="fidbody">
+      <div class="fidleft"><div id="mtStatus" class="note"></div><ol id="mtList" class="note"></ol><div id="mtRecs" class="note"></div></div>
+      <div class="fidright"><div class="row"><label>Operator</label><input id="mt_operator" type="text"></div><div class="row"><label>Design name</label><input id="mt_design_name" type="text"></div><div class="row"><label>Design version</label><input id="mt_design_version" type="text"></div><div class="row"><label>Machine model</label><input id="mt_machine_model" type="text"></div><div class="row"><label>Fabric</label><input id="mt_fabric" type="text"></div><div class="row"><label>Stabiliser</label><input id="mt_stabiliser" type="text"></div><div class="row"><label>Needle</label><input id="mt_needle" type="text"></div><div class="row"><label>Thread</label><input id="mt_thread" type="text"></div><div class="row"><label>Hoop</label><input id="mt_hoop" type="text"></div><div class="row"><label>Stitch count</label><input id="mt_stitch_count" type="number" step="any" min="0"></div><div class="row"><label>Speed (spm)</label><input id="mt_speed_spm" type="number" step="any" min="0"></div><div class="row"><label>Thread breaks</label><input id="mt_thread_breaks" type="number" step="any" min="0"></div><div class="row"><label>Skipped stitches</label><input id="mt_skipped_stitches" type="number" step="any" min="0"></div><div class="row"><label>Worst registration gap (mm)</label><input id="mt_registration_mm" type="number" step="any" min="0"></div><div class="row"><label>Puckering 0-3</label><select id="mt_puckering"><option value="">-</option><option>0</option><option>1</option><option>2</option><option>3</option></select></div><div class="row"><label>Jumps / trims</label><select id="mt_jump_trim_result"><option value="">-</option><option value="ok">ok</option><option value="problems">problems</option></select></div><div class="row"><label>Final inspection</label><select id="mt_final_inspection"><option value="">-</option><option value="pass">pass</option><option value="pass_with_notes">pass with notes</option><option value="fail">fail</option></select></div><div class="row"><label>Notes</label><textarea id="mt_notes" rows="2"></textarea></div></div>
+    </div>
+    <div class="row"><button type="button" id="mtSave" class="primary">Save record</button><button type="button" id="mtExport" disabled>Export record JSON</button><button type="button" id="mtImportB">Import record…</button><input type="file" id="mtImport" accept=".json" hidden><button type="button" id="mtClose">Close</button></div>
+  </div>
+</dialog>
+<dialog id="dlgGarment">
+  <div class="fidwrap">
+    <div class="fidhead"><h3>Garment photo - isolate the embroidery</h3>
+      <small>Heuristic and semi-automatic: probable embroidery is separated from fabric, folds, shadows and background by colour, fine texture and thread sheen. Always check the overlay. Tone-on-tone thread, deep shadows, printed or textured fabric can fail. Your photo is never changed; the motif image is a derived copy.</small></div>
+    <div class="fidbody">
+      <div class="fidleft"><div class="phimgs"><figure><img id="gaOrig" alt="garment photo"><figcaption>photo (unchanged)</figcaption></figure><figure><img id="gaOver" alt="embroidery overlay"><figcaption>detected embroidery (bright) - others dimmed</figcaption></figure></div><div id="gaInfo" class="note"></div></div>
+      <div class="fidright">
+        <div class="row"><label>Photo</label><input type="file" id="gaFile" accept="image/png,image/jpeg"></div>
+        <div class="row"><label title="Crop to the garment first if the background is busy (percent of the picture)">Crop x0 y0 x1 y1 %</label><span><input type="number" id="gaX0" value="0" min="0" max="95" style="width:52px"><input type="number" id="gaY0" value="0" min="0" max="95" style="width:52px"><input type="number" id="gaX1" value="100" min="5" max="100" style="width:52px"><input type="number" id="gaY1" value="100" min="5" max="100" style="width:52px"></span></div>
+        <div class="row"><label title="Higher = stricter: less is treated as embroidery">Sensitivity threshold <b id="gaThV">0.65</b></label><input type="range" id="gaTh" min="0.3" max="0.9" step="0.01" value="0.65"></div>
+        <div class="row"><label>Motif width mm</label><input type="number" id="gaW" value="100" min="20" max="400"></div>
+        <div id="gaMotifs" class="note"></div>
+      </div>
+    </div>
+    <div class="row"><button type="button" id="gaRun" class="primary">Analyse</button><button type="button" id="gaPhoto" disabled>Send motif to Photo stitch</button><button type="button" id="gaVec" disabled>Send motif to vector import</button><button type="button" id="gaClose">Close</button></div>
+  </div>
 </dialog>
 <dialog id="dlgPhoto">
   <div class="fidwrap">

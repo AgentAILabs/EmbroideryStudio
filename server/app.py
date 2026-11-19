@@ -15,7 +15,8 @@ GET  /api/templates       template catalogue
 POST /api/tools/column-from-outline  {ring} -> {rail1, rail2, ...} or 400 with the reason
 POST /api/template        {id, params, color} -> objects
 GET  /api/health"""
-import base64, io, json, math, os, re, sys, time, hashlib
+import base64
+import urllib.parse, io, json, math, os, re, sys, time, hashlib
 import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -345,6 +346,30 @@ def api_photo_stitch(d):
             "honesty": ["Thread cannot show continuous tone: tone is line spacing / thread colour; lines are visible.", "The validation compares a simulated thread image with the photo; it is not stitch-out quality.", "Physical machine validation is PENDING."]}
 
 
+def api_image_isolate(d):
+    """Garment-photo motif isolation (read-only on the upload): motif list + overlay; with `extract: true` also the derived cropped motif image
+    (non-motif pixels filled with the estimated fabric colour) ready for the vector or photo workflow."""
+    from stitchcraft_engine import motif_isolation as MI
+    ops.check_base64_upload(d.get("data"), "image")
+    raw = base64.b64decode(d["data"])
+    if not (raw[:8] == b"\x89PNG\r\n\x1a\n" or raw[:3] == b"\xff\xd8\xff"):
+        raise ValueError("unsupported image type: only PNG and JPEG are accepted")
+    th = float(d.get("threshold", 0.65)); region = d.get("region"); sel = d.get("select")
+    if sel is not None and not (isinstance(sel, list) and len(sel) <= 40 and all(isinstance(x, str) and re.fullmatch(r"m\d{1,2}", x) for x in sel)):
+        raise ValueError("select must be a list of motif ids such as m1")
+    try:
+        res = MI.isolate(raw, th, region=region)
+        if not res.get("ran"):
+            return res
+        out = dict(res, source_sha256=hashlib.sha256(raw).hexdigest(), overlay_png=base64.b64encode(MI.overlay(raw, th, sel, region=region)).decode())
+        if d.get("extract"):
+            png, info = MI.extract(raw, th, sel, region=region)
+            out["motif_png"] = base64.b64encode(png).decode(); out["motif"] = dict(info, sha256=hashlib.sha256(png).hexdigest())
+        return out
+    except OSError as e:
+        raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
+
+
 def api_image_quality(d):
     """Source-image quality assessment (read-only): resolution, sharpness, blur, noise, contrast, JPEG blocking, effective resolution, small-feature visibility,
     subject visibility, classification and actionable recommendations. The upload is never modified."""
@@ -615,6 +640,19 @@ class H(BaseHTTPRequestHandler):
             data = f.read_bytes()
             extra = {"Content-Disposition": f'attachment; filename="{m.group(1)}.dst"', "X-SHA256": hashlib.sha256(data).hexdigest()} if m.group(2) == "dst" else {}
             return self._send(200, data, ctype, extra)
+        if path == "/api/evidence/checklist":
+            from stitchcraft_engine import evidence
+            return self._send(200, {"checklist": evidence.CHECKLIST, "required": list(evidence.REQUIRED_TEXT + evidence.REQUIRED_NUM + tuple(evidence.REQUIRED_ENUM)), "statuses": list(evidence.STATUSES)})
+        if path == "/api/evidence/records":
+            from stitchcraft_engine import evidence
+            return self._send(200, {"records": evidence.load_all()})
+        if path == "/api/evidence":
+            from stitchcraft_engine import evidence
+            q = urllib.parse.parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
+            sha = (q.get("sha") or [""])[0].lower(); name = (q.get("name") or [""])[0]
+            if sha and not re.fullmatch(r"[0-9a-f]{64}", sha):
+                return self._send(400, {"error": "sha must be a 64-hex SHA-256"})
+            return self._send(200, evidence.status_for(sha or None, name or None))
         if path == "/api/templates":
             return self._send(200, {"templates": templates.catalog()})
         if path == "/api/openapi.json":
@@ -698,6 +736,14 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_to_manual(d))
             if path == "/api/photo/stitch":
                 return self._send(200, api_photo_stitch(d))
+            if path == "/api/evidence":
+                from stitchcraft_engine import evidence
+                rec = evidence.create(d); return self._send(200, {"record": rec, "status": evidence.status_for(rec["dst_sha256"], rec.get("design_name"))})
+            if path == "/api/evidence/import":
+                from stitchcraft_engine import evidence
+                rec = evidence.import_record(d); return self._send(200, {"record": rec, "status": evidence.status_for(rec["dst_sha256"], rec.get("design_name"))})
+            if path == "/api/image/isolate":
+                return self._send(200, api_image_isolate(d))
             if path == "/api/image/quality":
                 return self._send(200, api_image_quality(d))
             if path == "/api/image/validate":
