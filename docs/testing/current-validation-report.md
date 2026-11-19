@@ -27,7 +27,7 @@ Failures that occurred *during this round of work* and what they were (so the hi
 | 1 of the new axis tests (asymmetric flower) | a bug in the **test helper** (my hand decoder dropped colour-change records from the position list, shifting positions by one) - not a product bug | helper fixed; it now keeps positions aligned |
 | 3 existing tests after the format changes | tests still assumed 12 pack designs / an EXP button / locks changing the stitch count by exactly the lock count | updated to the new facts; the lock test now accounts for the one anchor stitch needed after a colour-change cut when a colour starts where the previous ended |
 | docs link checker | status.md linked to this report before it existed | this file |
-Not tested: the pyembroidery cross-check **on this branch** (it runs only in CI; this branch has not been pushed to CI at the time of writing).
+The pyembroidery cross-check does not run in this environment; it ran in CI (§4).
 
 ## 3. Software-level DST validation (what the software itself checks)
 * **Hand-written byte vectors** (`engine/tests/test_engine.py::DstBytePinTests`): expected bytes typed from the Tajima layout, deliberately not derived from the writer's tables.
@@ -41,7 +41,8 @@ Not tested: the pyembroidery cross-check **on this branch** (it runs only in CI;
 ## 4. Independent DST reader validation
 * **`pyembroidery`** (third-party reader) decodes our output in `tests/test_crosscheck.py` (stitch deltas, colour changes, trims, real-world EOF layout). **It does not run in this environment.**
 * **Evidence that it ran:** CI run `44452434905` on `main` at `1ed88d7` (pip installs `pyembroidery`): *Ran 32 tests OK; Ran 329 tests OK*, no "skipped" line → the cross-check tests executed and passed there. The same CI run is the evidence that the X/Y fix is confirmed by an independent reader (the original swap was *found* this way).
-* **Limits:** this was before the 28 new tests of this branch. They have not been through CI yet. Reader agreement shows the file is *well formed and consistently interpreted*; it does not show a machine will accept or sew it.
+* **After this round's changes:** CI run `44455215135` on `main` at `f166279` (pyembroidery installed): *Ran 32 tests OK; Ran 362 tests OK*, no "skipped" line - the independent-reader checks, the 18 axis tests and the 10 test-pack tests all executed and passed in CI.
+* **Limits:** reader agreement shows the file is *well formed and consistently interpreted*; it does not show a machine will accept or sew it.
 * **Third-party files (informational):** 20 commercial DST files supplied by the user decode with our reader into correctly oriented designs (visual check of renders), which supports the bit tables. Those files are not in the repository.
 
 ## 5. Physical embroidery machine validation
