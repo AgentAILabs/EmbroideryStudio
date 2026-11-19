@@ -72,7 +72,7 @@ The production sheet lists the lock length, how many lock stitches were added, a
 (real stitch preview, stitches, trims, time, what was done) → 4 Checks (15 production checks, export blocked on any FAIL) → 5 Export (DST,
 placement set, production sheet, or open in the editor for Expert changes) → 6 Machine test (Ricoma procedure with tick-boxes).
 What each step applies and why: `docs/digitizing-standard.md`. In the editor (Pro mode) every value it chose is visible and editable:
-underlay now includes *zigzag* and *edge+zigzag*, satins have *Curve shortening*, fills have *Region order*.
+underlay now includes *zigzag* and *edge+zigzag*, satins/columns have *Curve shortening*, *Style* (satin / decorative zigzag) and *Push comp*, fills have *Region order*, *Cut hidden layers* (with *Under-lap mm*) and *Push comp*.
 
 ## Placement sets: left / right / neck from one design
 1. Import or draw the design (artwork → *Import art*, or open one from the Library).

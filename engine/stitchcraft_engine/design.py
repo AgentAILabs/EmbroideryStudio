@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from .builder import StitchObject, build_pattern
 from .font import layout_text
-from .geometry import polygon_area, smooth, inset_ring, rotate_closed, ring_self_intersections
+from .geometry import polygon_area, smooth, inset_ring, rotate_closed, ring_self_intersections, trim_polyline
 from .model import Cmd, Pattern, ThreadColor
 from .stitches import (DigitizingError, satin_from_rails, contour_fill, cross_fill, center_walk_underlay, edge_walk_underlay, running_stitch,
                        satin_stitch, tatami_fill, underlay_path, zigzag_underlay, rails_from_centerline)
@@ -20,10 +20,10 @@ from .validate import validate
 
 DEFAULTS = {
     "fill": {"angle": 45.0, "spacing": 0.4, "stitch_len": 3.5, "underlay": "tatami", "pull_comp": 0.2, "pattern": "tatami", "cross_size": 2.0,
-             "regions": True},          # stitch holes / U-shapes region by region instead of jumping the gap on every row
-    "satin": {"width": 3.0, "spacing": 0.4, "underlay": "auto", "pull_comp": 0.2},
+             "regions": True, "cut_hidden": False, "overlap_mm": 0.6, "push_comp": 0.0},          # stitch holes / U-shapes region by region instead of jumping the gap on every row
+    "satin": {"width": 3.0, "spacing": 0.4, "underlay": "auto", "pull_comp": 0.2, "push_comp": 0.0, "style": "satin"},
     "run": {"stitch_len": 2.5},
-    "column": {"spacing": 0.4, "underlay": "auto", "pull_comp": 0.2},
+    "column": {"spacing": 0.4, "underlay": "auto", "pull_comp": 0.2, "push_comp": 0.0, "style": "satin"},
     "text": {"spacing": 1.0, "underlay": "auto", "pull_comp": 0.1},
     "applique": {"width": 2.5, "spacing": 0.4, "stitch_len": 2.5, "cover_color": None},
 }
@@ -52,6 +52,26 @@ def _p(obj: dict, key: str):
 def _pts(v, ob: Optional[dict] = None, closed: bool = False) -> list:
     pts = [(float(a), float(b)) for a, b in v]
     return smooth(pts, closed) if ob and ob.get("smooth") else pts
+
+
+def _covering_shapes(objs, idx):
+    """Outlines of the stitched objects sewn AFTER objs[idx] (they lie on top of it): fills / appliqué as their rings,
+    columns as rail1 + reversed rail2, satins as their stitched band."""
+    out = []
+    for o in objs[idx + 1:]:
+        if o.get("hidden") or o.get("guide") or o.get("type") in ("embellishment", "run", "text"):
+            continue
+        try:
+            if o["type"] in ("fill", "applique"):
+                out.append([[(float(a), float(b)) for a, b in r] for r in o["rings"]])
+            elif o["type"] == "column":
+                out.append([[(float(a), float(b)) for a, b in o["rail1"]] + [(float(a), float(b)) for a, b in o["rail2"]][::-1]])
+            elif o["type"] == "satin" and not o.get("closed"):
+                l, r = rails_from_centerline([(float(a), float(b)) for a, b in o["points"]], float(_p(o, "width")))
+                out.append([l + r[::-1]])
+        except (KeyError, TypeError, ValueError, DigitizingError):
+            continue
+    return out
 
 
 UNDERLAYS = ("auto", "none", "center", "edge", "zigzag", "edge+zigzag")
@@ -160,7 +180,8 @@ def generate(design: dict, trim_distance: Optional[float] = None):
     if th["lock_len"] and "lock_len" not in (design.get("machine") or {}):
         mach["lock_len"] = th["lock_len"]
     split_of = lambda ob: (mach["max_stitch"] if ob.get("params", {}).get("auto_split", True) else 0.0)
-    for ob in design.get("objects", []):
+    all_objs = design.get("objects", [])
+    for idx, ob in enumerate(all_objs):
         if ob.get("hidden") or ob.get("guide") or ob.get("type") == "embellishment":
             continue          # guides and embellishment placeholders are never stitched (they go on the production sheet)
         oid, typ = str(ob["id"]), ob["type"]
@@ -183,8 +204,11 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                 if runs is not None:
                     objs.append(StitchObject(oid, "fill", th, runs, []))      # patterned fills carry no underlay
                     continue
+                cover = _covering_shapes(all_objs, idx) if _p(ob, "cut_hidden") else []
+                ov = float(_p(ob, "overlap_mm") or 0.6)
                 runs = tatami_fill(rings, _p(ob, "angle"), _p(ob, "spacing"), _p(ob, "stitch_len"),
-                                   pull_comp=_p(ob, "pull_comp") or 0.0, regions=bool(_p(ob, "regions")))
+                                   pull_comp=_p(ob, "pull_comp") or 0.0, regions=bool(_p(ob, "regions")),
+                                   exclude=cover, exclude_margin=ov, push_comp=float(_p(ob, "push_comp") or 0.0))
                 under = []
                 mode = _p(ob, "underlay")
                 mode = "tatami" if mode is True else "none" if mode in (False, None) else mode
@@ -196,7 +220,8 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                         else:
                             notes.append(f"{oid}: edge underlay skipped (shape too small or too complex to inset safely)")
                     if mode in ("tatami", "edge+tatami") or (mode == "edge" and not under):
-                        under += tatami_fill(rings, _p(ob, "angle") + 90, 2.0, 3.0, regions=bool(_p(ob, "regions")))
+                        under += tatami_fill(rings, _p(ob, "angle") + 90, 2.0, 3.0, regions=bool(_p(ob, "regions")),
+                                            exclude=cover, exclude_margin=ov + 0.4)
                 objs.append(StitchObject(oid, "fill", th, runs, under))
             elif typ == "satin":
                 w = _p(ob, "width")
@@ -206,11 +231,21 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                     notes.append(f"{oid}: satin {w:g} mm is wider than the max stitch - long stitches split automatically")
                 elif w > 7.0:
                     notes.append(f"{oid}: satin {w:g} mm is loose (> 7 mm); enable auto-split, narrow it, or use a fill")
-                objs.append(_satin_objs(oid, th, _pts(ob["points"], ob, bool(ob.get("closed"))), _p(ob, "width"), _p(ob, "spacing"),
-                                        _p(ob, "pull_comp") or 0.0, _p(ob, "underlay"), split_of(ob), bool(_p(ob, "shorten"))))
+                path = _pts(ob["points"], ob, bool(ob.get("closed")))
+                push = float(_p(ob, "push_comp") or 0.0)
+                if push > 0 and not ob.get("closed"):
+                    path = trim_polyline(path, push / 2, push / 2)
+                zz = _p(ob, "style") == "zigzag"
+                objs.append(_satin_objs(oid, th, path, _p(ob, "width"), max(_p(ob, "spacing"), 1.2) if zz else _p(ob, "spacing"),
+                                        _p(ob, "pull_comp") or 0.0, "none" if zz else _p(ob, "underlay"), split_of(ob), bool(_p(ob, "shorten")) and not zz))
             elif typ == "column":
-                objs.append(_column(oid, th, _pts(ob["rail1"], ob), _pts(ob["rail2"], ob), _p(ob, "spacing"),
-                                    _p(ob, "pull_comp") or 0.0, _p(ob, "underlay"), notes, split_of(ob), bool(_p(ob, "shorten"))))
+                r1, r2 = _pts(ob["rail1"], ob), _pts(ob["rail2"], ob)
+                push = float(_p(ob, "push_comp") or 0.0)
+                if push > 0:
+                    r1, r2 = trim_polyline(r1, push / 2, push / 2), trim_polyline(r2, push / 2, push / 2)
+                zz = _p(ob, "style") == "zigzag"
+                objs.append(_column(oid, th, r1, r2, max(_p(ob, "spacing"), 1.2) if zz else _p(ob, "spacing"),
+                                    _p(ob, "pull_comp") or 0.0, "none" if zz else _p(ob, "underlay"), notes, split_of(ob), bool(_p(ob, "shorten")) and not zz))
             elif typ == "run":
                 pts = _pts(ob["points"], ob, bool(ob.get("closed")))
                 objs.append(StitchObject(oid, "running", th,

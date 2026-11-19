@@ -27,7 +27,7 @@ does not "understand" a photo of a blouse. Flat-colour artwork in, editable obje
 
 ## 2. Stitch-type selection
 Satin / column for narrow shapes and lettering, tatami for large areas, running for lines < 1 mm: ✅ `raster._make_object` (width by
-distance transform / PCA). Zig-zag as a *decorative* stitch: ◐ a satin with open spacing (Pro mode) - no dedicated decorative zig-zag tool.
+distance transform / PCA). Zig-zag as a *decorative* stitch: ✅ satin / column *Style: zigzag* (open ≥ 1.2 mm spacing, no underlay, no shortening).
 
 ## 3. Density - fabric-aware engine
 | Fabric | Density factor | Pull comp | Underlay shift |
@@ -40,8 +40,9 @@ distance transform / PCA). Zig-zag as a *decorative* stitch: ◐ a satin with op
 | Stretch / knit | 1.00 | 0.40 | +1 |
 | Denim / canvas | 1.00 | 0.15 | 0 |
 Automatic satin spacing ✅ (narrow opens up, wide closes up) · fewer penetrations in narrow objects ✅ · underlay instead of more top density ✅ (ladder) ·
-stitch shortening on tight curves ✅ (`stitches._shorten_inner`, test: inner-edge penetrations reduced by > 30 %) · overlapping fills: ◐ the image
-digitizer produces non-overlapping regions; for hand-made designs overlap is **measured** (checklist item 7) but not cut away automatically.
+stitch shortening on tight curves ✅ (`stitches._shorten_inner`, test: inner-edge penetrations reduced by > 30 %) · overlapping fills: ✅ **cut hidden
+layers** - a fill does not sew what later fills / columns / satins / appliqués cover, keeping a 0.6 mm under-lap (underlay 1.0 mm) so no gap opens
+(`stitches.tatami_fill(exclude=...)`, on in every profile, per-object switch in Pro mode). Lotus library design: 6,179 → 3,819 stitches, stacked-fill area 23 % → 9 %.
 
 ## 4. Underlay
 | Type | Implemented | Used by the profile for |
@@ -53,8 +54,8 @@ digitizer produces non-overlapping regions; for hand-made designs overlap is **m
 | Tatami underlay | ✅ | fills 25-400 mm² (edge + tatami above) |
 
 ## 5. Pull compensation
-Satin / column width ✅ · fill row length along the stitch direction ✅ · fabric-specific ✅ · separate horizontal / vertical (push) values ❌ (one value per object) ·
-fill-outline expansion perpendicular to the rows ❌.
+Pull: satin / column width ✅, fill rows lengthened along the stitch direction ✅. Push: ✅ fills shortened across the rows, columns / satins shortened at their ends
+(`push_comp`, separate from pull) · fabric-specific ✅ (stretch: push 0.2 mm) · fill-outline expansion perpendicular to the rows ❌ (push is the opposite need on most fabrics).
 
 ## 6. Stitch path
 | Algorithm | Implemented |
@@ -64,7 +65,7 @@ fill-outline expansion perpendicular to the rows ❌.
 | Jump / trim optimisation | ✅ trims only above the trim distance, run direction chosen to carry short jumps |
 | Tie-in / tie-off | ✅ 1.0 mm locks, every cut end |
 | Stitch shortening | ✅ |
-| Overlap removal | ◐ detection only (above) |
+| Overlap removal | ✅ cut hidden layers with under-lap (above) |
 | Auto split | ✅ |
 
 ## 7. DST format

@@ -104,7 +104,7 @@ def evaluate(design: dict) -> dict:
     kinds = {o["id"]: o["type"] for o in objs}
     ov = _overlap_ratio(pattern, kinds)
     items.append(_item(7, "No excessive overlapping stitches", "WARN" if ov > 0.30 else "PASS",
-                       f"{ov * 100:.0f}% of the filled area is covered by more than one fill object" + (" - consider cutting the lower layer" if ov > 0.30 else "")))
+                       f"{ov * 100:.0f}% of the filled area is covered by more than one fill object" + (" - tick 'Cut hidden layers' on the lower fills (or apply a profile)" if ov > 0.30 else "")))
     # 8 short stitches
     tiny = sum(1 for i in rep.issues if i.code == "STITCH_SHORT")
     items.append(_item(8, "No excessively short stitches", "WARN" if ana["pct_short_clustered"] >= 3.0 or tiny else "PASS",
