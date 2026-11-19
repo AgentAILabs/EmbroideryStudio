@@ -307,6 +307,28 @@ def _autodigitize_core(d):
              "checklist": checklist.evaluate(design)}, full, original)
 
 
+def _sections(design, original=None, width_mm=80.0, validation=None, photo=None, res=None):
+    """The five separate validation sections (never combined) for a design; `original` (image bytes) enables section 1."""
+    from stitchcraft_engine import sections as SEC, source_quality
+    try:
+        res = res or export_pipeline.export_dst(design)
+    except export_pipeline.ExportError as e:
+        return {"error": str(e), "export_error": e.to_dict()}
+    q = source_quality.assess(original, width_mm) if original else None
+    return SEC.build(design, res, source_quality=q, validation=validation, photo=photo)
+
+
+def api_report_sections(d):
+    design = d.get("design")
+    if not isinstance(design, dict):
+        raise ValueError("design is required")
+    check_design(design)
+    original = None
+    if d.get("image"):
+        ops.check_base64_upload(d["image"], "image"); original = base64.b64decode(d["image"])
+    return _sections(design, original, float(d.get("width_mm", 80)), d.get("validation") if isinstance(d.get("validation"), dict) else None)
+
+
 def api_photo_stitch(d):
     """Photo Stitch Engine: image -> tonal flow-field hatching design -> validated DST -> thread-texture preview from the DECODED DST -> photo validation.
     Software validation only; physical machine validation is separate and PENDING."""
@@ -340,7 +362,8 @@ def api_photo_stitch(d):
     prev = PV.render_preview(segs, w, h, str(d.get("fabric", "#ffffff")))
     buf = io.BytesIO(); prev.save(buf, "PNG")
     val = PV.compare(raw, prev, w, res["report"]["mode"], str(d.get("fabric", "#ffffff")))
-    return {"design": design, "report": res["report"], "preview_png": base64.b64encode(buf.getvalue()).decode(), "validation": val, "stitch_metrics": PV.stitch_metrics(sim["stitches"], sim["threads"]),
+    secs = _sections(design, raw, float(d.get("width_mm", 100)), None, val, exp)
+    return {"design": design, "report": res["report"], "preview_png": base64.b64encode(buf.getvalue()).decode(), "validation": val, "sections": secs, "stitch_metrics": PV.stitch_metrics(sim["stitches"], sim["threads"]),
             "dst": {"sha256": exp.sha256, "bytes": len(exp.data), "records": exp.record_count, "export_report": exp.report},
             "source": fidelity.source_record(raw, float(d.get("width_mm", 100))),
             "honesty": ["Thread cannot show continuous tone: tone is line spacing / thread colour; lines are visible.", "The validation compares a simulated thread image with the photo; it is not stitch-out quality.", "Physical machine validation is PENDING."]}
@@ -397,7 +420,8 @@ def api_image_validate(d):
     rep = image_validation.validate(original, float(d.get("width_mm", 80)), full, design)
     if not d.get("images"):
         rep.pop("derived_images", None)
-    return dict(rep, design_name=design.get("name"), inventory=out["inventory"], import_report=out["import_report"], width_mm=float(d.get("width_mm", 80)), height_mm=full["size_mm"][1])
+    secs = _sections(design, original, float(d.get("width_mm", 80)), rep) if d.get("sections", True) else None
+    return dict(rep, sections=secs, design_name=design.get("name"), inventory=out["inventory"], import_report=out["import_report"], width_mm=float(d.get("width_mm", 80)), height_mm=full["size_mm"][1])
 
 
 def api_image_bundle(d):
@@ -736,6 +760,8 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_to_manual(d))
             if path == "/api/photo/stitch":
                 return self._send(200, api_photo_stitch(d))
+            if path == "/api/report/sections":
+                return self._send(200, api_report_sections(d))
             if path == "/api/evidence":
                 from stitchcraft_engine import evidence
                 rec = evidence.create(d); return self._send(200, {"record": rec, "status": evidence.status_for(rec["dst_sha256"], rec.get("design_name"))})

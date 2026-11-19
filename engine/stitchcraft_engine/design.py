@@ -236,6 +236,7 @@ MACHINE_DEFAULTS = {"max_stitch": 7.0, "min_stitch": 0.3, "trim_distance": 3.0, 
                     "lock_len": 1.0,              # tie-in / tie-off stitch length in mm (0 = no lock stitches); production files use 1.0 mm
                     "trim_at_color_change": 1, "trim_at_end": 1,
                     "smart_direction": 1,         # start a run at its nearer end when that turns a trim into a carried jump
+                    "underlay_entry": 0,          # opt-in: start the first top run of an underlaid object at the end the underlay left the needle nearest to (wide satins otherwise trim + jump their own length)
                     "micro_clean": 0.0}           # mm: merge stitches shorter than this into the previous one (0 = off, the default; opt-in because it changes the stitch data)
 
 
@@ -251,6 +252,7 @@ def machine(design: dict) -> dict:
     m["trim_at_color_change"] = 1 if m["trim_at_color_change"] else 0
     m["trim_at_end"] = 1 if m["trim_at_end"] else 0
     m["smart_direction"] = 1 if m["smart_direction"] else 0
+    m["underlay_entry"] = 1 if m["underlay_entry"] else 0
     m["micro_clean"] = 0.0 if m["micro_clean"] <= 0 else min(max(m["micro_clean"], 0.2), 0.8)      # below 0.2 mm cleaning would be meaningless, above 0.8 mm it would change shapes
     return m
 
@@ -466,7 +468,7 @@ def generate(design: dict, trim_distance: Optional[float] = None):
     _apply_entry_exit(design, objs, notes)
     pattern = build_pattern(objs, threads, design.get("name", "design"), trim_distance, lock_len=mach["lock_len"],
                             trim_at_color_change=bool(mach["trim_at_color_change"]), trim_at_end=bool(mach["trim_at_end"]),
-                            choose_direction=bool(mach["smart_direction"]))
+                            choose_direction=bool(mach["smart_direction"]), entry_after_underlay=bool(mach["underlay_entry"]))
     if mach["micro_clean"] > 0:
         n_drop = clean_micro_stitches(pattern, mach["micro_clean"])
         if n_drop:

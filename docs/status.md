@@ -47,6 +47,23 @@ save/reopen, SVG + PNG import, versions) with zero page errors / HTTP 5xx.
 | React/TS + ASP.NET + PostgreSQL | ❌ roadmap (stage 1 contract done; stages 2-5 not started) | `docs/architecture/enterprise-architecture.md` |
 Audit register: `docs/testing/technical-audit-report.md`. Roadmap: `docs/roadmap/enterprise-feature-roadmap.md`.
 
+## Photo digitizing, source quality and real-machine validation upgrade (2026-11-19)
+| Item | Status | Evidence / note |
+|---|---|---|
+| Source image quality assessment (resolution, sharpness, blur, noise, contrast, JPEG blocking, effective resolution, smallest feature, subject visibility, classification, recommendations) | ✅ software | `source_quality.py`, `POST /api/image/quality`, import-dialog panel, `docs/testing/image-quality-assessment.md` |
+| Enhancement is non-destructive and never presented as recovered detail | ✅ | `enhance.py`: classical only, `provenance.estimated=true / recovered_detail=false`, validation always uses the original |
+| Independent multi-scale micro-detail scan with `digitized / approximate / not_stitchable / awaiting_review` | ✅ software | `detail_scan.py`, validation pass 2, fidelity dialog; `docs/embroidery/micro-detail-preservation.md` |
+| Photo Stitch Engine (tonal mapping, ordered dithering, variable stitch direction along contours, line-density shading, cross-hatch, thread-palette mapping, feathered colour transitions, safety budget) | ✅ software | `photo.py`, `POST /api/photo/stitch`, Photo stitch dialog; `docs/embroidery/photo-digitizing-engine.md`. Thread cannot show continuous tone: it is an approximation |
+| Thread-texture preview drawn from the **decoded DST** + photo similarity metrics | ✅ simulated | `photo_validation.py`; similarity of a simulation, **not** stitch-out quality |
+| Garment-photo motif isolation (fabric / fold / shadow / background vs embroidery) | 🟡 heuristic | `motif_isolation.py`, `POST /api/image/isolate`, dialog with overlay, threshold, crop, motif toggles. Fails on tone-on-tone thread, deep shadows over bright thread, printed or textured fabric; always inspect the overlay |
+| Two independent workflows with automatic recommendation (vector / photo / garment photo) | ✅ | import dialog buttons, "recommended" marker from the quality check |
+| Reporting in five separate sections, no combined score | ✅ | `sections.py`, `POST /api/report/sections`, fidelity / photo / Quality dialogs; `docs/testing/stitch-quality-validation.md` |
+| Independent DST checks from the bytes (end record, record limit, header vs decoded extents, hoop fit from decoded extents, re-import, preview reconstructed from exported records == intended sequence) | ✅ software | mutation tests in `tests/test_sections.py` |
+| Physical validation workflow (checklist, evidence record bound to the DST SHA-256, sealed JSON, statuses, live status chip, Machine test dialog) | ✅ workflow / 🧪 **results: none** | `evidence.py`, `evidence/`, `docs/testing/physical-machine-test-plan.md`. **0 records exist; status PENDING for every design.** A test enforces that the repository ships no records |
+| Photo physical test files | 🧪 ready, never stitched | `testpack/photo_v1/` (`tools/make_photo_testfiles.py`, hash manifest, `physically_validated: false`) |
+| Defect found: wide satin trims and jumps its own length after the underlay | 🟡 fix available, **off by default** | machine setting `underlay_entry`; default unchanged so delivered hash-pinned DSTs stay identical (see stitch-quality-validation.md) |
+| Physical machine validation | ❌ **NOT DONE** | no stitch-out has been performed; nothing in this upgrade claims otherwise |
+
 ## Image-to-DST fidelity (2026-11-19)
 | Statement | Status | Note |
 |---|---|---|

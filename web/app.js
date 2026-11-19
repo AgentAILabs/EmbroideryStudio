@@ -488,7 +488,8 @@ function qualityPanelHtml(q) {
 function askImport(qrep) {
   return new Promise(resolve => {
     const dlg = $("#dlgImport"); $("#impW").value = Math.round(S.doc.hoop.w * .7); $("#impReport").hidden = !qrep; $("#impReport").innerHTML = qualityPanelHtml(qrep);
-    dlg.onclose = () => resolve(dlg.returnValue === "go" ? {w: parseFloat($("#impW").value), c: parseInt($("#impC").value) || 6, q: $("#impQ").value, e: $("#impE").value} : dlg.returnValue === "photo" ? {photo: true, w: parseFloat($("#impW").value)} : null);
+    const rec = qrep && qrep.workflow; [["#impGo", "vector", "Import as vector artwork"], ["#impPhoto", "photo", "Photo stitch instead…"], ["#impGarment", "garment_photo", "Garment photo…"]].forEach(([id, k, t]) => { $(id).textContent = t + (rec === k ? " (recommended)" : ""); $(id).classList.toggle("recommended", rec === k); });
+    dlg.onclose = () => resolve(dlg.returnValue === "go" ? {w: parseFloat($("#impW").value), c: parseInt($("#impC").value) || 6, q: $("#impQ").value, e: $("#impE").value} : dlg.returnValue === "photo" ? {photo: true, w: parseFloat($("#impW").value)} : dlg.returnValue === "garment" ? {garment: true, w: parseFloat($("#impW").value)} : null);
     dlg.showModal();
   });
 }
@@ -539,11 +540,17 @@ function reviewRegions(objs, extent) {      // segmentation review: keep / recol
     dlg.onclose = () => resolve(dlg.returnValue === "go" ? result() : dlg.returnValue === "redo" ? {redo: JSON.parse(dlg.dataset.redo || "[]")} : null); dlg.showModal();
   });
 }
+/* ---------------------------------------------------------------- five separate validation sections */
+function sectionsHtml(r) {
+  if (!r || !r.sections) return r && r.error ? `<small>Sections not available: ${esc(r.error)}</small>` : "";
+  const word = v => String(v).split(" ")[0];
+  return r.sections.map(s => `<details class="vsec"${s.id === "physical" || s.id === "independent_dst" ? " open" : ""}><summary>${esc(s.title)} <span class="vv ${esc(word(s.verdict))}">${esc(s.verdict)}</span></summary><small>${esc(s.question)}</small><table>${s.metrics.map(m => `<tr><td title="${esc(m.how || "")}">${esc(m.name)}</td><td>${esc(typeof m.value === "object" ? JSON.stringify(m.value) : m.value)} ${esc(m.unit || "")}</td><td>${m.result ? esc(m.result) : ""}</td></tr>`).join("")}</table>${(s.recommendations || []).map(x => `<small>• ${esc(typeof x === "string" ? x : x.text || JSON.stringify(x))}</small>`).join("")}<small>Not measured: ${esc(s.not_measured.join(" · ") || "-")}</small></details>`).join("") + `<small>${esc(r.note)}</small>`;
+}
 /* ---------------------------------------------------------------- photo stitch workflow */
 const PH = {b64: null, url: null, res: null, name: "photo"};
 async function phLoad(file) {
   PH.name = file.name.replace(/\.[^.]+$/, ""); PH.url = URL.createObjectURL(file); PH.b64 = b64(new Uint8Array(await file.arrayBuffer())); PH.res = null;
-  $("#phOrig").src = PH.url; $("#phPrev").removeAttribute("src"); $("#phVal").innerHTML = ""; $("#phStats").textContent = ""; $("#phNotes").textContent = ""; $("#phUse").disabled = $("#phDst").disabled = true;
+  $("#phOrig").src = PH.url; $("#phPrev").removeAttribute("src"); $("#phVal").innerHTML = ""; $("#phSections").innerHTML = ""; $("#phStats").textContent = ""; $("#phNotes").textContent = ""; $("#phUse").disabled = $("#phDst").disabled = true;
 }
 function openPhoto(file, w) { if (w) $("#phW").value = Math.round(w); $("#dlgPhoto").showModal(); if (file) phLoad(file); }
 async function photoRun() {
@@ -557,6 +564,7 @@ async function photoRun() {
     const v = r.validation, m = r.stitch_metrics, rep = r.report;
     $("#phVal").innerHTML = `<b>Thread image vs photo (software, simulated)</b>: <span class="vd ${v.verdict === "PASSED" ? "PASSED" : "PASSED_WITH_WARNINGS"}">${v.verdict}</span><table class="qt"><tr><td>luminance correlation</td><td>${v.luminance_corr}</td></tr><tr><td>structure similarity</td><td>${v.structure_ssim}</td></tr><tr><td>tonal histogram distance</td><td>${v.histogram_distance}</td></tr><tr><td>edge correlation</td><td>${v.edge_corr}</td></tr>${v.mode === "multicolour" ? `<tr><td>colour distance (Lab)</td><td>${v.colour_de}</td></tr>` : ""}</table><small>${esc(v.meaning)}</small>`;
     $("#phStats").innerHTML = `<b>DST (validated, SHA-256 ${r.dst.sha256.slice(0, 12)}…)</b>: ${m.stitches} stitches · ${m.jumps} jumps · ${m.trims} trims · ${m.colour_changes} colour changes · min / max stitch ${m.min_stitch_mm} / ${m.max_stitch_mm} mm · max ${m.max_penetrations_per_mm2} penetrations/mm²<br>Physical machine validation: <b>PENDING</b>`;
+    $("#phSections").innerHTML = sectionsHtml(r.sections);
     $("#phNotes").textContent = (rep.notes || []).join(" ") + " " + r.honesty.join(" ");
     $("#phUse").disabled = $("#phDst").disabled = false;
   } catch (e) { $("#phVal").textContent = "Photo stitch failed: " + e.message; } finally { $("#phRun").disabled = false; }
@@ -688,6 +696,7 @@ async function openFidelity(keepOpen) {
     FID.rep = rep; FID.imgs = {orig: S.imgSrc.url, over: "data:image/png;base64," + rep.derived_images["overlay.png"], diff: "data:image/png;base64," + rep.derived_images["difference.png"], seg: "data:image/png;base64," + rep.derived_images["segmented.png"], vec: "data:image/png;base64," + rep.derived_images["vector.png"], ana: "data:image/png;base64," + rep.derived_images["analysis.png"]};
     $("#fidVerdict").innerHTML = `<span class="vd ${rep.software_validation}">Software validation: ${rep.software_validation.replace(/_/g, " ")}</span> <span class="vd FAILED" style="background:#6b7280">Physical machine validation: ${esc(rep.physical_validation.split(" - ")[0])}</span>`;
     $("#fidDisc").textContent = rep.disclaimer;
+    $("#fidSections").innerHTML = sectionsHtml(rep.sections);
     $("#fidPasses").innerHTML = rep.passes.map(p => `<div class="fp ${p.result}"><b>${p.pass}. ${p.result}</b><span>${esc(p.name)}<br><small>${esc(p.detail)}</small></span></div>`).join("");
     $("#fidRisks").innerHTML = rep.remaining_risks.map(r => `<li>${esc(r)}</li>`).join("") || "<li>none recorded</li>";
     fidRenderScan(); fidRenderInv(); FID.mode = "orig"; document.querySelectorAll("#fidMode button").forEach(b => b.classList.toggle("on", b.dataset.m === "orig"));
@@ -716,7 +725,7 @@ async function importFile(file) {
     else {
       const buf0 = new Uint8Array(await file.arrayBuffer());
       let qrep = null; try { let b0 = ""; for (let i = 0; i < buf0.length; i += 8192) b0 += String.fromCharCode(...buf0.subarray(i, i + 8192)); qrep = await post("/api/image/quality", {data: btoa(b0), width_mm: Math.round(S.doc.hoop.w * .7)}); } catch (e) { qrep = null; }
-      const o = await askImport(qrep); if (o && o.photo) { openPhoto(file, o.w); return; } if (!o || !o.w) return;
+      const o = await askImport(qrep); if (o && o.photo) { openPhoto(file, o.w); return; } if (o && o.garment) { $("#gaW").value = Math.round(o.w); $("#dlgGarment").showModal(); gaLoad(file); return; } if (!o || !o.w) return;
       const buf = new Uint8Array(await file.arrayBuffer()); let bin = ""; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
       S.imgSrc = {name: file.name, b64: btoa(bin), url: URL.createObjectURL(file), opts: o};       // the original stays in memory exactly as uploaded
       let erase = [];
@@ -905,6 +914,8 @@ async function qualityCheck() {
       const mc = await post("/api/machine/check", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", `<div class="qscore"><h4>Machine profile: ${esc(mc.profile.manufacturer + " " + mc.profile.model)}</h4><p><b>Not validated</b> - ${esc(mc.profile.validation_statement)}</p>${mc.issues.length ? "<ul>" + mc.issues.map(i => `<li class="${i.severity === "error" ? "e" : "w"}">${i.severity === "error" ? "✖" : "⚠"} ${esc(i.message)}</li>`).join("") + "</ul>" : "<p>No profile problems found.</p>"}</div>`);
       const tr = await post("/api/travel", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", travelHtml(tr));
       const qr = await post("/api/quality", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", qualityScoreHtml(qr));
+      const sec = await post("/api/report/sections", Object.assign({design: S.doc}, S.imgSrc ? {image: S.imgSrc.b64, width_mm: S.imgSrc.opts.w} : {}));
+      $("#qBody").insertAdjacentHTML("afterbegin", `<div class="qscore"><h4>Five separate validations (never combined into one score)</h4>${sectionsHtml(sec)}</div>`);
     }
   } catch (e) { $("#qBody").textContent = "Check failed: " + e.message; }
 }
@@ -1056,6 +1067,7 @@ function renderDesign() {
   <div class="row"><label title="Tie-in / tie-off stitch length. 0 = no lock stitches">Lock stitch mm</label><input type="number" id="mLock" value="${(d.machine || {}).lock_len ?? 1}" step=".1" min="0" max="1.5"></div>
   <div class="row"><label title="Tie off + trim before every thread colour change">Trim at colour change</label><input type="checkbox" id="mTC" ${((d.machine || {}).trim_at_color_change ?? 1) ? "checked" : ""}></div>
   <div class="row"><label title="Stitch each run from whichever end is nearer when that turns a trim into a carried jump">Smart start direction</label><input type="checkbox" id="mSD" ${((d.machine || {}).smart_direction ?? 1) ? "checked" : ""}></div>
+  <div class="row"><label title="Experimental: start the top stitching of a wide satin / fill at the end the underlay left the needle nearest to. Avoids a trim and a jump the whole object long on 6 mm+ satins; changes stitch order, so it is off by default.">Underlay entry (wide satin)</label><input type="checkbox" id="mUE" ${((d.machine || {}).underlay_entry ?? 0) ? "checked" : ""}></div>
   <div class="row"><label title="Stitches shorter than this are flagged by the checks">Min stitch mm</label><input type="number" id="mMin" value="${(d.machine || {}).min_stitch ?? 0.3}" step=".1" min=".1" max="2"></div>
   <div class="row"><label title="Merge stitches shorter than this into their neighbour (thread-break / nesting risk at petal tips and tiny shapes). 0 = off.">Clean micro-stitches below mm</label><input type="number" id="mClean" value="${(d.machine || {}).micro_clean ?? 0}" step=".1" min="0" max=".8"></div>
   <div class="row"><label title="Tie off + trim before the end of the design">Trim at end</label><input type="checkbox" id="mTE" ${((d.machine || {}).trim_at_end ?? 1) ? "checked" : ""}></div>
@@ -1066,6 +1078,7 @@ function renderDesign() {
     sync("stab", d.stabiliser || "cut-away"); sync("hw", d.hoop.w); sync("hh", d.hoop.h); sync("hm", d.hoop.margin); sync("fab", d.fabric); sync("thr", d.thread || "40wt");
     sync("mMax", (d.machine || {}).max_stitch ?? 7); sync("mTrim", (d.machine || {}).trim_distance ?? 3); sync("mJ", (d.machine || {}).trim_jumps ?? 3); sync("mLock", (d.machine || {}).lock_len ?? 1); sync("mMin", (d.machine || {}).min_stitch ?? 0.3); sync("pfFab", (d.profile || {}).fabric || "cotton"); sync("pfCat", (d.profile || {}).category || "blouse_neck");
     for (const [id, k] of [["mTC", "trim_at_color_change"], ["mTE", "trim_at_end"], ["mSD", "smart_direction"]]) { const x = $("#" + id); if (x && document.activeElement !== x) x.checked = !!((d.machine || {})[k] ?? 1); }
+    { const x = $("#mUE"); if (x && document.activeElement !== x) x.checked = !!((d.machine || {}).underlay_entry ?? 0); }
     const hs = $("#hoopSel"); if (hs && document.activeElement !== hs) { const k = Object.keys(HOOPS).find(k => Math.abs(HOOPS[k][0] - d.hoop.w) < .2 && Math.abs(HOOPS[k][1] - d.hoop.h) < .2); hs.value = k || "Custom"; }
     renderVersions(); return;
   }
@@ -1073,7 +1086,7 @@ function renderDesign() {
   const mset = (k, el) => el.onchange = () => { S.doc.machine = S.doc.machine || {}; const v = parseFloat(el.value); if (!isNaN(v)) S.doc.machine[k] = v; commit(); renderAll(); };
   mset("max_stitch", $("#mMax")); mset("trim_distance", $("#mTrim")); mset("micro_clean", $("#mClean")); mset("trim_jumps", $("#mJ")); mset("lock_len", $("#mLock"));
   const mflag = (k, el) => el.onchange = () => { S.doc.machine = S.doc.machine || {}; S.doc.machine[k] = el.checked ? 1 : 0; commit(); renderAll(); };
-  mflag("trim_at_color_change", $("#mTC")); mflag("trim_at_end", $("#mTE")); mflag("smart_direction", $("#mSD")); mset("min_stitch", $("#mMin"));
+  mflag("trim_at_color_change", $("#mTC")); mflag("trim_at_end", $("#mTE")); mflag("smart_direction", $("#mSD")); mflag("underlay_entry", $("#mUE")); mset("min_stitch", $("#mMin"));
   const runProfile = async (body, label) => {
     try { const j = await post("/api/profile", Object.assign({design: S.doc}, body)); const keep = S.doc.name;
       if (!j.log.length) { alert("Nothing to change - the design already matches."); return; }

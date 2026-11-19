@@ -61,7 +61,7 @@ def _tie_in(start: Point, nxt: Optional[Point], lock_len: float) -> List[Point]:
 
 def build_pattern(objects: Sequence[StitchObject], threads: Sequence[ThreadColor], name: str = "design",
                   trim_distance: float = 3.0, lock_len: float = 0.0, trim_at_color_change: bool = False,
-                  trim_at_end: bool = False, choose_direction: bool = False) -> Pattern:
+                  trim_at_end: bool = False, choose_direction: bool = False, entry_after_underlay: bool = False) -> Pattern:
     """Stitch commands for the objects, in order. Defaults reproduce the original behaviour (no locks, trims only on
     long jumps). choose_direction: stitch each run from whichever end is nearer the needle (same stitches, fewer jumps and trims,
     e.g. a satin column after its centre-walk underlay). Professional sequence (lock_len > 0, trims on): ... tie-off, TRIM, [COLOR_CHANGE,] JUMP, first stitch, tie-in ..."""
@@ -86,6 +86,10 @@ def build_pattern(objects: Sequence[StitchObject], threads: Sequence[ThreadColor
                 continue
             if choose_direction and not obj.fixed and cur is not None and dist(cur, run[0]) > trim_distance >= dist(cur, run[-1]):
                 run = run[::-1]            # only when it turns a trim into a carried jump (a greedy "nearest end" can make the next jump worse)
+            elif (entry_after_underlay and choose_direction and not obj.fixed and cur is not None and last_oid == obj.id and obj.underlay_runs and run is obj.runs[0]
+                  and dist(cur, run[-1]) + 1.0 < dist(cur, run[0])):
+                run = run[::-1]            # the first top run right after the object's OWN underlay: start at the end the underlay left the needle nearest to
+                                           # (a wide satin's far corner is > trim distance away, which otherwise cost a trim and a jump the whole object long)
             cut = cur is None                      # a fresh thread end (design start, after a trim, or a new colour) needs a tie-in
             if cur_thread is not None and obj.thread != cur_thread:
                 finish_thread(last_oid, trim_at_color_change)

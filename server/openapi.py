@@ -27,6 +27,7 @@ ROUTES = {
     ("post", "/api/report"): ("Production report (three validation sections); html=true adds an HTML rendering", DESIGN_BODY, JSON200("report"), ["400"]),
     ("post", "/api/split"): ("Split an oversize design into hoopings with alignment marks (zip of DSTs)", DESIGN_BODY, {"description": "zip; header X-Split-Report"}, ["400"]),
     ("post", "/api/photo/stitch"): ("Photo Stitch Engine: tonal flow-field hatching -> validated DST, thread-texture preview from the decoded DST, photo validation (software only)", {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}}, JSON200("design, report, preview_png, validation, stitch_metrics, dst"), ["400"]),
+    ("post", "/api/report/sections"): ("Five separate validation sections (source quality, preservation, stitch path, independent DST, physical) - never combined into one score", {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}}, JSON200("sections"), ["400"]),
     ("get", "/api/evidence"): ("Physical machine-validation status for a DST checksum (?sha=&name=): PENDING / INCOMPLETE / STALE / FAILED / PASSED_WITH_NOTES / PASSED", None, JSON200("status, record, missing"), ["400"]),
     ("get", "/api/evidence/checklist"): ("Physical test checklist, required fields and status values", None, JSON200("checklist, required, statuses"), []),
     ("get", "/api/evidence/records"): ("All stored (intact) evidence records", None, JSON200("records"), []),

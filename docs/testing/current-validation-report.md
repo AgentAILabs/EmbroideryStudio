@@ -13,15 +13,28 @@ Command: `./tools/run_tests.sh` (run in this environment, which has **no** `pyem
 | Suite | Result | Count |
 |---|---|---|
 | Engine tests (`engine/tests`) | OK | 32 / 32 |
-| Studio tests (`tests/`) | OK, 3 skipped | 531 run, 528 executed and passed, 3 skipped (pyembroidery not installed here) - updated after the enterprise upgrade |
+| Studio tests (`tests/`) | OK, 3 skipped | 631 run, 628 executed and passed, 3 skipped (pyembroidery not installed here) - updated after the photo / source-quality / physical-validation upgrade (2026-11-19) |
 | JavaScript syntax (`node --check`) | OK | `web/app.js`, `tools/e2e_ui.js` |
-| Browser end-to-end (`tools/e2e_ui.js`, real Chromium, run separately - not part of `run_tests.sh`, not part of CI) | PASS | 58 / 58 steps, 0 page errors, 0 HTTP 5xx, no CSP console errors |
+| Browser end-to-end (`tools/e2e_ui.js`, real Chromium, run separately - not part of `run_tests.sh`, not part of CI) | PASS | 61 / 61 steps, 0 page errors, 0 HTTP 5xx, no CSP console errors |
 
 Notable suites relevant to output correctness: `tests/test_dst_axis.py` (18, new), `tests/test_testpack_v2.py` (10, new), `engine/tests` byte-pin tests, `tests/test_digitizing_standard.py`, `tests/test_ui_wiring.py`.
 
 ### 1b. Enterprise upgrade additions (software level only)
 `tests/test_export_pipeline.py` (25, incl. mutation tests and the historic axis swap in writer + reader), `tests/test_quality.py` (20), `tests/test_travel.py` (9), `tests/test_simulation.py` (5), `tests/test_entry_exit.py` (4),
 `tests/test_machines_report.py` (14), `tests/test_ops.py` (12, incl. performance budgets). Every report states `physical_machine: NOT DONE`.
+
+## 1c. Photo digitizing / source quality / physical-validation upgrade (software level only)
+New suites: `tests/test_source_quality.py` (11), `tests/test_enhance.py` (5), `tests/test_detail_scan.py` (8), `tests/test_photo_stitch.py` (19), `tests/test_motif_isolation.py` (13), `tests/test_evidence.py` (13), `tests/test_sections.py` (14), `tests/test_stitch_generation.py` (15), `tests/test_photo_testpack.py` (2), plus extended OpenAPI / UI-wiring contracts.
+Representative measurements (synthetic images; reproducible with `tools/make_photo_testfiles.py` and the tests):
+| Run | Result |
+|---|---|
+| shaded sphere, grayscale, 60-100 mm | luminance correlation 0.96, block SSIM 0.85, decode-compare PASSED, independent DST section PASSED, ~0.7 s |
+| 5-colour picture | colours mapped to the generic thread palette, fabric-coloured area skipped, Lab dE 9.9, ~1.3 s |
+| garment synthetic (fabric + shadow + fold + 2 embroidered motifs) | embroidery mask IoU 0.82, 1.9 % of fabric area falsely classified |
+| blouse photos (third-party, not committed) | flat-lay on plum fabric isolates the embroidery well; a model photo with a busy background needs the crop region and a higher threshold - see `docs/embroidery/photo-digitizing-engine.md` |
+| DST independent section on every pack file in `testpack/photo_v1` | no FAILED check |
+**Not measured / not claimed:** stitch-out quality, thread breaks, puckering, registration, trim behaviour, fabric behaviour. Photo similarity thresholds are engineering starting points, not calibrated against stitched samples.
+**Physical validation: NOT DONE. Evidence records in the repository: 0. Every design reports PENDING.**
 
 ## 2. Automated tests failed
 **At the time of writing: none fail.**

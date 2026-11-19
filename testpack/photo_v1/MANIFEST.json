@@ -1,0 +1,72 @@
+{
+ "pack": "photo_v1",
+ "physically_validated": false,
+ "note": "Generated from synthetic images by tools/make_photo_testfiles.py. Never stitched. Record results with the Machine test dialog (docs/testing/physical-machine-test-plan.md).",
+ "files": [
+  {
+   "file": "P1_tone_ramp.dst",
+   "sha256": "485f3480638b9aafb26aa492e09b4bdff9db0667c332377f800bdb66e4a93fde",
+   "stitches": 1713,
+   "records": 1839,
+   "size_mm": [
+    60,
+    30.0
+   ],
+   "params": {
+    "mode": "grayscale",
+    "levels": 6,
+    "width_mm": 60
+   },
+   "physically_validated": false
+  },
+  {
+   "file": "P2_sphere_grayscale.dst",
+   "sha256": "5e7cec03793d1494de10d2a698a6d73d3a4a40959ba481a929a4f305f8dd48e0",
+   "stitches": 1060,
+   "records": 1147,
+   "size_mm": [
+    60,
+    60.0
+   ],
+   "params": {
+    "mode": "grayscale",
+    "levels": 6,
+    "width_mm": 60
+   },
+   "physically_validated": false
+  },
+  {
+   "file": "P3_sphere_dense.dst",
+   "sha256": "424fd94075579b1a62a908f376a96642f2ddf62d4aea135545ff7117d97a2001",
+   "stitches": 1985,
+   "records": 2171,
+   "size_mm": [
+    60,
+    60.0
+   ],
+   "params": {
+    "mode": "grayscale",
+    "levels": 6,
+    "density": 1.6,
+    "width_mm": 60
+   },
+   "physically_validated": false
+  },
+  {
+   "file": "P4_colour5.dst",
+   "sha256": "248b082f037ed2c9209ad647638705c4ae3cf4cbf3c740d6b7a2613e6b7f9f27",
+   "stitches": 1866,
+   "records": 2022,
+   "size_mm": [
+    60,
+    60.0
+   ],
+   "params": {
+    "mode": "multicolour",
+    "colors": 5,
+    "width_mm": 60
+   },
+   "physically_validated": false
+  }
+ ]
+}
