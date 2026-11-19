@@ -1,0 +1,70 @@
+{
+ "app": "EmbroideryStudio",
+ "version": 1,
+ "doc": {
+  "name": "16_hoop_boundary",
+  "hoop": {
+   "w": 100,
+   "h": 100,
+   "margin": 3
+  },
+  "fabric": "cotton",
+  "objects": [
+   {
+    "id": "fr",
+    "type": "run",
+    "color": "#000000",
+    "closed": true,
+    "points": [
+     [
+      -47.0,
+      -47.0
+     ],
+     [
+      47.0,
+      -47.0
+     ],
+     [
+      47.0,
+      47.0
+     ],
+     [
+      -47.0,
+      47.0
+     ]
+    ],
+    "name": "largest allowed area"
+   },
+   {
+    "id": "d1",
+    "type": "run",
+    "color": "#c8102e",
+    "points": [
+     [
+      -47.0,
+      -47.0
+     ],
+     [
+      -39.0,
+      -39.0
+     ]
+    ]
+   },
+   {
+    "id": "d2",
+    "type": "run",
+    "color": "#c8102e",
+    "points": [
+     [
+      47.0,
+      47.0
+     ],
+     [
+      39.0,
+      39.0
+     ]
+    ]
+   }
+  ]
+ }
+}

@@ -1,0 +1,94 @@
+{
+ "app": "EmbroideryStudio",
+ "version": 1,
+ "doc": {
+  "name": "05_logo",
+  "hoop": {
+   "w": 100,
+   "h": 100,
+   "margin": 3
+  },
+  "fabric": "cotton",
+  "objects": [
+   {
+    "id": "l1",
+    "type": "fill",
+    "color": "#c8102e",
+    "smooth": true,
+    "rings": [
+     [
+      [
+       0,
+       8
+      ],
+      [
+       -12,
+       -4
+      ],
+      [
+       -6,
+       -14
+      ],
+      [
+       0,
+       -8
+      ],
+      [
+       6,
+       -14
+      ],
+      [
+       12,
+       -4
+      ]
+     ]
+    ],
+    "params": {
+     "angle": 30
+    }
+   },
+   {
+    "id": "l2",
+    "type": "run",
+    "color": "#000000",
+    "smooth": true,
+    "closed": true,
+    "points": [
+     [
+      0,
+      8
+     ],
+     [
+      -12,
+      -4
+     ],
+     [
+      -6,
+      -14
+     ],
+     [
+      0,
+      -8
+     ],
+     [
+      6,
+      -14
+     ],
+     [
+      12,
+      -4
+     ]
+    ]
+   },
+   {
+    "id": "l3",
+    "type": "text",
+    "text": "LOVE",
+    "height": 9,
+    "x": -45,
+    "y": 18,
+    "color": "#1e3a8a"
+   }
+  ]
+ }
+}

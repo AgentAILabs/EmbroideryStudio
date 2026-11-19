@@ -44,7 +44,7 @@ Built on the StitchCraft engine from your zip (pure Python, 26 original tests ke
 ## Not done yet (honest; full table in `docs/status.md`)
 - **Never stitched on a machine** – run the test pack first (`docs/testing/`). Fabric presets, trim-jump default and time estimate are unverified.
 - **DST axis fix:** DSTs generated before this fix were transposed - regenerate any you kept (details in `docs/status.md`).
-- DST export only (PES/JEF/EXP need a reference to validate against); PDF import not supported (export as SVG).
+- DST export only (PES/JEF/EXP need valid reference files first - see `docs/roadmap/feature-gap-analysis.md`); PDF import not supported (export as SVG, PNG or JPG). **Not yet physically validated on a machine** - see `docs/testing/current-validation-report.md`.
 - No Bezier node handles, TrueType / Telugu / Hindi lettering, thread brand charts, accounts/cloud, desktop shell.
 - Dockerfile/compose are written and statically tested but **not built** (no Docker daemon was available); the pyembroidery cross-check runs in CI only.
 

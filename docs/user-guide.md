@@ -125,7 +125,7 @@ Neckline guides (not stitched): round, boat, V, square, back-U, sized in **inche
 | Satin too narrow (< 1 mm) / loose (> 7 mm) | use running stitch / enable auto-split or use a fill |
 
 ## Output formats
-**DST** (Tajima - what most machines including Ricoma read) is the main output. **EXP** (Melco) is also available: same stitches, centred, no palette. EXP has no agreed trim command, so trims are written as the same N zero-move jumps as in the DST (*Trim jumps*) - confirm on your machine. Both are read back by an independent reader (pyembroidery) in CI; neither has been machine-tested by the authors.
+**DST** (Tajima) is the only machine format this software exports. It is checked in software before download, but **it has not been validated on a physical machine yet**: always stitch a sample on your real fabric and stabiliser first. Other formats (PES, JEF, EXP) are not available. PDF artwork cannot be imported - export it as SVG, PNG or JPG.
 **Not offered:** JEF and PES store thread colours as indices into 78/65-colour vendor palettes that this project cannot reproduce accurately, so those files would carry wrong colours.
 
 ## Files
@@ -134,3 +134,11 @@ Keyboard: V F S C R T A E tools · Ctrl+Z / Ctrl+Y undo/redo · Ctrl+S save · C
 
 ## Before production
 Nothing from this app has been stitched on a machine by its authors. Run the **stitch-out test pack** (`testpack/`, procedure in `docs/testing/`) on your fabric and machine first.
+
+
+## What is verified and what is not (the status strip at the bottom of the window)
+* **Export: DST only** - the only supported machine format.
+* **Machine validation: not yet physically validated** - no file from this software has been stitched on a machine yet.
+* **Fabric presets: experimental** - starting values; adjust after a test stitch.
+* **Stitch time: estimated, not verified** - based on an assumed machine speed.
+Click *What does this mean?* for details. Test procedure and blank report: `docs/testing/` and `testpack/v2/`.

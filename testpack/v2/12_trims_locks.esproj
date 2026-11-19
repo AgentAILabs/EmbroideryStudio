@@ -1,0 +1,281 @@
+{
+ "app": "EmbroideryStudio",
+ "version": 1,
+ "doc": {
+  "name": "12_trims_locks",
+  "hoop": {
+   "w": 100,
+   "h": 100,
+   "margin": 3
+  },
+  "fabric": "cotton",
+  "objects": [
+   {
+    "id": "r0",
+    "type": "run",
+    "color": "#c8102e",
+    "points": [
+     [
+      -42.25,
+      -10
+     ],
+     [
+      -37.25,
+      -10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "first bar"
+   },
+   {
+    "id": "r1",
+    "type": "run",
+    "color": "#c8102e",
+    "points": [
+     [
+      -36.25,
+      -10
+     ],
+     [
+      -31.25,
+      -10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "bar after 1 mm jump"
+   },
+   {
+    "id": "r2",
+    "type": "run",
+    "color": "#c8102e",
+    "points": [
+     [
+      -29.25,
+      -10
+     ],
+     [
+      -24.25,
+      -10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "bar after 2 mm jump"
+   },
+   {
+    "id": "r3",
+    "type": "run",
+    "color": "#c8102e",
+    "points": [
+     [
+      -20.75,
+      -10
+     ],
+     [
+      -15.75,
+      -10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "bar after 3.5 mm jump"
+   },
+   {
+    "id": "r4",
+    "type": "run",
+    "color": "#c8102e",
+    "points": [
+     [
+      -9.75,
+      -10
+     ],
+     [
+      -4.75,
+      -10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "bar after 6 mm jump"
+   },
+   {
+    "id": "r5",
+    "type": "run",
+    "color": "#c8102e",
+    "points": [
+     [
+      7.25,
+      -10
+     ],
+     [
+      12.25,
+      -10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "bar after 12 mm jump"
+   },
+   {
+    "id": "r6",
+    "type": "run",
+    "color": "#c8102e",
+    "points": [
+     [
+      37.25,
+      -10
+     ],
+     [
+      42.25,
+      -10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "bar after 25 mm jump"
+   },
+   {
+    "id": "b0",
+    "type": "run",
+    "color": "#1e3a8a",
+    "points": [
+     [
+      -42.25,
+      10
+     ],
+     [
+      -37.25,
+      10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "first bar"
+   },
+   {
+    "id": "b1",
+    "type": "run",
+    "color": "#1e3a8a",
+    "points": [
+     [
+      -36.25,
+      10
+     ],
+     [
+      -31.25,
+      10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "bar after 1 mm jump"
+   },
+   {
+    "id": "b2",
+    "type": "run",
+    "color": "#1e3a8a",
+    "points": [
+     [
+      -29.25,
+      10
+     ],
+     [
+      -24.25,
+      10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "bar after 2 mm jump"
+   },
+   {
+    "id": "b3",
+    "type": "run",
+    "color": "#1e3a8a",
+    "points": [
+     [
+      -20.75,
+      10
+     ],
+     [
+      -15.75,
+      10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "bar after 3.5 mm jump"
+   },
+   {
+    "id": "b4",
+    "type": "run",
+    "color": "#1e3a8a",
+    "points": [
+     [
+      -9.75,
+      10
+     ],
+     [
+      -4.75,
+      10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "bar after 6 mm jump"
+   },
+   {
+    "id": "b5",
+    "type": "run",
+    "color": "#1e3a8a",
+    "points": [
+     [
+      7.25,
+      10
+     ],
+     [
+      12.25,
+      10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "bar after 12 mm jump"
+   },
+   {
+    "id": "b6",
+    "type": "run",
+    "color": "#1e3a8a",
+    "points": [
+     [
+      37.25,
+      10
+     ],
+     [
+      42.25,
+      10
+     ]
+    ],
+    "params": {
+     "stitch_len": 2.5
+    },
+    "name": "bar after 25 mm jump"
+   }
+  ]
+ }
+}

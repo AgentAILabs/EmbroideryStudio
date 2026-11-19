@@ -1,0 +1,140 @@
+{
+ "app": "EmbroideryStudio",
+ "version": 1,
+ "doc": {
+  "name": "15_jump_movement",
+  "hoop": {
+   "w": 100,
+   "h": 100,
+   "margin": 3
+  },
+  "fabric": "cotton",
+  "objects": [
+   {
+    "id": "p1a",
+    "type": "run",
+    "color": "#000000",
+    "points": [
+     [
+      -43,
+      -40
+     ],
+     [
+      -37,
+      -40
+     ]
+    ]
+   },
+   {
+    "id": "p1b",
+    "type": "run",
+    "color": "#000000",
+    "points": [
+     [
+      -40,
+      -43
+     ],
+     [
+      -40,
+      -37
+     ]
+    ]
+   },
+   {
+    "id": "p2a",
+    "type": "run",
+    "color": "#000000",
+    "points": [
+     [
+      37,
+      -40
+     ],
+     [
+      43,
+      -40
+     ]
+    ]
+   },
+   {
+    "id": "p2b",
+    "type": "run",
+    "color": "#000000",
+    "points": [
+     [
+      40,
+      -43
+     ],
+     [
+      40,
+      -37
+     ]
+    ]
+   },
+   {
+    "id": "p3a",
+    "type": "run",
+    "color": "#000000",
+    "points": [
+     [
+      37,
+      40
+     ],
+     [
+      43,
+      40
+     ]
+    ]
+   },
+   {
+    "id": "p3b",
+    "type": "run",
+    "color": "#000000",
+    "points": [
+     [
+      40,
+      37
+     ],
+     [
+      40,
+      43
+     ]
+    ]
+   },
+   {
+    "id": "p4a",
+    "type": "run",
+    "color": "#000000",
+    "points": [
+     [
+      -43,
+      40
+     ],
+     [
+      -37,
+      40
+     ]
+    ]
+   },
+   {
+    "id": "p4b",
+    "type": "run",
+    "color": "#000000",
+    "points": [
+     [
+      -40,
+      37
+     ],
+     [
+      -40,
+      43
+     ]
+    ]
+   }
+  ],
+  "machine": {
+   "trim_distance": 200,
+   "trim_at_color_change": 0,
+   "trim_at_end": 1
+  }
+ }
+}

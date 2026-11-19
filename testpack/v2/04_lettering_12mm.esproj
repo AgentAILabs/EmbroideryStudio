@@ -1,0 +1,24 @@
+{
+ "app": "EmbroideryStudio",
+ "version": 1,
+ "doc": {
+  "name": "04_lettering_12mm",
+  "hoop": {
+   "w": 100,
+   "h": 100,
+   "margin": 3
+  },
+  "fabric": "cotton",
+  "objects": [
+   {
+    "id": "t1",
+    "type": "text",
+    "text": "ABC 123",
+    "height": 12,
+    "x": -45,
+    "y": -8,
+    "color": "#000000"
+   }
+  ]
+ }
+}

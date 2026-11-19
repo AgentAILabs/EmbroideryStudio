@@ -1,12 +1,10 @@
 # Roadmap
-Done: see `docs/status.md` (audited matrix of every planned item).
+**The maintained roadmap is `docs/roadmap/feature-gap-analysis.md`** (priority, complexity, dependencies per feature).
+Done / validated state: `docs/status.md` and `docs/testing/current-validation-report.md`.
 
-## Next, in order
-0. **Stitch-out of the v2 files** (`designs/peacock_arch/`, `fine_120/`) next to the v1 file; compare coverage and trims. Tune the thread presets from what you see.
-1. **Physical stitch-out** of `testpack/` (procedure: `docs/testing/`). Tune fabric presets, trim jumps, pull comp from the results. Nothing below should be called production-ready before this.
-2. ~~Run CI and confirm the pyembroidery cross-check~~ **done**: CI is green; the cross-check found and fixed the X/Y swap in the DST writer (see `docs/status.md`). Extend it to more designs (appliqué, columns, patterns) when convenient.
-3. ~~EXP writer~~ **done** (validated against pyembroidery in CI; it caught my wrong trim opcode). PES / JEF stay out: they need vendor thread palettes (78 / 65 colours) that cannot be reproduced reliably.
-4. Bezier node handles; Shapely-backed robust inset (replace the pure-Python miter inset where it refuses).
-5. TrueType lettering → satin, then Telugu/Devanagari (font files + shaping rules needed).
-6. Thread brand charts (licensed data), hoop split for large designs, stitch-level editing, gradient/stipple/motif fills.
-7. Hosted/desktop: accounts + cloud library, then a Tauri/WebView2 shell reusing the same API.
+Order of work:
+1. **Stitch-out of `testpack/v2`** on the real machine (procedure `docs/testing/machine-test-checklist.md`); fill the report template. Nothing below should be called production-ready before this.
+2. Tune presets, trim defaults and the time estimate from evidence only; relabel a fabric preset "verified" only for the exact fabric / thread / needle / stabiliser that passed.
+3. Other formats (PES / JEF / EXP) once valid reference files exist.
+4. Lettering for Telugu / Hindi with licensed fonts; Bezier node editing; machine / hoop database from verified data.
+5. Hosted / desktop packaging, accounts, cloud storage.

@@ -10,7 +10,7 @@ HTML = (ROOT / "web" / "index.html").read_text()
 SERVER = (ROOT / "server" / "app.py").read_text()
 
 # endpoints that are deliberately not called by the editor (internal / infrastructure)
-NOT_UI = {"/api/health": "container health check", "/api/profile/": ""}
+NOT_UI = {"/api/health": "container health check", "/api/export/exp": "EXPERIMENTAL, deliberately not exposed (DST is the only supported format)", "/api/profile/": ""}
 # engine parameters deliberately without an editor field (always derived / not user-tunable)
 NO_FIELD = {("satin", "width"), ("fill", "stitch_len_underlay")}
 
