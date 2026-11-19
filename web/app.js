@@ -475,9 +475,18 @@ function fitObjects(objs, targetW) {
   objs.forEach(o => { mapPts(o, p => [(p[0] - cx) * f, (p[1] - cy) * f]); if (o.params && o.params.width) o.params.width = +(o.params.width * f).toFixed(2); if (o.type === "text") o.height *= f; });
   return f;
 }
-function askImport() {
+function qualityPanelHtml(q) {
+  if (!q || !q.ran) return "<small>Source quality assessment is not available (needs Pillow / NumPy).</small>";
+  const M = q.metrics, g = k => `<span class="qg ${M[k].grade}">${M[k].grade}</span>`;
+  const rows = [["Resolution", `${Math.round(M.resolution_dpi.value)} dpi`, "resolution_dpi"], ["Sharpness", M.sharpness_laplacian_var.value.toFixed(0), "sharpness_laplacian_var"], ["Blur (edge width)", M.blur_edge_width_px.value.toFixed(1) + " px", "blur_edge_width_px"],
+    ["Noise", M.noise_sigma.value.toFixed(1), "noise_sigma"], ["Contrast", M.contrast_span.value.toFixed(0), "contrast_span"], ["JPEG blocking", M.jpeg_blockiness.value.toFixed(2), "jpeg_blockiness"],
+    ["Real detail (effective resolution)", Math.round(100 * M.effective_resolution.value) + " % (~" + q.effective_pixels_across + " px)", "effective_resolution"], ["Smallest visible feature", M.smallest_feature_mm.value.toFixed(2) + " mm", "smallest_feature_mm"], ["Subject visibility", Math.round(100 * M.subject_visibility.value) + " %", "subject_visibility"]];
+  return `<b>Source image quality</b> <small>(measured on your file; the original is never changed)</small><table class="qt">${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${g(r[2])}</td></tr>`).join("")}</table>
+    <div><b>Looks like:</b> ${esc(q.classification.replace("_", " "))} - recommended workflow: <b>${esc(q.workflow.replace("_", " "))}</b></div><ul>${q.recommendations.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
+}
+function askImport(qrep) {
   return new Promise(resolve => {
-    const dlg = $("#dlgImport"); $("#impW").value = Math.round(S.doc.hoop.w * .7); $("#impReport").hidden = true;
+    const dlg = $("#dlgImport"); $("#impW").value = Math.round(S.doc.hoop.w * .7); $("#impReport").hidden = !qrep; $("#impReport").innerHTML = qualityPanelHtml(qrep);
     dlg.onclose = () => resolve(dlg.returnValue === "go" ? {w: parseFloat($("#impW").value), c: parseInt($("#impC").value) || 6, q: $("#impQ").value, e: $("#impE").value} : null);
     dlg.showModal();
   });
@@ -595,7 +604,9 @@ async function importFile(file) {
     let res;
     if (/\.svg$/i.test(file.name)) { res = await post("/api/import/svg", {svg: await file.text()}); }
     else {
-      const o = await askImport(); if (!o || !o.w) return;
+      const buf0 = new Uint8Array(await file.arrayBuffer());
+      let qrep = null; try { let b0 = ""; for (let i = 0; i < buf0.length; i += 8192) b0 += String.fromCharCode(...buf0.subarray(i, i + 8192)); qrep = await post("/api/image/quality", {data: btoa(b0), width_mm: Math.round(S.doc.hoop.w * .7)}); } catch (e) { qrep = null; }
+      const o = await askImport(qrep); if (!o || !o.w) return;
       const buf = new Uint8Array(await file.arrayBuffer()); let bin = ""; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
       S.imgSrc = {name: file.name, b64: btoa(bin), url: URL.createObjectURL(file), opts: o};       // the original stays in memory exactly as uploaded
       let erase = [];

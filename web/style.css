@@ -143,3 +143,5 @@ dialog#dlgStatus .row2{display:flex;justify-content:flex-end;margin-top:10px}.st
 .fp.PASSED b{color:#15803d}.fp.WARNING b{color:#b45309}.fp.FAILED b{color:#b91c1c}.fp small{color:#555}
 #fidInv table{border-collapse:collapse;width:100%}#fidInv td,#fidInv th{padding:2px 4px;border-bottom:1px solid #e5e7eb;text-align:left;cursor:pointer}#fidInv tr:hover{background:#eef2ff}
 .vd{display:inline-block;padding:2px 8px;border-radius:10px;font-weight:600;color:#fff}.vd.PASSED{background:#15803d}.vd.PASSED_WITH_WARNINGS{background:#b45309}.vd.FAILED{background:#b91c1c}
+
+.qt{border-collapse:collapse;font-size:12px;margin:4px 0}.qt td{padding:1px 8px;border-bottom:1px solid #e5e7eb}.qg{padding:0 6px;border-radius:8px;color:#fff;font-size:11px}.qg.good{background:#15803d}.qg.fair{background:#b45309}.qg.poor{background:#b91c1c}.qg.info{background:#6b7280}

@@ -306,6 +306,23 @@ def _autodigitize_core(d):
              "checklist": checklist.evaluate(design)}, full, original)
 
 
+def api_image_quality(d):
+    """Source-image quality assessment (read-only): resolution, sharpness, blur, noise, contrast, JPEG blocking, effective resolution, small-feature visibility,
+    subject visibility, classification and actionable recommendations. The upload is never modified."""
+    from stitchcraft_engine import source_quality
+    ops.check_base64_upload(d.get("data"), "image")
+    raw = base64.b64decode(d["data"])
+    if not (raw[:8] == b"\x89PNG\r\n\x1a\n" or raw[:3] == b"\xff\xd8\xff"):
+        raise ValueError("unsupported image type: only PNG and JPEG are accepted")
+    w = float(d.get("width_mm", 80))
+    if not 0 < w <= 1000:
+        raise ValueError("width_mm must be between 0 and 1000")
+    try:
+        return dict(source_quality.assess(raw, w), source_sha256=hashlib.sha256(raw).hexdigest())
+    except OSError as e:
+        raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
+
+
 def api_image_validate(d):
     """Nine-pass image-to-DST validation (software). Runs the auto-digitize pipeline (or uses the supplied `design` from the editor) and compares the DECODED DST
     with the original upload. Derived images (overlay, difference map) are returned base64; the original is never modified."""
@@ -638,6 +655,8 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_lettering(d))
             if path == "/api/to_manual":
                 return self._send(200, api_to_manual(d))
+            if path == "/api/image/quality":
+                return self._send(200, api_image_quality(d))
             if path == "/api/image/validate":
                 return self._send(200, api_image_validate(d))
             if path == "/api/image/bundle":
