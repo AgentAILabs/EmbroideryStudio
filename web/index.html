@@ -29,6 +29,7 @@
   <button id="bSet" title="Make the same design for left / right / neck ... as separate, named, verified DST files">Placement set</button>
   <button id="bQuality" title="Run the six-stage DST verification on this design (or on the .dst you are viewing)">Quality check</button>
   <details class="menu" id="mMore"><summary title="More exports and tools">More ▾</summary><div class="pop">
+    <button id="bThreads" title="Thread libraries: import your own brand palettes (CSV / JSON), match the design colours to real thread codes, replace colours, estimate thread use">Thread libraries…</button>
     <button id="bFormats" title="Export in other machine formats (JEF, PES, EXP, XXX, U01, SEW): software-verified only, never machine-tested">Other machine formats…</button>
     <button id="bInstant" title="One click, like an instant smart design: choose a PNG / JPG and it is checked, routed to the right workflow (artwork -> auto-digitize, photo -> Photo stitch, garment photo -> garment dialog) and opened in the editor">Instant smart design…</button>
     <button id="bGarment" title="Garment photo: find the embroidery in a photo of a finished garment (ignoring folds, shadows, background), then send it to the vector or photo workflow">Garment photo…</button>
@@ -132,6 +133,25 @@
     <div id="qBody" class="qbody">Running…</div>
     <div class="row2"><button value="close" class="primary">Close</button></div>
   </form>
+</dialog>
+<dialog id="dlgThreads">
+  <div class="fidwrap">
+    <div class="fidhead"><h3>Thread libraries</h3><small>No brand charts are built in (they are licensed): import the CSV / JSON charts you own (columns: code, name, hex or r,g,b). The built-in palette is a small generic one. Matching uses CIEDE2000; screen colours are not thread colours - check the physical thread. Consumption is an estimate.</small></div>
+    <div class="fidbody">
+      <div class="fidleft"><div id="thTable" class="note"></div><div id="thUse" class="note"></div></div>
+      <div class="fidright">
+        <div class="row"><label>Palette</label><select id="thPal"></select><button type="button" id="thDel">Delete</button></div>
+        <div class="row"><label>Import: name</label><input id="thName" placeholder="e.g. My Polyester 40wt"></div>
+        <div class="row"><label>Brand</label><input id="thBrand" placeholder="optional"></div>
+        <div class="row"><label>File</label><input type="file" id="thFile" accept=".csv,.json,.txt"></div>
+        <div class="row"><button type="button" id="thImp">Import palette</button></div>
+        <div id="thMsg" class="note"></div>
+        <h4>Replace a colour</h4>
+        <div class="row"><select id="thFrom"></select><input type="color" id="thTo" value="#cc0000"><button type="button" id="thRep">Replace</button></div>
+      </div>
+    </div>
+    <div class="row"><button type="button" id="thMatch" class="primary">Match design</button><button type="button" id="thApply">Apply palette to design</button><button type="button" id="thUseBtn">Thread use</button><button type="button" id="thClose">Close</button></div>
+  </div>
 </dialog>
 <dialog id="dlgFormats">
   <div class="fidwrap">

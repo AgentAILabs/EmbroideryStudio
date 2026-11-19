@@ -616,6 +616,45 @@ $("#sbMach").onclick = mtOpen; $("#mtClose").onclick = () => $("#dlgMachine").cl
 $("#mtExport").onclick = () => { const r = (MT.recs || []).filter(x => x.dst_sha256 === MT.sha); download("machine-test-" + (MT.sha || "").slice(0, 12) + ".json", JSON.stringify(r.length ? r[r.length - 1] : MT.recs[MT.recs.length - 1], null, 2), "application/json"); };
 $("#mtImportB").onclick = () => $("#mtImport").click();
 $("#mtImport").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { await post("/api/evidence/import", JSON.parse(await f.text())); await mtOpen(); } catch (er) { alert("Record refused: " + er.message); } e.target.value = ""; };
+/* ---------------------------------------------------------------- thread libraries */
+async function thPalettes(sel) {
+  const j = await (await fetch("/api/threads/palettes")).json();
+  $("#thPal").innerHTML = j.palettes.map(p => `<option value="${esc(p.id)}">${esc(p.name)}${p.brand ? " (" + esc(p.brand) + ")" : ""} - ${p.count} colours${p.source === "builtin-generic" ? " [generic, not a brand chart]" : ""}</option>`).join("");
+  if (sel) $("#thPal").value = sel; $("#thDel").disabled = $("#thPal").value === "generic";
+}
+function thFromList() { const seen = []; S.doc.objects.forEach(o => { const c = (o.color || "").toLowerCase(); if (/^#[0-9a-f]{6}$/.test(c) && !seen.includes(c)) seen.push(c); }); $("#thFrom").innerHTML = seen.map(c => `<option value="${c}" style="background:${c}">${c}</option>`).join(""); }
+async function openThreads() {
+  $("#mMore").open = false; $("#dlgThreads").showModal(); $("#thMsg").textContent = ""; $("#thTable").innerHTML = ""; $("#thUse").innerHTML = ""; await thPalettes(); thFromList();
+}
+async function thMatch() {
+  if (!S.doc.objects.length) { $("#thTable").textContent = "The design is empty."; return; }
+  const r = await post("/api/threads/match", {design: S.doc, palette: $("#thPal").value});
+  $("#thTable").innerHTML = `<b>Nearest thread in ${esc(r.palette.name)}</b><table>` + r.rows.map(x => `<tr><td><span class="thsw" style="background:${x.hex}"></span> ${x.hex}</td><td><span class="thsw" style="background:${x.best.hex}"></span> <b>${esc(x.best.code)}</b> ${esc(x.best.name)}</td><td>ΔE ${x.best.delta_e}</td><td class="thq ${x.quality}">${x.quality}</td><td><small>${x.alternatives.map(a => esc(a.code) + " (" + a.delta_e + ")").join(", ")}</small></td></tr>`).join("") + `</table><small>${esc(r.note)}</small>`;
+}
+$("#bThreads").onclick = openThreads; $("#thClose").onclick = () => $("#dlgThreads").close(); $("#thPal").onchange = () => { $("#thDel").disabled = $("#thPal").value === "generic"; };
+$("#thMatch").onclick = () => thMatch().catch(e => { $("#thTable").textContent = "Match failed: " + e.message; });
+$("#thApply").onclick = async () => {
+  try { const r = await post("/api/threads/apply", {design: S.doc, palette: $("#thPal").value}); S.doc.objects = r.design.objects; S.doc.thread_map = r.design.thread_map; commit(); renderAll(); thFromList(); await thMatch(); $("#thMsg").textContent = `${r.objects_recoloured} object colour(s) snapped to the palette; codes are recorded in the design.`; }
+  catch (e) { $("#thMsg").textContent = "Apply failed: " + e.message; }
+};
+$("#thRep").onclick = async () => {
+  const from = $("#thFrom").value; if (!from) return;
+  try { const r = await post("/api/threads/replace", {design: S.doc, from, to: $("#thTo").value}); S.doc.objects = r.design.objects; commit(); renderAll(); thFromList(); $("#thMsg").textContent = `${r.replaced} colour reference(s) replaced.`; }
+  catch (e) { $("#thMsg").textContent = "Replace failed: " + e.message; }
+};
+$("#thImp").onclick = async () => {
+  const f = $("#thFile").files[0]; if (!f || !$("#thName").value.trim()) { $("#thMsg").textContent = "Give the palette a name and choose a CSV or JSON file."; return; }
+  try { const r = await post("/api/threads/import", {name: $("#thName").value, brand: $("#thBrand").value, text: await f.text(), format: /\.json$/i.test(f.name) ? "json" : "auto"});
+    await thPalettes(r.palette.id); $("#thMsg").textContent = `Imported ${r.count} colour(s).` + (r.rejected.length ? " Skipped: " + r.rejected.join("; ") : ""); }
+  catch (e) { $("#thMsg").textContent = "Import failed: " + e.message; }
+};
+$("#thDel").onclick = async () => { const id = $("#thPal").value; if (id === "generic" || !confirm("Delete the imported palette '" + id + "'?")) return; await post("/api/threads/delete", {id}); await thPalettes(); };
+$("#thUseBtn").onclick = async () => {
+  if (!S.doc.objects.length) { $("#thUse").textContent = "The design is empty."; return; }
+  try { const r = await post("/api/threads/consumption", {design: S.doc});
+    $("#thUse").innerHTML = `<b>Estimated thread use</b><table>` + r.rows.map(x => `<tr><td><span class="thsw" style="background:${x.hex}"></span> ${x.hex}</td><td>${x.stitches} st</td><td>top ${x.top_m} m</td><td>bobbin ${x.bobbin_m} m</td></tr>`).join("") + `</table>Total top ${r.top_total_m} m · bobbin ${r.bobbin_total_m} m · carried jump thread ${r.travel_m} m<br><small>${esc(r.formula)}. ${esc(r.note)}</small>`; }
+  catch (e) { $("#thUse").textContent = "Failed: " + e.message; }
+};
 /* ---------------------------------------------------------------- other machine formats */
 const EXPORT_URL = {dst: "/api/export/dst", exp: "/api/export/exp", jef: "/api/export/jef", pes: "/api/export/pes", xxx: "/api/export/xxx", u01: "/api/export/u01", sew: "/api/export/sew", vp3: "/api/export/vp3", hus: "/api/export/hus"};
 async function openFormats() {

@@ -379,6 +379,51 @@ def api_garment_digitize(d):
             "honesty": ["Heuristic colour-by-hue separation tuned on pink silk; check the result against the photo.", "Stones / beads are not stitched.", "Physical machine validation is PENDING."]}
 
 
+def api_threads_import(d):
+    from stitchcraft_engine import threads
+    name = str(d.get("name") or "").strip()
+    if not name or len(name) > 60:
+        raise ValueError("palette name is required (up to 60 characters)")
+    text = d.get("text")
+    if not isinstance(text, str):
+        raise ValueError("text (the CSV or JSON content) is required")
+    cols, rej = threads.parse_palette(text, str(d.get("format", "auto")))
+    rec = threads.save_palette(name, str(d.get("brand") or ""), cols)
+    return {"palette": {k: rec[k] for k in ("id", "name", "brand", "source")}, "count": len(cols), "rejected": rej}
+
+
+def api_threads_apply(d, snap=True):
+    from stitchcraft_engine import threads
+    design = d.get("design")
+    if not isinstance(design, dict):
+        raise ValueError("design is required")
+    check_design(design)
+    pal = threads.get_palette(str(d.get("palette") or ""))
+    if not snap:
+        return threads.match_design(design, pal)
+    out, info = threads.apply_palette(design, pal)
+    check_design(out)
+    return {"design": out, **info}
+
+
+def api_threads_replace(d):
+    from stitchcraft_engine import threads
+    design = d.get("design")
+    if not isinstance(design, dict):
+        raise ValueError("design is required")
+    check_design(design)
+    out, n = threads.replace_colour(design, str(d.get("from") or ""), str(d.get("to") or ""))
+    return {"design": out, "replaced": n}
+
+
+def api_threads_consumption(d):
+    from stitchcraft_engine import threads
+    design = d.get("design") if isinstance(d.get("design"), dict) else d
+    check_design(design)
+    pattern, notes, st = generate(design)
+    return threads.consumption(pattern)
+
+
 def api_photo_stitch(d):
     """Photo Stitch Engine: image -> tonal flow-field hatching design -> validated DST -> thread-texture preview from the DECODED DST -> photo validation.
     Software validation only; physical machine validation is separate and PENDING."""
@@ -748,6 +793,16 @@ class H(BaseHTTPRequestHandler):
             if sha and not re.fullmatch(r"[0-9a-f]{64}", sha):
                 return self._send(400, {"error": "sha must be a 64-hex SHA-256"})
             return self._send(200, evidence.status_for(sha or None, name or None))
+        if path == "/api/threads/palettes":
+            from stitchcraft_engine import threads
+            return self._send(200, {"palettes": threads.list_palettes()})
+        if path == "/api/threads/palette":
+            from stitchcraft_engine import threads
+            q = urllib.parse.parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
+            try:
+                return self._send(200, threads.get_palette((q.get("id") or [""])[0]))
+            except ValueError as e:
+                return self._send(400, {"error": str(e)})
         if path == "/api/presets":
             return self._send(200, api_presets())
         if path == "/api/templates":
@@ -845,6 +900,19 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_to_manual(d))
             if path == "/api/photo/stitch":
                 return self._send(200, api_photo_stitch(d))
+            if path == "/api/threads/import":
+                return self._send(200, api_threads_import(d))
+            if path == "/api/threads/delete":
+                from stitchcraft_engine import threads
+                return self._send(200, {"deleted": threads.delete_palette(str(d.get("id") or ""))})
+            if path == "/api/threads/match":
+                return self._send(200, api_threads_apply(d, snap=False))
+            if path == "/api/threads/apply":
+                return self._send(200, api_threads_apply(d))
+            if path == "/api/threads/replace":
+                return self._send(200, api_threads_replace(d))
+            if path == "/api/threads/consumption":
+                return self._send(200, api_threads_consumption(d))
             if path == "/api/garment/digitize":
                 return self._send(200, api_garment_digitize(d))
             if path == "/api/export/preflight":

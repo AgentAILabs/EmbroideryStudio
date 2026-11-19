@@ -61,6 +61,7 @@ def build_report(design: dict, result: Optional[ExportResult] = None) -> dict:
                    "colour_changes": rep["counts"]["color_change"], "dst_records": rep["records"]},
         "thread_sequence": seq,
         "estimated_time": {"minutes": st.get("est_minutes"), "note": TIME_NOTE},
+        "thread_use": __import__("stitchcraft_engine.threads", fromlist=["consumption"]).consumption(pattern),
         "quality": {"score": q["score"], "categories": [{"name": c["name"], "score": c["score"]} for c in q["categories"]], "disclaimer": q["disclaimer"]},
         "travel": {"verdicts": tr["verdicts"], **tr["totals"]},
         "warnings": warnings,
