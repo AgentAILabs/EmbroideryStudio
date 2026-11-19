@@ -30,6 +30,21 @@ Verification: `./tools/run_tests.sh` (engine + studio suites; the pyembroidery c
 plus `tools/e2e_ui.js` – 24 end-to-end browser steps (draw every tool, templates, convert, patterns, undo/redo, simulation, every export,
 save/reopen, SVG + PNG import, versions) with zero page errors / HTTP 5xx.
 
+## Enterprise upgrade (2026-11-19) - Phases 1-7
+| Statement | Status | Note |
+|---|---|---|
+| No DST leaves the server unless decoding it reproduces the stitch plan | ✅ software-validated | `export_pipeline.py`; mutation tests incl. the old X/Y swap in writer + reader (`tests/test_export_pipeline.py`) |
+| Geometry validation + runtime boundary/coverage + 8-category score | ✅ software only | `quality.py`; wording: not a prediction of stitch-out quality |
+| Travel / trim analysis, start/end hints | ✅ | `travel.py`, `design._apply_entry_exit` |
+| Simulation from the decoded DST file, step back, inspector, rulers, object visibility, grouping, region review | ✅ | UI e2e covers each |
+| Machine profiles | 🟡 profiles exist, **none validated** | hoop/needles blank until the user enters them |
+| Fabric profiles incl. satin / net / thick | ⚠ experimental | `docs/embroidery/fabric-profile-guide.md` |
+| Production report (software / independent reader / physical = NOT DONE) | ✅ | `report.py`, in every export package |
+| Logging, rate limit, upload policy, headers, perf budgets | ✅ thin slice | `server/ops.py`; no auth/ownership/DB/jobs (roadmap) |
+| Physical machine validation | 🧪 **pending - nothing stitched** | `docs/testing/physical-machine-test-plan.md` |
+| React/TS + ASP.NET + PostgreSQL | ❌ roadmap (staged plan documented) | `docs/architecture/enterprise-architecture.md` |
+Audit register: `docs/testing/technical-audit-report.md`. Roadmap: `docs/roadmap/enterprise-feature-roadmap.md`.
+
 ## A. Review decisions (requirements §A)
 | # | Item | Status | Evidence / note |
 |---|---|---|---|

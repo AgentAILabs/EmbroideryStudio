@@ -188,7 +188,8 @@ def rotate_closed(path: Sequence[Point], frac: float) -> List[Point]:
 
 
 def ring_self_intersections(ring: Sequence[Point], limit: int = 3) -> int:
-    """Number of proper crossings between non-adjacent edges of a closed ring (capped at `limit`). 0 = a simple polygon."""
+    """Number of proper crossings between non-adjacent edges of a closed ring (capped at `limit`). 0 = a simple polygon.
+    Rings with many points use a uniform grid so the cost is ~O(n) for ordinary shapes instead of O(n^2)."""
     P = [tuple(p) for p in ring]
     if len(P) > 1 and P[0] == P[-1]:
         P = P[:-1]
@@ -198,18 +199,44 @@ def ring_self_intersections(ring: Sequence[Point], limit: int = 3) -> int:
 
     def o(a, b, c):
         return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
+    def cross(i, j):
+        a, b, c, d = P[i], P[(i + 1) % n], P[j], P[(j + 1) % n]
+        return o(c, d, a) * o(c, d, b) < -1e-12 and o(a, b, c) * o(a, b, d) < -1e-12
+
+    def adjacent(i, j):
+        return j == i + 1 or (i == 0 and j == n - 1)
     found = 0
+    if n <= 64:
+        for i in range(n):
+            for j in range(i + 2, n):
+                if not adjacent(i, j) and cross(i, j):
+                    found += 1
+                    if found >= limit:
+                        return found
+        return found
+    xs, ys = [p[0] for p in P], [p[1] for p in P]
+    w, h = max(xs) - min(xs), max(ys) - min(ys)
+    cell = max(max(w, h) / max(8.0, math.sqrt(n)), 1e-9)
+    x0, y0 = min(xs), min(ys)
+    grid = {}
     for i in range(n):
         a, b = P[i], P[(i + 1) % n]
-        for j in range(i + 2, n):
-            if i == 0 and j == n - 1:
-                continue                                    # edges that share a vertex
-            c, d = P[j], P[(j + 1) % n]
-            d1, d2, d3, d4 = o(c, d, a), o(c, d, b), o(a, b, c), o(a, b, d)
-            if d1 * d2 < -1e-12 and d3 * d4 < -1e-12:
-                found += 1
-                if found >= limit:
-                    return found
+        for cx in range(int((min(a[0], b[0]) - x0) / cell), int((max(a[0], b[0]) - x0) / cell) + 1):
+            for cy in range(int((min(a[1], b[1]) - y0) / cell), int((max(a[1], b[1]) - y0) / cell) + 1):
+                grid.setdefault((cx, cy), []).append(i)
+    seen = set()
+    for members in grid.values():
+        for u in range(len(members)):
+            for v in range(u + 1, len(members)):
+                i, j = members[u], members[v]
+                if (i, j) in seen or adjacent(i, j):
+                    continue
+                seen.add((i, j))
+                if cross(i, j):
+                    found += 1
+                    if found >= limit:
+                        return found
     return found
 
 

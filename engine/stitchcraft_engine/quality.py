@@ -158,6 +158,15 @@ def _dist_to_rings(p, rings) -> float:
     return min(_seg_dist(p, r[i], r[(i + 1) % len(r)]) for r in rings for i in range(len(r)))
 
 
+def _decimate(ring, max_pts: int = 240):
+    """Runtime checks are heuristics with mm-level tolerances, so very dense rings (thousands of points) are thinned evenly first;
+    point-in-polygon cost is linear in the vertex count and would otherwise dominate (measured: 100 rings x 4000 points took minutes)."""
+    if len(ring) <= max_pts:
+        return ring
+    step = len(ring) / max_pts
+    return [ring[int(k * step)] for k in range(max_pts)]
+
+
 def _object_points(pattern: Pattern) -> Dict[str, List[Tuple[float, float]]]:
     by: Dict[str, List[Tuple[float, float]]] = {}
     for s in pattern.stitches:
@@ -181,7 +190,7 @@ def boundary_check(design: dict, pattern: Pattern, max_points: int = 4000) -> di
         try:
             if ob["type"] == "fill":
                 rings = [r[:-1] if len(r) > 1 and tuple(r[0]) == tuple(r[-1]) else r for r in (_finite_pts(r) or [] for r in ob["rings"])]
-                rings = [r for r in rings if len(r) >= 3]
+                rings = [_decimate(r) for r in rings if len(r) >= 3]
                 if not rings:
                     continue
                 if ob.get("smooth"):                                    # smoothing moves the outline; a looser tolerance avoids false alarms
@@ -220,7 +229,7 @@ def coverage_check(design: dict, pattern: Pattern, max_cells: int = 90000, max_s
     rings_by: Dict[str, list] = {}
     xs0, ys0, xs1, ys1, area = 1e9, 1e9, -1e9, -1e9, 0.0
     for ob in fills:
-        rs = [r for r in (_finite_pts(r) for r in ob["rings"]) if r and len(r) >= 3]
+        rs = [_decimate(r) for r in (_finite_pts(r) for r in ob["rings"]) if r and len(r) >= 3]
         if not rs:
             continue
         rings_by[str(ob["id"])] = rs

@@ -13,11 +13,15 @@ Command: `./tools/run_tests.sh` (run in this environment, which has **no** `pyem
 | Suite | Result | Count |
 |---|---|---|
 | Engine tests (`engine/tests`) | OK | 32 / 32 |
-| Studio tests (`tests/`) | OK, 3 skipped | 362 run, 359 executed and passed, 3 skipped (pyembroidery not installed here) |
+| Studio tests (`tests/`) | OK, 3 skipped | 451 run, 448 executed and passed, 3 skipped (pyembroidery not installed here) - updated after the enterprise upgrade |
 | JavaScript syntax (`node --check`) | OK | `web/app.js`, `tools/e2e_ui.js` |
-| Browser end-to-end (`tools/e2e_ui.js`, real Chromium, run separately - not part of `run_tests.sh`, not part of CI) | PASS | 46 / 46 steps, 0 page errors, 0 HTTP 5xx |
+| Browser end-to-end (`tools/e2e_ui.js`, real Chromium, run separately - not part of `run_tests.sh`, not part of CI) | PASS | 53 / 53 steps, 0 page errors, 0 HTTP 5xx, no CSP console errors |
 
 Notable suites relevant to output correctness: `tests/test_dst_axis.py` (18, new), `tests/test_testpack_v2.py` (10, new), `engine/tests` byte-pin tests, `tests/test_digitizing_standard.py`, `tests/test_ui_wiring.py`.
+
+### 1b. Enterprise upgrade additions (software level only)
+`tests/test_export_pipeline.py` (25, incl. mutation tests and the historic axis swap in writer + reader), `tests/test_quality.py` (20), `tests/test_travel.py` (9), `tests/test_simulation.py` (5), `tests/test_entry_exit.py` (4),
+`tests/test_machines_report.py` (14), `tests/test_ops.py` (12, incl. performance budgets). Every report states `physical_machine: NOT DONE`.
 
 ## 2. Automated tests failed
 **At the time of writing: none fail.**

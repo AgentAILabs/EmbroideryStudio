@@ -15,7 +15,7 @@ GET  /api/templates       template catalogue
 POST /api/tools/column-from-outline  {ring} -> {rail1, rail2, ...} or 400 with the reason
 POST /api/template        {id, params, color} -> objects
 GET  /api/health"""
-import base64, json, os, re, sys, hashlib
+import base64, json, os, re, sys, time, hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -27,6 +27,7 @@ from stitchcraft_engine import formats                                          
 from stitchcraft_engine.model import Cmd                                        # noqa: E402
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
 from stitchcraft_engine.raster import digitize_image, enhance_image, RasterUnavailable        # noqa: E402
+import ops                                                                                  # noqa: E402
 from stitchcraft_engine import machines, report as report_mod, templates, dst_analyze, dst_verify, checklist, profiles, sequence, export_pipeline, placements as placements_mod                                        # noqa: E402
 from stitchcraft_engine.outline import column_from_outline                      # noqa: E402
 import sheet                                                                   # noqa: E402
@@ -35,6 +36,7 @@ WEB = ROOT / "web"
 LIB = ROOT / "designs" / "library"
 LIB_FILES = {"thumb.svg": ("thumb.svg", "image/svg+xml"), "dst": ("dst", "application/octet-stream"), "esproj": ("esproj", "application/json")}
 MAX_BODY = 25 * 1024 * 1024
+LIMITER = ops.limiter_from_env()
 MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json"}
 
 
@@ -136,7 +138,10 @@ def api_preview_svg(d):
 
 def api_view_dst(d):
     """Read an existing .dst so it can be inspected/simulated (view only)."""
-    f = read_dst(base64.b64decode(d["data"]))
+    ops.check_base64_upload(d.get("data"), "DST")
+    raw = base64.b64decode(d["data"])
+    ops.check_dst_upload(raw)
+    f = read_dst(raw)
     if len(f.records) > 2_000_000:
         raise ValueError("file too large")
     pal = ["#c8102e", "#2563eb", "#2e9e44", "#f28c28", "#6d28d9", "#14b8a6", "#000000", "#ec4899"]
@@ -338,6 +343,7 @@ def api_svg(d):
 
 
 def api_raster(d):
+    ops.check_base64_upload(d.get("data"), "image")
     raw = base64.b64decode(d["data"])
     if raw[:4] == b"%PDF":
         raise ValueError(formats.PDF_MESSAGE)
@@ -356,6 +362,7 @@ def api_raster(d):
 
 
 def api_enhance(d):
+    ops.check_base64_upload(d.get("data"), "image")
     raw = base64.b64decode(d["data"])
     out, info = enhance_image(raw, float(d.get("scale", 2.0)), str(d.get("mode", "auto")))
     return {"png": base64.b64encode(out).decode(), "info": info}
@@ -369,12 +376,43 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Request-Id", getattr(self, "_rid", "-"))
+        for k, v in ops.SECURITY_HEADERS.items():
+            self.send_header(k, v)
+        self._status = code
         for k, v in (extra or {}).items():
             self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 
+    timeout = 30                                         # a stalled client cannot hold a worker thread forever (socket read timeout)
+
+    def _begin(self):
+        self._rid = ops.new_request_id(); self._t0 = time.monotonic(); self._status = 0
+        client = self.client_address[0] if self.client_address else "?"
+        ok, retry = LIMITER.allow(client, ops.cost_of(self.path.split("?")[0]) if self.command == "POST" else 1.0)
+        if not ok:
+            ops.log_event("warning", "rate_limited", rid=self._rid, client=client, path=self.path.split("?")[0])
+            body = json.dumps({"error": "too many requests - slow down and retry", "retry_after_s": retry, "request_id": self._rid}).encode()
+            self.send_response(429); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body)))
+            self.send_header("Retry-After", str(retry)); self.send_header("X-Request-Id", self._rid); self.end_headers(); self.wfile.write(body); self._status = 429
+            return False
+        return True
+
+    def _end(self):
+        ms = round((time.monotonic() - self._t0) * 1000)
+        ops.log_event("warning" if ms > ops.SLOW_SECONDS * 1000 else "info", "slow_request" if ms > ops.SLOW_SECONDS * 1000 else "request", rid=self._rid,
+                      method=self.command, path=self.path.split("?")[0], status=self._status, ms=ms, client=self.client_address[0] if self.client_address else "?")
+
     def do_GET(self):
+        if not self._begin():
+            return
+        try:
+            self._get()
+        finally:
+            self._end()
+
+    def _get(self):
         path = self.path.split("?")[0]
         if path == "/api/font":
             from stitchcraft_engine.font import GLYPHS, GLYPH_W, GLYPH_H, GAP
@@ -406,8 +444,19 @@ class H(BaseHTTPRequestHandler):
         self._send(200, f.read_bytes(), MIME.get(f.suffix, "application/octet-stream"))
 
     def do_POST(self):
-        n = int(self.headers.get("Content-Length") or 0)
-        if n > MAX_BODY:
+        if not self._begin():
+            return
+        try:
+            self._post()
+        finally:
+            self._end()
+
+    def _post(self):
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return self._send(400, {"error": "bad Content-Length"})
+        if n < 0 or n > MAX_BODY:
             return self._send(413, {"error": "body too large"})
         try:
             d = json.loads(self.rfile.read(n) or b"{}")
@@ -417,8 +466,10 @@ class H(BaseHTTPRequestHandler):
             if path == "/api/export/dst":
                 res, err = api_dst(d)
                 if err:
+                    ops.log_event("warning", "export_dst", rid=self._rid, result="refused", stage=err.get("stage"), code=err.get("code"))
                     return self._send(422, err)
                 name = sheet._safe(d.get("name"))
+                ops.log_event("info", "export_dst", rid=self._rid, design_sha=hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()[:16], dst_sha256=res.sha256, bytes=len(res.data), result="released")
                 return self._send(200, res.data, "application/octet-stream",
                                   {"Content-Disposition": f'attachment; filename="{name}.dst"', "X-SHA256": res.sha256})
             if path == "/api/tools/column-from-outline":
@@ -482,10 +533,14 @@ class H(BaseHTTPRequestHandler):
             if path == "/api/enhance":
                 return self._send(200, api_enhance(d))
             self._send(404, {"error": "not found"})
+        except json.JSONDecodeError:
+            self._send(400, {"error": "request body is not valid JSON"})
         except (UnsupportedSvg, RasterUnavailable, ValueError, KeyError, TypeError) as e:
             self._send(400, {"error": str(e)})
         except Exception as e:  # noqa: BLE001
-            self._send(500, {"error": f"internal error: {type(e).__name__}"})
+            import traceback
+            ops.log_event("error", "unhandled_exception", rid=self._rid, path=self.path.split("?")[0], error_type=type(e).__name__, error=str(e)[:300], trace=traceback.format_exc()[-1500:])
+            self._send(500, {"error": f"internal error ({type(e).__name__}); quote request id {self._rid} when reporting it", "request_id": self._rid})
 
     def log_message(self, *a):
         pass

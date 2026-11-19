@@ -2,6 +2,7 @@
 # The single definition of "all tests". CI runs exactly this script; run it locally before pushing.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+export ES_LOG="${ES_LOG:-off}"        # keep test output readable; tests/test_ops.py switches logging on itself
 echo "== engine tests";  (cd engine && python3 -m unittest discover -s tests)
 echo "== studio tests";  python3 -m unittest discover -s tests
 if command -v node >/dev/null 2>&1; then
