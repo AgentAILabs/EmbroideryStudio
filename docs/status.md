@@ -64,6 +64,7 @@ Audit register: `docs/testing/technical-audit-report.md`. Roadmap: `docs/roadmap
 | Defect found: wide satin trims and jumps its own length after the underlay | 🟡 fix available, **off by default** | machine setting `underlay_entry`; default unchanged so delivered hash-pinned DSTs stay identical (see stitch-quality-validation.md) |
 | Thread-separation digitizing of garment photos (hue classes, radial-satin rosettes, one smooth border line, stray removal, leaf angles) | 🟡 heuristic | `thread_separation.py`, `POST /api/garment/digitize`, garment dialog button; tuned on pink silk; curved borders / individual petals / midribs not handled |
 | DST header label sanitised, machine-safe file name, byte-level pre-flight | ✅ software | `machine_compat.py`; root cause of a field report of a file not showing on a Ricoma display NOT established |
+| "Instant smart design..." one-click import (quality check -> routed workflow -> editor) | ✅ software | More menu; `docs/roadmap/wilcom-instant-smart-design-analysis.md` (what Wilcom publishes vs what we have; Wilcom source is not public) |
 | Physical machine validation | ❌ **NOT DONE** | no stitch-out has been performed; nothing in this upgrade claims otherwise |
 
 ## Image-to-DST fidelity (2026-11-19)

@@ -616,6 +616,24 @@ $("#sbMach").onclick = mtOpen; $("#mtClose").onclick = () => $("#dlgMachine").cl
 $("#mtExport").onclick = () => { const r = (MT.recs || []).filter(x => x.dst_sha256 === MT.sha); download("machine-test-" + (MT.sha || "").slice(0, 12) + ".json", JSON.stringify(r.length ? r[r.length - 1] : MT.recs[MT.recs.length - 1], null, 2), "application/json"); };
 $("#mtImportB").onclick = () => $("#mtImport").click();
 $("#mtImport").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { await post("/api/evidence/import", JSON.parse(await f.text())); await mtOpen(); } catch (er) { alert("Record refused: " + er.message); } e.target.value = ""; };
+/* ---------------------------------------------------------------- instant smart design (one click) */
+async function instantSmart(file) {
+  if (!/\.(png|jpe?g)$/i.test(file.name)) { alert("Use a PNG or JPG image. For SVG artwork use Import art."); return; }
+  try {
+    const data = b64(new Uint8Array(await file.arrayBuffer())), hw = S.doc.hoop.w, w = Math.round(Math.min(hw * 0.9, hw - 10));
+    const q = await post("/api/image/quality", {data, width_mm: w}); const route = q.workflow || "vector";
+    if (route === "photo") { alert("This looks like a photograph, so it goes to Photo stitch (tonal thread hatching) instead of flat regions."); openPhoto(file, w); return; }
+    if (route === "garment_photo") { alert("This looks like a photo of a finished garment: isolate or separate the embroidery first."); $("#gaW").value = w; $("#dlgGarment").showModal(); gaLoad(file); return; }
+    const name = file.name.replace(/\.[^.]+$/, "");
+    const r = await post("/api/autodigitize", {data, name, width_mm: w, colors: 6, quality: "high", enhance: "auto", fabric: "cotton", category: "blouse_neck", thread: S.doc.thread || "40wt", hoop_w: hw, hoop_h: S.doc.hoop.h});
+    S.imgSrc = {name: file.name, b64: data, url: URL.createObjectURL(file), opts: {w, c: 6, q: "high", e: "auto"}, unresolved: ((r.import_report || {}).unresolved || []).length, decisions: {}};
+    loadDoc(r.design); setView("stitch");
+    const st = r.checklist.stats;
+    alert(`Instant smart design: ${st.stitches} stitches, ${st.color_changes + 1} colour(s), ${st.width_mm} x ${st.height_mm} mm. Checklist ${r.checklist.passed}/${r.checklist.total}.` + (S.imgSrc.unresolved ? `\n${S.imgSrc.unresolved} tiny detail(s) need review (Image fidelity button).` : "") + "\nEdit anything in the editor; not machine-tested.");
+  } catch (e) { alert("Instant smart design failed: " + e.message); }
+}
+$("#bInstant").onclick = () => { $("#mMore").open = false; $("#fileInstant").click(); };
+$("#fileInstant").onchange = e => { const f = e.target.files[0]; if (f) instantSmart(f); e.target.value = ""; };
 /* ---------------------------------------------------------------- garment-photo motif isolation */
 const GA = {b64: null, url: null, name: "garment", res: null, file: null};
 async function gaLoad(file) {
