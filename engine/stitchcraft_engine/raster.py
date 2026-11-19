@@ -142,6 +142,11 @@ QUALITY = {
     # maximum: analyse at up to MAX_WORK_PX (no destructive downscale), no majority smoothing (it erases 1-px lines), finest outline tolerance
     "maximum":  {"max_px": 1000, "up": 3, "blur": 0.6, "tol_mm": 0.05, "min_area": 0.25, "merge_de": 14.0, "majority": 0, "adaptive": True},
 }
+SAFE_MIN_FEATURE_MM = 0.75   # an isolated mark smaller than this cannot be stitched safely (needle + thread ~0.4 mm, stitches >= 0.4 mm): listed as not_stitchable
+NOISE_FLOOR_MM = 0.30        # below one thread width a blob is image noise / antialiasing dust: counted (count + area), not listed one by one
+NOISE_AREA_MM2 = 0.15        # ... and so is anything with less area than this (a 0.45 mm dot is 0.16 mm2)
+TACK_MAX_EQ_DIAMETER_MM = 2.2   # small blobs up to this equivalent diameter become a tack dot (3-stitch star) instead of a fill
+INVENTORY_LIMIT = 2500
 MAX_WORK_PX = 1600          # memory / time budget for the working image (longest side)
 DETAIL_MM_PER_PX = 0.08     # adaptive working resolution aims for <= this many mm per working pixel
 THIN_MM = 1.0            # estimated width below this -> running stitch along the middle
@@ -306,17 +311,22 @@ def _majority(labels, k, passes):
 
 
 def _is_mix(pal, c, k, bg, tol=14.0):
-    """True when palette colour `c` lies (in Lab) on the segment between two other palette colours: an antialiasing blend, not a real ink."""
+    """True when palette colour `c` is (within `tol` Lab dE) a blend of two other palette colours - mixed either in sRGB or in linear light, the two ways
+    resamplers blend edge pixels: an antialiasing blend, not a real ink."""
     import numpy as np
-    lab = _srgb_to_lab(np.array([pal], dtype=float))[0]
+    P = np.array(pal, dtype=float)
+    ts = np.linspace(0.1, 0.9, 9)[:, None]
+    lin = lambda v: np.where(v / 255.0 > 0.04045, ((v / 255.0 + 0.055) / 1.055) ** 2.4, v / 255.0 / 12.92)
+    unlin = lambda v: np.where(v > 0.0031308, 1.055 * np.power(np.maximum(v, 1e-12), 1 / 2.4) - 0.055, 12.92 * v) * 255.0
+    target = _srgb_to_lab(P[c][None, None, :])[0, 0]
     others = [i for i in range(k) if i != c]
     for a in range(len(others)):
         for b in range(a + 1, len(others)):
-            A, B_, C = lab[others[a]], lab[others[b]], lab[c]
-            d = B_ - A; L2 = float(d @ d)
-            t = 0.0 if L2 == 0 else max(0.0, min(1.0, float((C - A) @ d) / L2))
-            if float(np.linalg.norm(C - (A + t * d))) <= tol:
-                return True
+            A, B_ = P[others[a]], P[others[b]]
+            for blend in (A + ts * (B_ - A), unlin(lin(A) + ts * (lin(B_) - lin(A)))):
+                labs = _srgb_to_lab(np.clip(blend, 0, 255)[None, :, :])[0]
+                if float(np.min(np.linalg.norm(labs - target, axis=1))) <= tol:
+                    return True
     return False
 
 
@@ -442,6 +452,46 @@ def _make_object(outer, holes, color, quality_cfg, report):
     return {"type": "fill", "color": color, "rings": [_round(outer)] + [_round(h) for h in holes], "params": {"angle": round(ang, 1), "pull_comp": 0.2}}, "fill"
 
 
+def _bbox_mm(ring):
+    xs, ys = [p[0] for p in ring], [p[1] for p in ring]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _tack_dot(cx, cy, diameter, color):
+    """Smallest valid mark for a tiny blob: three diameters through the centre (a six-point asterisk, one continuous path). With r >= 0.5 mm every stitch
+    is >= 0.86 mm, so it never creates the sub-0.4 mm stitches that cause thread breaks. Manual object = every point is a needle penetration."""
+    r = max(0.5, min(diameter / 2.0, 1.0)); h = 0.866 * r
+    A = [(cx + r, cy), (cx + r / 2, cy + h), (cx - r / 2, cy + h), (cx - r, cy), (cx - r / 2, cy - h), (cx + r / 2, cy - h)]
+    pts = [A[0], A[3], A[1], A[4], A[2], A[5]]
+    return {"type": "manual", "color": color, "points": _round(pts), "params": {}}
+
+
+def _classify_small(outer, holes, color, cfg, report):
+    """Strategy for a component below the fill threshold. -> (object | None, kind, status, reason, stitchability)."""
+    from .outline import column_from_outline
+    x0, y0, x1, y1 = _bbox_mm(outer); ext = max(x1 - x0, y1 - y0)
+    area = _area(outer) - sum(_area(h) for h in holes)
+    eq_d = 2 * math.sqrt(max(area, 0.0) / math.pi)
+    if ext < SAFE_MIN_FEATURE_MM:
+        return None, "none", "not_stitchable", f"only {ext:.2f} mm across - below the {SAFE_MIN_FEATURE_MM:g} mm safe minimum for a needle penetration; closest alternative: a single tack stitch, left out until you review it", 0.0
+    if not holes:
+        try:
+            col = column_from_outline(outer)
+        except ValueError:
+            col = None
+        if col is not None and col["aspect"] >= MIN_ASPECT:
+            mid = [[(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] for a, b in zip(col["rail1"], col["rail2"])]
+            w = 2 * area / max(_perim(outer), 1e-9)
+            params = {"stitch_len": 1.6, "style": "bean"} if w < 0.35 else {"stitch_len": 1.8}
+            return {"type": "run", "color": color, "points": _round(mid), "smooth": False, "params": params}, "run", "micro_representation", \
+                f"narrow mark ({w:.2f} mm wide, {ext:.1f} mm long): running line along its centre" + (" with bean stitch" if w < 0.35 else ""), min(1.0, 0.5 + w)
+    if eq_d <= TACK_MAX_EQ_DIAMETER_MM:
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        return _tack_dot(cx, cy, eq_d, color), "tack", "micro_representation", f"small blob ({eq_d:.2f} mm across): tack dot (6-stitch star) instead of a fill that would need stitches shorter than 0.4 mm", 0.6
+    o, kind = _make_object(outer, holes, color, cfg, report)
+    return o, kind, "micro_representation", f"small shape ({area:.2f} mm2, below the {cfg['min_area']:g} mm2 fill threshold) stitched as a {kind}", 0.8
+
+
 def _photographic(rgb):
     import numpy as np
     from PIL import Image
@@ -520,22 +570,43 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
     # smoothing in source pixels: a coarse source (big pixels) needs more of it, a crisp one almost none (corners stay sharp)
     up = cfg["up"] if cfg["up"] == 1 else max(cfg["up"], min(8, math.ceil(mm / 0.09)))         # coarse source: more up-sampling so hi-res px <= ~0.09 mm
     blur_px = 0 if not cfg["blur"] else cfg["blur"] * (0.7 + 0.9 * min(1.0, max(0.0, (mm - 0.15) / 0.5)))
-    objs, kinds, dropped, areas = [], {"fill": 0, "column": 0, "run": 0}, 0, {}
+    objs, kinds, areas = [], {"fill": 0, "column": 0, "run": 0, "tack": 0}, {}
+    inventory, noise = [], {"count": 0, "area_mm2": 0.0}
+    fringe = {"count": 0, "area_mm2": 0.0}
+    mixes = {ci: _is_mix(pal[:k], ci, k, bg) for ci in range(k) if ci != bg} if k >= 3 else {}
+    ink_area = covered_area = 0.0; holes_filled = {"count": 0, "area_mm2": 0.0}
     for ci in range(k):
         if ci == bg or not (labels == ci).any():
             continue
         color = "#%02x%02x%02x" % pal[ci]
         comps = _nest(_contours_mm(labels == ci, up, blur_px, cfg["tol_mm"], width_mm))
         for outer, holes in comps:
-            if _area(outer) < cfg["min_area"]:
-                dropped += 1; continue
-            holes = [h for h in holes if _area(h) >= cfg["min_area"] / 2]
-            o, kind = _make_object(outer, holes, color, cfg, report)
-            o["_a"] = _area(outer); o["_c"] = ci; o["_kind"] = kind
-            objs.append(o); kinds[kind] += 1; areas[ci] = areas.get(ci, 0) + o["_a"]
+            x0, y0, x1, y1 = _bbox_mm(outer); ext = max(x1 - x0, y1 - y0); a_out = _area(outer)
+            ink_area += a_out
+            kept_holes = []
+            for h in holes:
+                if _area(h) >= cfg["min_area"] / 2: kept_holes.append(h)
+                else: holes_filled["count"] += 1; holes_filled["area_mm2"] += _area(h)          # tiny hole filled in: counted, not silent
+            holes = kept_holes
+            w_est = 2 * a_out / max(_perim(outer), 1e-9)
+            if mixes.get(ci) and w_est < 0.5 and a_out < 6.0 and not holes:         # thin sliver in a colour that is a blend of two others: antialiasing fringe, not artwork
+                fringe["count"] += 1; fringe["area_mm2"] += a_out; continue
+            if ext < NOISE_FLOOR_MM or a_out < NOISE_AREA_MM2:
+                noise["count"] += 1; noise["area_mm2"] += a_out; continue
+            if a_out >= cfg["min_area"]:
+                o, kind = _make_object(outer, holes, color, cfg, report); status, reason, score = "digitized", f"{kind} ({a_out:.1f} mm2)", 1.0
+            else:
+                o, kind, status, reason, score = _classify_small(outer, holes, color, cfg, report)
+            rec = {"id": f"d{len(inventory) + 1:03d}", "colour": color, "bbox_mm": [round(x0, 2), round(y0, 2), round(x1, 2), round(y1, 2)], "size_mm": [round(x1 - x0, 2), round(y1 - y0, 2)],
+                   "area_mm2": round(a_out, 2), "strategy": kind, "status": status, "reason": reason, "stitchability": round(score, 2), "object": None}
+            if len(inventory) < INVENTORY_LIMIT: inventory.append(rec)
+            if o is None:
+                continue
+            o["_a"] = a_out; o["_c"] = ci; o["_kind"] = kind; o["_inv"] = rec["id"]
+            objs.append(o); kinds[kind] = kinds.get(kind, 0) + 1; areas[ci] = areas.get(ci, 0) + o["_a"]; covered_area += a_out
     # order: colours by total area (largest first = bottom layer), inside a colour fills -> columns -> runs, nearest-neighbour for fewer jumps
     rank = {c: i for i, c in enumerate(sorted(areas, key=lambda c: -areas[c]))}
-    krank = {"fill": 0, "column": 1, "run": 2}
+    krank = {"fill": 0, "column": 1, "run": 2, "tack": 3}
     def start(o):
         return tuple(o["rings"][0][0]) if o["type"] == "fill" else tuple(o["rail1"][0]) if o["type"] == "column" else tuple(o["points"][0])
     ordered, cur = [], None
@@ -544,17 +615,37 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
         while group:
             nxt = group[0] if cur is None else min(group, key=lambda o: math.dist(start(o), cur))
             group.remove(nxt); ordered.append(nxt); cur = start(nxt)
+    by_id = {rec["id"]: rec for rec in inventory}
     for i, o in enumerate(ordered):
+        inv_id = o.pop("_inv", None)
         o["id"] = f"img{i + 1}"; o["name"] = f"{o.pop('_kind').capitalize()} {i + 1}"; o.pop("_a"); o.pop("_c")
+        if inv_id in by_id:
+            by_id[inv_id]["object"] = o["id"]
+    status_n = {}
+    for rec in inventory:
+        status_n[rec["status"]] = status_n.get(rec["status"], 0) + 1
+    unresolved = [r["id"] for r in inventory if r["status"] in ("not_stitchable", "needs_review")]
+    coverage = {"ink_area_mm2": round(ink_area, 2), "stitched_area_mm2": round(covered_area, 2),
+                "stitched_fraction": round(covered_area / ink_area, 4) if ink_area else 1.0,
+                "noise_specks": {"count": noise["count"], "area_mm2": round(noise["area_mm2"], 3), "rule": f"under {NOISE_FLOOR_MM:g} mm across or {NOISE_AREA_MM2:g} mm2 in area (below one thread width)"},
+                "antialiasing_fringe": {"count": fringe["count"], "area_mm2": round(fringe["area_mm2"], 3), "rule": "thin sliver (< 0.5 mm wide, < 6 mm2) in a colour that is a Lab blend of two other palette colours"},
+                "holes_filled": {"count": holes_filled["count"], "area_mm2": round(holes_filled["area_mm2"], 3)}}
     report.update({"colours_used": len({o["color"] for o in ordered}), "palette": ["#%02x%02x%02x" % c for c in pal[:k]],
-                   "objects": kinds, "dropped_specks": dropped, "work_px": [W, H], "ms": round((time.time() - t0) * 1000)})
-    if dropped:
-        notes.append(f"{dropped} tiny shape(s) smaller than {cfg['min_area']:g} mm² were left out (specks / noise). Use quality 'high' to keep smaller details.")
+                   "objects": kinds, "dropped_specks": noise["count"] + status_n.get("not_stitchable", 0), "work_px": [W, H], "ms": round((time.time() - t0) * 1000),
+                   "inventory_status": status_n, "unresolved": unresolved, "coverage": coverage})
+    if status_n.get("not_stitchable"):
+        notes.append(f"{status_n['not_stitchable']} detail(s) are too small to stitch safely (under {SAFE_MIN_FEATURE_MM:g} mm). They are listed in the detail inventory with the reason - review them before export.")
+    if status_n.get("micro_representation"):
+        notes.append(f"{status_n['micro_representation']} small detail(s) were given the closest valid stitch (tack dot, short running line or small fill) - see the detail inventory.")
+    if noise["count"]:
+        notes.append(f"{noise['count']} speck(s) smaller than {NOISE_FLOOR_MM:g} mm (image noise / antialiasing dust, {noise['area_mm2']:.2f} mm2 in total) were not stitched.")
+    if holes_filled["count"]:
+        notes.append(f"{holes_filled['count']} tiny hole(s) were filled in ({holes_filled['area_mm2']:.2f} mm2 in total).")
     if kinds["run"]:
-        notes.append(f"{kinds['run']} thin line(s) under {THIN_MM:g} mm wide became running stitch.")
+        notes.append(f"{kinds['run']} thin line(s) became running stitch.")
     if not ordered:
         notes.append("Nothing to digitize. For images, use flat-colour artwork on a plain background.")
-    return {"objects": ordered, "notes": notes, "size_mm": (width_mm, height_mm), "report": report}
+    return {"objects": ordered, "notes": notes, "size_mm": (width_mm, height_mm), "report": report, "inventory": inventory}
 
 
 def digitize_raster(data: bytes, width_mm: float, max_colors: int = 6, min_area_mm2: float = 4.0, simplify_mm: float = 0.25,

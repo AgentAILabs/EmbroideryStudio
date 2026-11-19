@@ -428,7 +428,7 @@ def api_raster(d):
     except OSError as e:                                  # PIL: truncated / damaged / unrecognised image data
         raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
     return {"objects": r["objects"], "notes": r["notes"], "width_mm": r["size_mm"][0], "height_mm": r["size_mm"][1], "report": dict(r["report"], enhance=enh),
-            "source": fidelity.source_record(original, float(d.get("width_mm", 80)))}
+            "source": fidelity.source_record(original, float(d.get("width_mm", 80))), "inventory": r.get("inventory", [])}
 
 
 def api_enhance(d):
