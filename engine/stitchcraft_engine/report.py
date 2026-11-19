@@ -21,6 +21,24 @@ TIME_NOTE = "Estimated machine time. Not verified on any machine; real time depe
 GUARANTEE = "This report does not predict stitch-out quality and does not guarantee the absence of thread breaks, puckering or registration errors."
 
 
+def complexity(design: dict, stitches: int, colour_changes: int, trims: int) -> dict:
+    """Embroidery complexity rating from five measured factors, each scored 0-4 by fixed thresholds; total 0-3 Simple, 4-7 Moderate, 8-11 Complex, 12+ Very complex.
+    A guide for quoting / planning, not a machine-verified measure."""
+    def band(v, edges): return sum(1 for e in edges if v > e)
+    objs = design.get("objects", [])
+    small = 0
+    for o in objs:
+        if o.get("type") == "fill" and o.get("rings"):
+            r = o["rings"][0]; a = abs(sum(r[i][0] * r[(i + 1) % len(r)][1] - r[(i + 1) % len(r)][0] * r[i][1] for i in range(len(r)))) / 2
+            small += 1 if a < 3.0 else 0
+        elif o.get("type") in ("satin", "column") and (o.get("params") or {}).get("width", 9) < 1.5: small += 1
+    f = {"stitches": band(stitches, (2000, 5000, 10000, 25000)), "colour_changes": band(colour_changes, (1, 3, 6, 10)), "trims": band(trims, (5, 20, 50, 100)),
+         "objects": band(len(objs), (5, 20, 60, 150)), "small_features": band(small, (0, 5, 20, 60))}
+    pts = sum(f.values()); level = "Simple" if pts <= 3 else "Moderate" if pts <= 7 else "Complex" if pts <= 11 else "Very complex"
+    return {"level": level, "points": pts, "max_points": 20, "factors": f, "inputs": {"stitches": stitches, "colour_changes": colour_changes, "trims": trims, "objects": len(objs), "small_features": small},
+            "rule": "five factors scored 0-4 (stitches > 2k/5k/10k/25k; colour changes > 1/3/6/10; trims > 5/20/50/100; objects > 5/20/60/150; small features > 0/5/20/60); 0-3 Simple, 4-7 Moderate, 8-11 Complex, 12+ Very complex"}
+
+
 def build_report(design: dict, result: Optional[ExportResult] = None) -> dict:
     """Raises export_pipeline.ExportError when no DST can be released (a report for a refused file would be misleading)."""
     res = result or export_dst(design)
@@ -61,6 +79,7 @@ def build_report(design: dict, result: Optional[ExportResult] = None) -> dict:
                    "colour_changes": rep["counts"]["color_change"], "dst_records": rep["records"]},
         "thread_sequence": seq,
         "estimated_time": {"minutes": st.get("est_minutes"), "note": TIME_NOTE},
+        "complexity": complexity(design, rep["counts"]["stitch"], rep["counts"]["color_change"], tr["totals"]["trims"]),
         "thread_use": __import__("stitchcraft_engine.threads", fromlist=["consumption"]).consumption(pattern),
         "quality": {"score": q["score"], "categories": [{"name": c["name"], "score": c["score"]} for c in q["categories"]], "disclaimer": q["disclaimer"]},
         "travel": {"verdicts": tr["verdicts"], **tr["totals"]},

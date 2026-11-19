@@ -25,7 +25,7 @@ DEFAULTS = {
              "expand_mm": 0.0, "comp_x": 0.0, "comp_y": 0.0, "min_row": 0.0},          # stitch holes / U-shapes region by region instead of jumping the gap on every row
     "satin": {"width": 3.0, "spacing": 0.4, "underlay": "auto", "pull_comp": 0.2, "push_comp": 0.0, "style": "satin",
               "corners": False, "corner_angle": 60.0},
-    "run": {"stitch_len": 2.5, "style": "single", "motif": "wave", "motif_size": 4.0, "motif_amp": 1.5},
+    "run": {"stitch_len": 2.5, "style": "single", "motif": "wave", "motif_size": 4.0, "motif_amp": 1.5, "estitch_w": 2.0},
     "manual": {},
     "column": {"spacing": 0.4, "underlay": "auto", "pull_comp": 0.2, "push_comp": 0.0, "style": "satin", "comp_x": 0.0, "comp_y": 0.0},
     "text": {"spacing": 1.0, "underlay": "auto", "pull_comp": 0.1},
@@ -141,6 +141,18 @@ def _satin_objs(oid, th, path, width, spacing, pull, underlay, split=0.0, shorte
     if back:
         top = _join_return(top, under)
     return StitchObject(oid, "satin", th, [top], under)
+
+
+def e_stitch(run, tooth):
+    """E-stitch (comb) edge: along the line each stitch gets a perpendicular tooth - spine point -> out by `tooth` mm -> back -> next spine point. Used for appliqué / patch edges
+    and decorative borders. The tooth is on the left of the direction of travel."""
+    out = [tuple(run[0])]
+    for a, b in zip(run, run[1:]):
+        dx, dy = b[0] - a[0], b[1] - a[1]; l = math.hypot(dx, dy)
+        if l < 1e-9: continue
+        nx, ny = -dy / l * tooth, dx / l * tooth
+        out += [(a[0] + nx, a[1] + ny), (a[0], a[1]), (b[0], b[1])]
+    return out
 
 
 def bean_stitch(run):
@@ -426,8 +438,10 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                     run_pts = motif_run(base, str(_p(ob, "motif")), float(_p(ob, "motif_size")), float(_p(ob, "motif_amp")), float(_p(ob, "stitch_len")))
                 else:
                     run_pts = running_stitch(pts, _p(ob, "stitch_len"), bool(ob.get("closed")))
-                if _p(ob, "style") == "bean":
+                if _p(ob, "style") in ("bean", "triple"):                    # triple run = bean: every stitch is sewn forward, back, forward
                     run_pts = bean_stitch(run_pts)
+                elif _p(ob, "style") == "estitch":
+                    run_pts = e_stitch(run_pts, float(_p(ob, "estitch_w") or 2.0))
                 objs.append(StitchObject(oid, "running", th, [run_pts]))
             elif typ == "text":
                 h = float(ob.get("height", 10))

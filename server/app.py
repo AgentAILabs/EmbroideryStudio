@@ -35,6 +35,7 @@ import ops                                                                      
 from stitchcraft_engine import fidelity, machines, report as report_mod, templates, dst_analyze, dst_verify, checklist, profiles, sequence, export_pipeline, placements as placements_mod                                        # noqa: E402
 from stitchcraft_engine.outline import column_from_outline                      # noqa: E402
 import sheet                                                                   # noqa: E402
+import jobs as jobs_mod                                                        # noqa: E402
 
 WEB = ROOT / "web"
 LIB = ROOT / "designs" / "library"
@@ -355,8 +356,7 @@ def api_garment_digitize(d):
     from stitchcraft_engine import thread_separation as TS, motif_isolation as MI, photo_validation as PV
     ops.check_base64_upload(d.get("data"), "image")
     raw = base64.b64decode(d["data"])
-    if not (raw[:8] == b"\x89PNG\r\n\x1a\n" or raw[:3] == b"\xff\xd8\xff"):
-        raise ValueError("unsupported image type: only PNG and JPEG are accepted")
+    raw = _accept_image(raw)
     width = float(d.get("width_mm", 130))
     raw = MI.crop_region(raw, d.get("region"))
     try:
@@ -436,14 +436,46 @@ def api_assistant(d):
     return out
 
 
+def api_advisor(d, apply=False):
+    from stitchcraft_engine import advisor
+    design = d.get("design") if isinstance(d.get("design"), dict) else None
+    if design is None:
+        raise ValueError("design is required")
+    check_design(design)
+    if not design.get("objects"):
+        raise ValueError("the design is empty")
+    if not apply:
+        return advisor.analyse(design)
+    ids = d.get("ids")
+    if ids is not None and not (isinstance(ids, list) and len(ids) <= 40 and all(isinstance(x, str) and len(x) <= 60 for x in ids)):
+        raise ValueError("ids must be a list of recommendation ids")
+    out = advisor.apply(design, ids)
+    check_design(out["design"])
+    return out
+
+
+def _accept_image(raw: bytes) -> bytes:
+    """PNG / JPEG pass through; BMP is converted to PNG (the original upload is still what gets hashed and reported). Anything else is refused."""
+    if raw[:8] == b"\x89PNG\r\n\x1a\n" or raw[:3] == b"\xff\xd8\xff":
+        return raw
+    if raw[:2] == b"BM":
+        try:
+            from PIL import Image
+            im = Image.open(io.BytesIO(raw)); im.load(); buf = io.BytesIO(); im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB").save(buf, "PNG"); return buf.getvalue()
+        except ImportError as e:
+            raise ValueError("BMP import needs the optional Pillow package; use PNG or JPG") from e
+        except Exception as e:
+            raise ValueError("the BMP file is damaged or unsupported") from e
+    raise ValueError("unsupported image type: only PNG, JPEG and BMP are accepted")
+
+
 def api_photo_stitch(d):
     """Photo Stitch Engine: image -> tonal flow-field hatching design -> validated DST -> thread-texture preview from the DECODED DST -> photo validation.
     Software validation only; physical machine validation is separate and PENDING."""
     from stitchcraft_engine import photo, photo_validation as PV
     ops.check_base64_upload(d.get("data"), "image")
     raw = base64.b64decode(d["data"])
-    if not (raw[:8] == b"\x89PNG\r\n\x1a\n" or raw[:3] == b"\xff\xd8\xff"):
-        raise ValueError("unsupported image type: only PNG and JPEG are accepted")
+    raw = _accept_image(raw)
     keys = ("mode", "colors", "levels", "density", "angle", "direction", "dither", "gamma", "cross_hatch", "equalize", "fabric", "thread", "stitch_mm")
     kw = {k: d[k] for k in keys if k in d}
     if "thread_palette" in d:
@@ -482,8 +514,7 @@ def api_image_isolate(d):
     from stitchcraft_engine import motif_isolation as MI
     ops.check_base64_upload(d.get("data"), "image")
     raw = base64.b64decode(d["data"])
-    if not (raw[:8] == b"\x89PNG\r\n\x1a\n" or raw[:3] == b"\xff\xd8\xff"):
-        raise ValueError("unsupported image type: only PNG and JPEG are accepted")
+    raw = _accept_image(raw)
     th = float(d.get("threshold", 0.65)); region = d.get("region"); sel = d.get("select")
     if sel is not None and not (isinstance(sel, list) and len(sel) <= 40 and all(isinstance(x, str) and re.fullmatch(r"m\d{1,2}", x) for x in sel)):
         raise ValueError("select must be a list of motif ids such as m1")
@@ -506,8 +537,7 @@ def api_image_quality(d):
     from stitchcraft_engine import source_quality
     ops.check_base64_upload(d.get("data"), "image")
     raw = base64.b64decode(d["data"])
-    if not (raw[:8] == b"\x89PNG\r\n\x1a\n" or raw[:3] == b"\xff\xd8\xff"):
-        raise ValueError("unsupported image type: only PNG and JPEG are accepted")
+    raw = _accept_image(raw)
     w = float(d.get("width_mm", 80))
     if not 0 < w <= 1000:
         raise ValueError("width_mm must be between 0 and 1000")
@@ -673,6 +703,7 @@ def _raster_full(d):
     if raw[:4] == b"%PDF":
         raise ValueError(formats.PDF_MESSAGE)
     original = raw                                            # the uploaded bytes are authoritative: hashed and reported, never replaced
+    raw = _accept_image(raw)
     if d.get("erase"):
         raw = _erase_pixels(raw, float(d.get("width_mm", 80)), d["erase"])
     enh = None
@@ -718,6 +749,16 @@ def api_enhance(d):
     except OSError as e:
         raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
     return {"png": base64.b64encode(out).decode(), "info": info}
+
+
+JOBS = None
+
+
+def get_jobs():
+    global JOBS
+    if JOBS is None:
+        JOBS = jobs_mod.Jobs({"autodigitize": api_autodigitize, "photo": api_photo_stitch, "garment": api_garment_digitize, "raster": api_raster, "isolate": api_image_isolate})
+    return JOBS
 
 
 class H(BaseHTTPRequestHandler):
@@ -815,6 +856,12 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, threads.get_palette((q.get("id") or [""])[0]))
             except ValueError as e:
                 return self._send(400, {"error": str(e)})
+        if path == "/api/job/status":
+            q = urllib.parse.parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
+            try:
+                return self._send(200, get_jobs().status((q.get("id") or [""])[0]))
+            except jobs_mod.JobError as e:
+                return self._send(404, {"error": str(e)})
         if path == "/api/presets":
             return self._send(200, api_presets())
         if path == "/api/templates":
@@ -912,6 +959,20 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_to_manual(d))
             if path == "/api/photo/stitch":
                 return self._send(200, api_photo_stitch(d))
+            if path == "/api/job/start":
+                try:
+                    return self._send(200, {"id": get_jobs().start(str(d.get("kind") or ""), d.get("payload"))})
+                except jobs_mod.JobError as e:
+                    return self._send(400, {"error": str(e)})
+            if path == "/api/job/cancel":
+                try:
+                    return self._send(200, {"cancelled": get_jobs().cancel(str(d.get("id") or ""))})
+                except jobs_mod.JobError as e:
+                    return self._send(404, {"error": str(e)})
+            if path == "/api/advisor":
+                return self._send(200, api_advisor(d))
+            if path == "/api/advisor/apply":
+                return self._send(200, api_advisor(d, apply=True))
             if path == "/api/assistant":
                 return self._send(200, api_assistant(d))
             if path == "/api/threads/import":

@@ -29,6 +29,7 @@
   <button id="bSet" title="Make the same design for left / right / neck ... as separate, named, verified DST files">Placement set</button>
   <button id="bQuality" title="Run the six-stage DST verification on this design (or on the .dst you are viewing)">Quality check</button>
   <details class="menu" id="mMore"><summary title="More exports and tools">More ▾</summary><div class="pop">
+    <button id="bAdvisor" title="Optimization advisor: measures the design (density, short/long stitches, underlay, tiny details, colour changes, trims) and applies each recommendation individually or all at once">Optimization advisor…</button>
     <button id="bAssist" title="Digitizing assistant: type what you want (make the borders satin, tatami for large areas, denser, fewer colour changes, cap, left chest, denim ...) and it edits the objects">Digitizing assistant…</button>
     <button id="bThreads" title="Thread libraries: import your own brand palettes (CSV / JSON), match the design colours to real thread codes, replace colours, estimate thread use">Thread libraries…</button>
     <button id="bFormats" title="Export in other machine formats (JEF, PES, EXP, XXX, U01, SEW): software-verified only, never machine-tested">Other machine formats…</button>
@@ -46,10 +47,11 @@
   <button id="bExport" class="primary" title="Download the .dst for your machine">Export DST</button>
   <input type="file" id="fileEnhance" accept=".png,.jpg,.jpeg" hidden>
   <input type="file" id="fileDst" accept=".dst" hidden>
-  <input type="file" id="fileInstant" accept="image/png,image/jpeg" hidden>
+  <input type="file" id="fileInstant" accept="image/png,image/jpeg,image/bmp" hidden>
   <input type="file" id="fileOpen" accept=".esproj,.json" hidden>
-  <input type="file" id="fileImport" accept=".svg,.png,.jpg,.jpeg" hidden>
+  <input type="file" id="fileImport" accept=".svg,.png,.jpg,.jpeg,.bmp" hidden>
 </header>
+<div id="jobToast" hidden><span id="jobMsg">Working…</span> <button type="button" id="jobCancel">Cancel</button></div>
 <footer id="statusbar" aria-label="Product status">
   <span class="sb ok" title="DST is the only supported machine format"><b>Export:</b> <span id="sbFmt">DST only</span></span>
   <button type="button" id="sbMach" class="sb warn" title="Physical machine-test status for the CURRENT DST checksum. Click to record or review a real machine test."><b>Machine validation:</b> <span id="sbMachT">PENDING - not yet physically validated</span></button>
@@ -135,6 +137,14 @@
     <div class="row2"><button value="close" class="primary">Close</button></div>
   </form>
 </dialog>
+<dialog id="dlgAdvisor">
+  <div class="fidwrap">
+    <div class="fidhead"><h3>Optimization advisor</h3><small>Measured from the generated stitches and your objects. Each Apply is a real, undoable edit of the objects; thresholds are engineering starting points, not machine-verified limits.</small></div>
+    <div id="adMetrics" class="note"></div><div id="adList"></div>
+    <div class="row"><button type="button" id="adAll" class="primary">Apply all recommended</button><button type="button" id="adRefresh">Re-check</button><button type="button" id="adClose">Close</button></div>
+    <div id="adMsg" class="note"></div>
+  </div>
+</dialog>
 <dialog id="dlgAssist">
   <div class="fidwrap">
     <div class="fidhead"><h3>Digitizing assistant</h3><small>Rule-based: it understands a defined set of embroidery commands and edits your real objects (one undo step). It uses no external AI and says when it does not understand. Preset values are starting points - stitch a sample.</small></div>
@@ -187,7 +197,7 @@
     <div class="fidbody">
       <div class="fidleft"><div class="phimgs"><figure><img id="gaOrig" alt="garment photo"><figcaption>photo (unchanged)</figcaption></figure><figure><img id="gaOver" alt="embroidery overlay"><figcaption>detected embroidery (bright) - others dimmed</figcaption></figure></div><div id="gaInfo" class="note"></div></div>
       <div class="fidright">
-        <div class="row"><label>Photo</label><input type="file" id="gaFile" accept="image/png,image/jpeg"></div>
+        <div class="row"><label>Photo</label><input type="file" id="gaFile" accept="image/png,image/jpeg,image/bmp"></div>
         <div class="row"><label title="Crop to the garment first if the background is busy (percent of the picture)">Crop x0 y0 x1 y1 %</label><span><input type="number" id="gaX0" value="0" min="0" max="95" style="width:52px"><input type="number" id="gaY0" value="0" min="0" max="95" style="width:52px"><input type="number" id="gaX1" value="100" min="5" max="100" style="width:52px"><input type="number" id="gaY1" value="100" min="5" max="100" style="width:52px"></span></div>
         <div class="row"><label title="Higher = stricter: less is treated as embroidery">Sensitivity threshold <b id="gaThV">0.65</b></label><input type="range" id="gaTh" min="0.3" max="0.9" step="0.01" value="0.65"></div>
         <div class="row"><label>Motif width mm</label><input type="number" id="gaW" value="100" min="20" max="400"></div>
@@ -207,7 +217,7 @@
         <div id="phVal"></div>
       </div>
       <div class="fidright">
-        <div class="row"><label>Image</label><input type="file" id="phFile" accept="image/png,image/jpeg"></div>
+        <div class="row"><label>Image</label><input type="file" id="phFile" accept="image/png,image/jpeg,image/bmp"></div>
         <div class="row"><label>Width mm</label><input type="number" id="phW" value="100" min="20" max="400"></div>
         <div class="row"><label>Mode</label><select id="phMode"><option value="grayscale">Grayscale (one thread)</option><option value="multicolour">Multicolour (thread palette)</option></select></div>
         <div class="row"><label>Colours (multicolour)</label><input type="number" id="phColors" value="5" min="2" max="12"></div>

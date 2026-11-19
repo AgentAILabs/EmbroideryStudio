@@ -57,9 +57,20 @@ class Recognition(unittest.TestCase):
         rounded = [[x, y] for x, y in [(2, 0), (10, 0), (18, 0), (20, 2), (20, 5), (20, 8), (18, 10), (10, 10), (2, 10), (0, 8), (0, 5), (0, 2)]]
         for name, ring in (("star", star), ("trapezoid", trapezoid), ("L", lshape)):
             self.assertIsNone(SD.recognize_ring(ring), name)
-        r = SD.recognize_ring(rounded); self.assertTrue(r is None or r[1]["kind"] in ("rectangle", "square"))      # a rounded rectangle is left alone or a near-rectangle, never a circle / ellipse
+        r = SD.recognize_ring(rounded); self.assertTrue(r is None or r[1]["kind"] in ("rectangle", "square", "rounded_rectangle"))      # never a circle / ellipse
         sq45 = [[10, 0], [20, 10], [10, 20], [0, 10]]; sq45 = [[sq45[i][0] + (sq45[(i + 1) % 4][0] - sq45[i][0]) * k / 8, sq45[i][1] + (sq45[(i + 1) % 4][1] - sq45[i][1]) * k / 8] for i in range(4) for k in range(8)]
         self.assertEqual(self.kind(sq45), "square")                                                           # a square turned 45 degrees is still a square
+
+    def test_rounded_rectangles(self):
+        def rrect(w, h, r, ang=0.0, n=10):
+            pts = []
+            for (cx, cy, a0) in ((w / 2 - r, h / 2 - r, 0), (-(w / 2 - r), h / 2 - r, 90), (-(w / 2 - r), -(h / 2 - r), 180), (w / 2 - r, -(h / 2 - r), 270)):
+                for k in range(n + 1): a = math.radians(a0 + 90 * k / n); pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+            return [[10 + x * math.cos(ang) - y * math.sin(ang), 10 + x * math.sin(ang) + y * math.cos(ang)] for x, y in pts]
+        for ring, w, h, rad in ((rrect(30, 12, 3), 30, 12, 3), (rrect(40, 10, 2), 40, 10, 2), (rrect(30, 12, 3, 0.5), 30, 12, 3.4)):
+            new, info = SD.recognize_ring(ring); self.assertEqual(info["kind"], "rounded_rectangle"); self.assertAlmostEqual(info["w"], w, delta=0.3); self.assertAlmostEqual(info["h"], h, delta=0.3); self.assertAlmostEqual(info["radius"], rad, delta=0.9)
+            self.assertAlmostEqual(SD._area(new), SD._area(ring), delta=0.03 * SD._area(ring))
+        self.assertEqual(self.kind(ellipse(8, 8)), "circle")                                                    # a circle is still a circle, not a rounded rectangle
 
     def test_degenerate_input(self):
         self.assertIsNone(SD.recognize_ring([[0, 0], [1, 0], [1, 1]])); self.assertIsNone(SD.recognize_ring([[0, 0]] * 20))

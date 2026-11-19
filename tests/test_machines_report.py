@@ -71,3 +71,17 @@ class Report(unittest.TestCase):
         self.assertIn("report", server.api_report(lib("kalash"))[0]); self.assertIn("html", server.api_report(dict(lib("kalash"), html=True))[0])
         self.assertIn("issues", server.api_machine_check(lib("kalash")))
 if __name__ == "__main__": unittest.main()
+
+
+class Complexity(unittest.TestCase):
+    def test_levels_and_transparency(self):
+        from stitchcraft_engine.report import complexity
+        d = {"objects": [{"type": "run", "points": [[0, 0], [5, 5]]}]}
+        c = complexity(d, 500, 0, 2); self.assertEqual(c["level"], "Simple"); self.assertEqual(c["points"], 0); self.assertIn("rule", c)
+        c = complexity({"objects": [{"type": "fill"}] * 30}, 8000, 4, 30); self.assertEqual(c["level"], "Moderate" if c["points"] <= 7 else "Complex")
+        big = complexity({"objects": [{"type": "fill", "rings": [[[0, 0], [1, 0], [1, 1]]]}] * 200}, 60000, 14, 150); self.assertEqual(big["level"], "Very complex"); self.assertEqual(big["points"], 20)
+        self.assertEqual(sum(big["factors"].values()), big["points"])
+    def test_report_carries_it(self):
+        from stitchcraft_engine.report import build_report
+        d = {"name": "c", "hoop": {"w": 100, "h": 100, "margin": 3}, "objects": [{"id": "a", "type": "fill", "color": "#cc0000", "rings": [[[0, 0], [30, 0], [30, 20], [0, 20]]]}]}
+        r = build_report(d); self.assertIn(r["complexity"]["level"], ("Simple", "Moderate", "Complex", "Very complex")); self.assertEqual(r["complexity"]["inputs"]["stitches"], r["counts"]["stitches"])

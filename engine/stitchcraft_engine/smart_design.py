@@ -1,7 +1,7 @@
 """Smart-design helpers for the vector digitizer: shape recognition and stitch-type presets.
 
 Shape recognition (opt-in, `shapes=True`): a traced outline that is, within tolerance, an ellipse / circle or a rectangle is replaced by the ideal shape fitted to it
-(clean edges, far fewer points, consistent stitch angles). Everything else is left exactly as traced. Documented limits: only these three primitives; text is not
+(clean edges, far fewer points, consistent stitch angles). Everything else is left exactly as traced. Documented limits: only these primitives (ellipse / circle, rectangle / square, rounded rectangle); text is not
 recognised; a shape that is merely close (a rounded rectangle, a polygon) stays as traced.
 
 Presets (`preset=`): they only choose WHERE the stitch-type boundaries are (running line / satin column / fill); density, underlay and pull compensation still come from
@@ -106,6 +106,23 @@ def recognize_ring(ring) -> Optional[Tuple[List[List[float]], dict]]:
             ring2 = [[u * c - v * s, u * s + v * c] for u, v in corners]
             kind = "square" if abs((u1 - u0) / (v1 - v0) - 1) < 0.03 else "rectangle"
             return ring2, {"kind": kind, "w": round(u1 - u0, 3), "h": round(v1 - v0, 3), "angle_deg": float(deg)}
+    # ---- rounded rectangle: box fill ratio 0.90-0.975, corner radius from the area deficit, every point within tolerance of the modelled boundary
+    if area_box > 0 and 0.88 <= A / area_box < 0.998 and min(u1 - u0, v1 - v0) >= 2.0:
+        t = math.radians(deg); c, s = math.cos(t), math.sin(t); w, h = u1 - u0, v1 - v0
+        r = math.sqrt(max(area_box - A, 0.0) / (4 - math.pi))
+        if 0.3 <= r <= min(w, h) / 2 * 1.0:
+            def dist_model(px, py):                       # |signed distance| of a point to the rounded-rectangle outline (box centred at the origin)
+                qx, qy = abs(px) - (w / 2 - r), abs(py) - (h / 2 - r)
+                return abs(math.hypot(max(qx, 0.0), max(qy, 0.0)) + min(max(qx, qy), 0.0) - r)
+            cu, cv = (u0 + u1) / 2, (v0 + v1) / 2
+            tol = 0.04 * min(w, h) + 0.1
+            if all(dist_model((p[0] * c + p[1] * s) - cu, (-p[0] * s + p[1] * c) - cv) <= tol for p in pts):
+                ring2 = []; N = 12
+                for (ccx, ccy, a0) in ((w / 2 - r, h / 2 - r, 0), (-(w / 2 - r), h / 2 - r, 90), (-(w / 2 - r), -(h / 2 - r), 180), (w / 2 - r, -(h / 2 - r), 270)):
+                    for k in range(N + 1):
+                        a = math.radians(a0 + 90 * k / N); ring2.append((ccx + r * math.cos(a), ccy + r * math.sin(a)))
+                ring2 = [[(x + cu) * c - (y + cv) * s, (x + cu) * s + (y + cv) * c] for x, y in ring2]
+                return ring2, {"kind": "rounded_rectangle", "w": round(w, 3), "h": round(h, 3), "radius": round(r, 3), "angle_deg": float(deg)}
     return None
 
 

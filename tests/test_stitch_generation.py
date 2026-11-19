@@ -112,6 +112,21 @@ class JumpsAndTrims(unittest.TestCase):
         self.assertEqual(sum(1 for s in p.stitches if s.cmd == Cmd.COLOR_CHANGE), 1)
 
 
+class RunStyles(unittest.TestCase):
+    def pts(self, style, **p):
+        pat = generate(doc({"id": "r", "type": "run", "color": "#c00000", "points": [[0, 0], [20, 0]], "params": dict(style=style, **p)}, machine={"lock_len": 0}))[0]
+        return [(round(s.x, 2), round(s.y, 2)) for s in pat.stitches if s.cmd == Cmd.STITCH]
+    def test_triple_is_the_bean_stitch(self):
+        self.assertEqual(self.pts("triple"), self.pts("bean")); self.assertGreater(len(self.pts("triple")), 2.5 * len(self.pts("single")))
+    def test_estitch_has_a_perpendicular_tooth_per_stitch(self):
+        pts = self.pts("estitch", estitch_w=2.0); single = self.pts("single")
+        teeth = [p for p in pts if abs(p[1]) > 1.9]; self.assertEqual(len(teeth), len(single) - 1)
+        self.assertTrue(all(abs(abs(p[1]) - 2.0) < 0.01 for p in teeth)); self.assertLessEqual(max(abs(p[0]) for p in pts), 20.01)
+    def test_estitch_tooth_length_is_a_parameter_and_stitches_stay_in_range(self):
+        for w in (1.0, 3.0): self.assertTrue(any(abs(abs(p[1]) - w) < 0.01 for p in self.pts("estitch", estitch_w=w)))
+        a = analyse(doc({"id": "r", "type": "run", "color": "#c00000", "points": [[0, 0], [40, 0]], "params": {"style": "estitch"}})); self.assertLessEqual(a["lens"][-1], 12.1)
+
+
 class ImageDerived(unittest.TestCase):
     def test_image_derived_design_exports_with_safe_metrics(self):
         try:

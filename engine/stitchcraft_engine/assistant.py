@@ -22,6 +22,8 @@ COMMANDS = [
     ("reduce the overall stitch count", "opens fill / satin spacing, longer fill stitches, short-stitch cleaning, drops tack dots"),
     ("make the embroidery suitable for denim | cotton | silk | georgette | velvet | knit | net | thick | canvas", "applies the fabric profile"),
     ("scale to 120 % | make it 80 mm wide | 3 inch wide", "scales the whole design"),
+    ("add underlay", "tatami under large fills, centre / edge+zigzag under satins that have none"),
+    ("clean short stitches", "sets the short-stitch cleaning limit (0.5 mm)"),
     ("remove tiny details / specks", "deletes objects too small to stitch reliably"),
     ("convert this logo / image into embroidery", "opens the image chooser (an image must be uploaded)"),
 ]
@@ -89,6 +91,31 @@ def h_density(c: Ctx, t: str, up: bool):
     return n, f"row spacing {'reduced' if up else 'increased'} by about {pct * 100:g} % on {n} object(s) ({'denser' if up else 'lighter'}; limits 0.25-1.2 mm)"
 
 
+def group_by_colour(d: dict) -> Tuple[dict, int, int]:
+    """Re-order objects so each colour is stitched in as few blocks as possible WITHOUT changing the layering of objects that overlap (an object stays after everything it
+    covers / is covered by in the original order). Greedy topological ordering: keep taking available objects of the current colour; switch colour only when none is available.
+    -> (design, colour changes before, after). The result is adopted only when it has fewer colour changes."""
+    from .sequence import _overlap
+    from .placements import _bbox
+    objs = d["objects"]; n = len(objs); boxes = [_bbox(o) for o in objs]
+    def changes(order): return sum(1 for a, b in zip(order, order[1:]) if (objs[a].get("color") or "").lower() != (objs[b].get("color") or "").lower())
+    before = changes(list(range(n)))
+    pred = [set() for _ in range(n)]
+    for j in range(n):
+        for i in range(j):
+            if boxes[i] and boxes[j] and (objs[i].get("color") or "").lower() != (objs[j].get("color") or "").lower() and _overlap(boxes[i], boxes[j], 0.3): pred[j].add(i)
+    placed = []; done = set(); cur = None
+    while len(placed) < n:
+        avail = [i for i in range(n) if i not in done and pred[i] <= done]
+        pick = next((i for i in avail if (objs[i].get("color") or "").lower() == cur), None)
+        if pick is None: pick = avail[0]; cur = (objs[pick].get("color") or "").lower()
+        placed.append(pick); done.add(pick)
+    after = changes(placed)
+    if after < before:
+        d = copy.deepcopy(d); d["objects"] = [d["objects"][i] for i in placed]
+    return d, before, min(before, after)
+
+
 def h_colour_changes(c: Ctx, t: str):
     from .sequence import optimize_sequence
     from . import threads
@@ -100,8 +127,9 @@ def h_colour_changes(c: Ctx, t: str):
         else: keep.append(col)
     if mp: threads._recolour(c.d, mp)
     c.d, lg = optimize_sequence(c.d)
+    c.d, cc0, cc1 = group_by_colour(c.d)
     after = len(threads.design_colours(c.d))
-    return merged + (1 if lg else 0), f"colours {before} -> {after} ({merged} near-identical merged, dE2000 <= 6); objects re-sequenced to reduce colour changes and travel"
+    return merged + (cc0 - cc1), f"colours {before} -> {after} ({merged} near-identical merged, dE2000 <= 6); colour changes in the sewing order {cc0} -> {cc1} (objects regrouped by colour where their layering allows; travel re-optimised)"
 
 
 def h_small_lettering(c: Ctx, t: str):
@@ -193,6 +221,24 @@ def h_remove_tiny(c: Ctx, t: str):
     c.d["objects"] = keep; return n0 - len(keep), f"{n0 - len(keep)} object(s) too small to stitch reliably removed (fills < 1 mm2, lines < 1.5 mm)"
 
 
+def h_underlay(c: Ctx, t: str):
+    from .profiles import column_width
+    n = 0
+    for o in c.d["objects"]:
+        ty = o.get("type"); p = _params(o)
+        if ty == "fill" and _fill_area(o) >= 20 and p.get("underlay", "tatami") == "none": p["underlay"] = "tatami"; n += 1
+        elif ty in ("satin", "column"):
+            try: w = column_width(o)
+            except Exception: w = 0
+            if w >= 2.5 and p.get("underlay", "auto") == "none": p["underlay"] = "center" if w < 4 else "edge+zigzag"; n += 1
+    return n, f"underlay added to {n} object(s): tatami under fills >= 20 mm2, centre run (2.5-4 mm) or edge + zig-zag (wider) under satins"
+
+
+def h_short_stitches(c: Ctx, t: str):
+    m = dict(c.d.get("machine") or {}); old = float(m.get("micro_clean", 0)); m["micro_clean"] = max(old, 0.5); c.d["machine"] = m
+    return (1 if m["micro_clean"] != old else 0), f"short-stitch cleaning set to {m['micro_clean']:g} mm (stitches shorter than this are merged into the previous one)"
+
+
 def h_convert(c: Ctx, t: str):
     c.action = "open_image"; return 1, "choose the image: it will be analysed, digitized into editable objects and opened (Instant smart design)"
 
@@ -214,6 +260,8 @@ def _rules() -> List[Tuple[str, Callable]]:
         (r"left.?chest|chest logo|pocket logo", h_left_chest),
         (r"(reduce|lower|cut|fewer|minimi[sz]e).*(stitch count|stitches|stitch total)|fewer stitches", h_reduce_count),
         (r"(suitable|optimi[sz]e|prepare|ready|good|for).*\b" + FABRIC_WORDS + r"\b", None),     # handled specially (needs the fabric word)
+        (r"(add|improve|fix|use|apply).*underlay|underlay.*(missing|add|improve)", h_underlay),
+        (r"(clean|remove|filter|merge|fix).*(short|micro|tiny).*stitch", h_short_stitches),
         (r"(remove|delete|clean up|drop).*(tiny|small|stray|speck|detail|noise)", h_remove_tiny),
         (r"(scale|resize|enlarge|shrink|make it)\b.*\d+(?:\.\d+)?\s*(?:%|(?:mm|cm|inch|inches|in)\b)", h_scale),
         (r"(convert|digiti[sz]e|turn|make).*(logo|image|artwork|picture|photo|drawing).*(embroider|stitch)?|convert this", h_convert),
@@ -225,22 +273,26 @@ def run(design: dict, text: str) -> dict:
         raise ValueError("write a request, e.g. 'make the borders satin and reduce colour changes'")
     if len(text) > 600: raise ValueError("request too long (limit 600 characters)")
     c = Ctx(design); before = _metrics(c.d)
-    clauses = [s.strip() for s in re.split(r"\s*(?:,|;|\.|\bthen\b|\band also\b|\band\b(?=\s+(?:make|use|increase|decrease|reduce|improve|optimi|prepare|remove|scale|convert|set)))\s*", text.lower()) if s and s.strip()]
+    clauses = [x.strip() for x in re.split(r"\s*(?:,|;|\.|\bthen\b|\band also\b)\s*", text.lower()) if x and x.strip()]
     applied, unknown = [], []
-    for cl in clauses:
-        done = False
+    def find(cl):
         for pat, fn in _rules():
-            if not re.search(pat, cl): continue
+            if re.search(pat, cl): return fn
+        return False
+    for cl in clauses:
+        parts = [x.strip() for x in re.split(r"\s+and\s+", cl) if x.strip()]; pending = ""
+        for part in parts:
+            test = (pending + " and " + part) if pending else part
+            fn = find(test)
+            if fn is False:
+                pending = test; continue
             if fn is None:
-                fab = re.search(FABRIC_WORDS, cl).group(1); fab = {"jeans": "denim", "tulle": "net", "stretch": "knit", "satin fabric": "satin_fabric"}.get(fab, fab)
-                n, detail = h_fabric(c, cl, "knit" if fab == "knit" else fab)
+                fab = re.search(FABRIC_WORDS, test).group(1); fab = {"jeans": "denim", "tulle": "net", "stretch": "knit", "satin fabric": "satin_fabric"}.get(fab, fab)
+                n, detail = h_fabric(c, test, fab)
             else:
-                n, detail = fn(c, cl)
-            applied.append({"request": cl, "changed": n, "detail": detail}); done = True
-            for tail in re.split(r"\s+and\s+", cl)[1:]:                       # "<known command> and <something else>": the unknown tail is reported, not swallowed
-                if not any(re.search(pp, tail) for pp, _ in _rules()) and not re.search(NOUNS, tail): unknown.append(tail)
-            break
-        if not done: unknown.append(cl)
+                n, detail = fn(c, test)
+            applied.append({"request": test, "changed": n, "detail": detail}); pending = ""
+        if pending: unknown.append(pending)
     after = _metrics(c.d)
     return {"design": c.d, "applied": applied, "not_understood": unknown, "action": c.action, "before": before, "after": after,
             "supported_commands": [{"say": a, "does": b} for a, b in COMMANDS],

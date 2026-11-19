@@ -12,7 +12,7 @@ MAX_COORD = 100_000.0
 SCALAR = (int, float, str, bool, type(None))
 RANGES = {  # parameter -> (min, max); outside = refused (these values make the engine allocate without bound or divide by ~0)
     "spacing": (0.05, 20), "stitch_len": (0.2, 50), "width": (0.1, 200), "pull_comp": (-5, 5), "push_comp": (-5, 5), "overlap_mm": (0, 20),
-    "cross_size": (0.5, 50), "min_row": (0, 50), "expand_mm": (-20, 20), "comp_x": (-20, 20), "comp_y": (-20, 20), "corner_angle": (1, 179),
+    "cross_size": (0.5, 50), "estitch_w": (0.5, 10), "min_row": (0, 50), "expand_mm": (-20, 20), "comp_x": (-20, 20), "comp_y": (-20, 20), "corner_angle": (1, 179),
 }
 
 
