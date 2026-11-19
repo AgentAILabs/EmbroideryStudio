@@ -31,7 +31,7 @@ from stitchcraft_engine.raster import digitize_image, enhance_image, RasterUnava
 from stitchcraft_engine.schema import validate_design                                       # noqa: E402
 import openapi                                                                                # noqa: E402
 import ops                                                                                  # noqa: E402
-from stitchcraft_engine import machines, report as report_mod, templates, dst_analyze, dst_verify, checklist, profiles, sequence, export_pipeline, placements as placements_mod                                        # noqa: E402
+from stitchcraft_engine import fidelity, machines, report as report_mod, templates, dst_analyze, dst_verify, checklist, profiles, sequence, export_pipeline, placements as placements_mod                                        # noqa: E402
 from stitchcraft_engine.outline import column_from_outline                      # noqa: E402
 import sheet                                                                   # noqa: E402
 
@@ -297,7 +297,7 @@ def api_autodigitize(d):
     design, l2 = profiles.apply_profile(design, str(d.get("fabric", "cotton")), str(d.get("category", "blouse_neck")), overwrite=True)
     design, l3 = placements_mod.autofix(design)
     design, l4 = sequence.optimize_sequence(design)
-    return {"design": design, "log": log + l2 + l3 + l4, "import_report": imp.get("report"), "checklist": checklist.evaluate(design)}
+    return {"design": design, "log": log + l2 + l3 + l4, "import_report": imp.get("report"), "source": imp.get("source"), "checklist": checklist.evaluate(design)}
 
 
 def api_profile(d):
@@ -407,6 +407,7 @@ def api_raster(d):
     raw = base64.b64decode(d["data"])
     if raw[:4] == b"%PDF":
         raise ValueError(formats.PDF_MESSAGE)
+    original = raw                                            # the uploaded bytes are authoritative: hashed and reported, never replaced
     if d.get("erase"):
         raw = _erase_pixels(raw, float(d.get("width_mm", 80)), d["erase"])
     enh = None
@@ -426,7 +427,8 @@ def api_raster(d):
         r = digitize_image(raw, float(d.get("width_mm", 80)), int(d.get("colors", 6)), str(d.get("quality", "standard")))
     except OSError as e:                                  # PIL: truncated / damaged / unrecognised image data
         raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
-    return {"objects": r["objects"], "notes": r["notes"], "width_mm": r["size_mm"][0], "height_mm": r["size_mm"][1], "report": dict(r["report"], enhance=enh)}
+    return {"objects": r["objects"], "notes": r["notes"], "width_mm": r["size_mm"][0], "height_mm": r["size_mm"][1], "report": dict(r["report"], enhance=enh),
+            "source": fidelity.source_record(original, float(d.get("width_mm", 80)))}
 
 
 def api_enhance(d):
