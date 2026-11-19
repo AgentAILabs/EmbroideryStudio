@@ -123,3 +123,15 @@ dialog#dlgStatus .row2{display:flex;justify-content:flex-end;margin-top:10px}.st
 #sObjs label{display:flex;gap:6px;align-items:center;font-size:12px;white-space:nowrap}
 #sInspect{position:absolute;right:8px;bottom:44px;background:#0f172a;color:#e2e8f0;border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.5;z-index:15}
 .qscore table{border-collapse:collapse;font-size:12px}.qscore td{padding:2px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+
+/* enterprise palette: deep-slate navigation, light workspace, clear blue primary */
+:root{--nav:#0f172a;--nav2:#1e293b;--navline:#334155;--navink:#e2e8f0}
+#top{background:var(--nav);color:var(--navink);border-bottom:1px solid var(--navline)}
+#top .brand,#top label{color:var(--navink)}
+#top button{background:var(--nav2);border-color:var(--navline);color:var(--navink)}
+#top button:hover{border-color:#60a5fa}#top button.primary,#top .seg button.on{background:#2563eb;border-color:#2563eb;color:#fff}
+#top input,#top select,#top #docName{background:var(--nav2);border-color:var(--navline);color:var(--navink)}
+#top summary{color:var(--navink)}
+#tools{background:var(--nav);border-right:1px solid var(--navline)}
+#tools button{background:var(--nav2);border-color:var(--navline);color:var(--navink)}#tools button span{color:#94a3b8}
+#tools button.on{background:#2563eb;border-color:#2563eb}#tools hr{border-top-color:var(--navline)}#tools .chk{color:#94a3b8}

@@ -412,10 +412,46 @@ def generate(design: dict, trim_distance: Optional[float] = None):
         except (DigitizingError, KeyError, TypeError, ValueError) as e:
             notes.append(f"{oid}: skipped ({e})")
     notes += _order_notes(design)
+    _apply_entry_exit(design, objs, notes)
     pattern = build_pattern(objs, threads, design.get("name", "design"), trim_distance, lock_len=mach["lock_len"],
                             trim_at_color_change=bool(mach["trim_at_color_change"]), trim_at_end=bool(mach["trim_at_end"]),
                             choose_direction=bool(mach["smart_direction"]))
     return pattern, notes, stats(pattern, design)
+
+
+def _xy(v):
+    try:
+        a = (float(v[0]), float(v[1]))
+    except (TypeError, ValueError, IndexError, KeyError):
+        return None
+    return a if all(math.isfinite(c) for c in a) else None
+
+
+def _apply_entry_exit(design: dict, objs, notes) -> None:
+    """Honour the user's start (`entry`) / end (`exit`) hints. An object can be sewn in one of two orientations (its stitches in order, or
+    exactly reversed - same needle penetrations); the orientation whose first / last stitch is nearer the hints is used. The hints are
+    preferences about direction, never new stitch points. Manual (fixed) objects are left exactly as drawn."""
+    by = {str(o.get("id")): o for o in design.get("objects", [])}
+    for so in objs:
+        ob = by.get(so.id)
+        if not ob or so.fixed or not (ob.get("entry") or ob.get("exit")):
+            continue
+        en, ex = _xy(ob["entry"]) if ob.get("entry") else None, _xy(ob["exit"]) if ob.get("exit") else None
+        if (ob.get("entry") and en is None) or (ob.get("exit") and ex is None):
+            notes.append(f"{so.id}: entry/exit point ignored (not a valid coordinate)")
+        if en is None and ex is None:
+            continue
+        under, runs = [r for r in so.underlay_runs if r], [r for r in so.runs if r]
+        if not runs:
+            continue
+        rev_u, rev_r = [r[::-1] for r in reversed(under)], [r[::-1] for r in reversed(runs)]
+
+        def cost(u, r):
+            first, last = (u[0][0] if u else r[0][0]), r[-1][-1]
+            return (dist(first, en) if en else 0.0) + (dist(last, ex) if ex else 0.0)
+        if cost(rev_u, rev_r) + 1e-9 < cost(under, runs):
+            so.underlay_runs, so.runs = rev_u, rev_r
+            notes.append(f"{so.id}: sewn in reverse so it starts / ends nearer your entry / exit point")
 
 
 def empty_stats(design: Optional[dict] = None) -> dict:

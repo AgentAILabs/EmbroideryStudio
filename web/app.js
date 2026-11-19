@@ -31,13 +31,13 @@ function afterDocChange() { try { localStorage.setItem("es.autosave", snap()); }
 let regenTimer = null, regenSeq = 0;
 function regen() { clearTimeout(regenTimer); regenTimer = setTimeout(doRegen, 200); }
 async function doRegen() {
-  const seq = ++regenSeq;
+  const seq = ++regenSeq; const keepSim = S._keepSim; S._keepSim = false;
   if (!S.doc.objects.length) { S.gen = null; renderPanels(); draw(); return; }
   try {
     const wantFile = !!($("#sFile") && $("#sFile").checked) && S.vmode !== "design";
     const r = await fetch("/api/generate", {method: "POST", body: JSON.stringify(wantFile ? Object.assign({}, S.doc, {decoded: true}) : S.doc)});
     const j = await r.json(); if (seq !== regenSeq) return;
-    if (!r.ok) { S.gen = {error: j.error}; } else { S.gen = j; S.insp = null; showInspector(); S.sim.i = Math.min(S.sim.i, j.stitches.length); if (!S.sim.playing && (S.vmode === "stitch" || S.vmode === "3d")) S.sim.i = j.stitches.length; }
+    if (!r.ok) { S.gen = {error: j.error}; } else { S.gen = j; S.insp = null; showInspector(); S.sim.i = Math.min(S.sim.i, j.stitches.length); if (!keepSim && !S.sim.playing && (S.vmode === "stitch" || S.vmode === "3d")) S.sim.i = j.stitches.length; }
   } catch (e) { S.gen = {error: "Engine not reachable: " + e.message}; }
   renderPanels(); draw();
 }
@@ -65,6 +65,8 @@ function mapPts(o, f) {
   if (o.rings) o.rings = o.rings.map(r => r.map(p => f(p)));
   if (o.points) o.points = o.points.map(p => f(p));
   if (o.rail1) { o.rail1 = o.rail1.map(p => f(p)); o.rail2 = o.rail2.map(p => f(p)); }
+  if (o.entry) o.entry = f(o.entry);
+  if (o.exit) o.exit = f(o.exit);
   if (o.type === "text") { const p = f([o.x, o.y]); o.x = p[0]; o.y = p[1]; if (o.path) o.path = o.path.map(q => f(q)); }
 }
 function textSize(o) { const f = S.font; if (!f) return [10, o.height || 10]; const k = (o.height || 10) / f.h; let w = 0;
@@ -117,7 +119,9 @@ function selectWithGroup(id, additive) {          // selecting a member selects 
 function groupSelected() {
   const ids = selIds(); if (ids.size < 2) { alert("Select two or more objects first (Shift/Ctrl-click in the Objects list or Shift-click on the canvas)."); return; }
   const used = new Set(S.doc.objects.map(o => o.group).filter(Boolean)); let n = 1; while (used.has("group" + n)) n++;
-  S.doc.objects.forEach(o => { if (ids.has(o.id)) o.group = "group" + n; }); commit(); renderAll();
+  const gname = "group" + n; S.doc.objects.forEach(o => { if (ids.has(o.id)) o.group = gname; });
+  const mem = S.doc.objects.filter(o => o.group === gname), at = S.doc.objects.indexOf(mem[0]);      // keep the group together in stitch order
+  S.doc.objects = S.doc.objects.filter(o => o.group !== gname); S.doc.objects.splice(at, 0, ...mem); commit(); renderAll();
 }
 function ungroupSelected() {
   const gs = new Set(selObjs().map(o => o.group).filter(Boolean)); if (!gs.size) return;
@@ -169,6 +173,8 @@ function drawObjects(c) {
     c.restore();
     if (on) {
       const b = bbox(allPts(o)); if (b) { const a = toScreen([b[0], b[1]]), d = toScreen([b[2], b[3]]); c.strokeStyle = "#2563eb"; c.setLineDash([4, 3]); c.lineWidth = 1; c.strokeRect(a[0] - 4, a[1] - 4, d[0] - a[0] + 8, d[1] - a[1] + 8); c.setLineDash([]); }
+      if (o.entry) { const q = toScreen(o.entry); c.fillStyle = "#16a34a"; c.beginPath(); c.arc(q[0], q[1], 6, 0, 7); c.fill(); c.fillStyle = "#fff"; c.font = "bold 9px sans-serif"; c.fillText("S", q[0] - 3, q[1] + 3); }
+      if (o.exit) { const q = toScreen(o.exit); c.fillStyle = "#dc2626"; c.fillRect(q[0] - 6, q[1] - 6, 12, 12); c.fillStyle = "#fff"; c.font = "bold 9px sans-serif"; c.fillText("E", q[0] - 3, q[1] + 3); }
       if (o.type !== "text" && S.tool === "select") for (const p of allPts(o)) { const q = toScreen(p), hollow = o.type === "embellishment"; c.strokeStyle = "#2563eb"; c.lineWidth = 1.5; c.beginPath(); c.rect(q[0] - 4, q[1] - 4, 8, 8); if (!hollow) { c.fillStyle = "#fff"; c.fill(); } c.stroke(); }
     }
   }
@@ -314,6 +320,7 @@ cv.addEventListener("pointerdown", e => {
   cv.setPointerCapture(e.pointerId); const [sx, sy] = evP(e); const w = toWorld(sx, sy);
   if (e.button === 1 || e.button === 2 || spaceDown) { drag = {type: "pan", sx, sy, vx: S.view.x, vy: S.view.y}; return; }
   const t = S.tool;
+  if (S.pick) { const o = selObj(); if (o) { o[S.pick] = snapP(w, e.altKey).map(v => +v.toFixed(2)); commit(); } S.pick = null; renderAll(); return; }
   if (S.vmode === "stitch" && t === "select") { inspectAt(sx, sy); return; }
   if (t === "select") {
     const o = selObj();
@@ -360,7 +367,7 @@ addEventListener("keydown", e => {
   if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); saveProject(); return; }
   if ((e.ctrlKey || e.metaKey) && k === "g") { e.preventDefault(); e.shiftKey ? ungroupSelected() : groupSelected(); return; }
   if ((e.ctrlKey || e.metaKey) && k === "d") { e.preventDefault(); duplicate(0, 0); return; }
-  if (e.key === "Escape") { S.draft = null; S.colRail = null; draw(); return; }
+  if (e.key === "Escape") { S.draft = null; S.colRail = null; S.pick = null; draw(); return; }
   if ((S.vmode === "stitch" || S.vmode === "3d") && (e.key === "ArrowLeft" || e.key === "ArrowRight") && S.gen && S.gen.stitches) {
     e.preventDefault(); S.sim.playing = false; const d = (e.shiftKey ? 10 : 1) * (e.key === "ArrowLeft" ? -1 : 1); S.sim.i = Math.max(0, Math.min(S.gen.stitches.length, S.sim.i + d));
     if (S.insp != null) { S.insp = Math.max(0, Math.min(S.gen.stitches.length - 1, S.sim.i - 1)); showInspector(); } draw(); return;
@@ -450,9 +457,25 @@ function reviewRegions(objs) {      // segmentation review: keep / recolour / me
     const dlg = $("#dlgSeg"), by = {}; objs.forEach(o => { const c = (o.color || "#000000").toLowerCase(); (by[c] = by[c] || []).push(o); });
     const cols = Object.keys(by).sort((a, b) => by[b].length - by[a].length);
     $("#segRows").innerHTML = cols.map((c, i) => `<div class="row" data-c="${c}"><label><input type="checkbox" class="sk" checked> <i style="display:inline-block;width:14px;height:14px;background:${c};border:1px solid #0004;vertical-align:middle"></i> ${by[c].length} region(s), ${Math.round(by[c].reduce((a, o) => a + (objArea(o) || 0), 0))} mm²</label><input type="color" class="sc" value="${c}"></div>`).join("");
+    const off = new Set(), cvs = $("#segCv"), g = cvs.getContext("2d");
+    const pts = objs.flatMap(o => (o.rings ? o.rings.flat() : (o.points || []))), xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+    const x0 = Math.min(...xs), y0 = Math.min(...ys), k = Math.min((cvs.width - 10) / Math.max(1e-6, Math.max(...xs) - x0), (cvs.height - 10) / Math.max(1e-6, Math.max(...ys) - y0));
+    const tp = p => [5 + (p[0] - x0) * k, 5 + (p[1] - y0) * k], fp = q => [(q[0] - 5) / k + x0, (q[1] - 5) / k + y0];
+    const colOf = o => { const row = [...$("#segRows").querySelectorAll(".row")].find(r => r.dataset.c === (o.color || "#000000").toLowerCase()); return row ? row.querySelector(".sc").value : o.color; };
+    const paint = () => { g.clearRect(0, 0, cvs.width, cvs.height); g.fillStyle = "#fff"; g.fillRect(0, 0, cvs.width, cvs.height);
+      objs.forEach((o, i) => { const row = [...$("#segRows").querySelectorAll(".row")].find(r => r.dataset.c === (o.color || "#000000").toLowerCase()); const on = !off.has(i) && (!row || row.querySelector(".sk").checked);
+        g.globalAlpha = on ? 1 : .15; g.beginPath();
+        if (o.rings) { o.rings.forEach(r => r.forEach((p, j) => { const q = tp(p); j ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); if (j === r.length - 1) g.closePath(); })); g.fillStyle = colOf(o); g.fill("evenodd"); }
+        else { (o.points || []).forEach((p, j) => { const q = tp(p); j ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.strokeStyle = colOf(o); g.lineWidth = 2; g.stroke(); } });
+      g.globalAlpha = 1; };
+    cvs.onclick = ev => { const r = cvs.getBoundingClientRect(), w = fp([(ev.clientX - r.left) * cvs.width / r.width, (ev.clientY - r.top) * cvs.height / r.height]);
+      for (let i = objs.length - 1; i >= 0; i--) { const o = objs[i]; let hitIt = false;
+        if (o.rings) hitIt = o.rings.reduce((n, rg) => n + inRing(w, rg), 0) % 2 === 1; else { const P = o.points || []; for (let j = 0; j < P.length - 1; j++) if (segDist(w, P[j], P[j + 1]) < 1.5 / Math.max(k, .2) + 1) hitIt = true; }
+        if (hitIt) { off.has(i) ? off.delete(i) : off.add(i); break; } }
+      sum(); };
     const result = () => { const out = [], min = +$("#segMin").value; $("#segRows").querySelectorAll(".row").forEach(row => { if (!row.querySelector(".sk").checked) return; const nc = row.querySelector(".sc").value;
-      by[row.dataset.c].forEach(o => { const a = objArea(o); if (a !== null && a < min) return; out.push(Object.assign({}, o, {color: nc})); }); }); return out; };
-    const sum = () => { $("#segMinV").textContent = $("#segMin").value; const r = result(); $("#segSum").textContent = `${r.length} of ${objs.length} regions will be imported.`; };
+      by[row.dataset.c].forEach(o => { if (off.has(objs.indexOf(o))) return; const a = objArea(o); if (a !== null && a < min) return; out.push(Object.assign({}, o, {color: nc})); }); }); return out; };
+    const sum = () => { $("#segMinV").textContent = $("#segMin").value; const r = result(); $("#segSum").textContent = `${r.length} of ${objs.length} regions will be imported. Click a region in the preview to leave it out (click again to restore).`; paint(); };
     $("#segMin").oninput = sum; $("#segRows").onchange = sum; sum();
     dlg.onclose = () => resolve(dlg.returnValue === "go" ? result() : null); dlg.showModal();
   });
@@ -715,6 +738,7 @@ function renderProps() {
   if (o.type === "applique") h += field("Cover width mm", "width", o, {step: .25, min: 1.5}) + `<div class="row"><label title="Thread colour of the satin cover (default: the object colour)">Cover colour</label><input type="color" data-k="cover_color" value="${(o.params || {}).cover_color || o.color}"></div>` + `<div class="note">Stitches: placement line → tack-down → satin cover. The machine pauses at the colour change so you can lay fabric.</div>`;
   if (S.mode === "pro" && !["embellishment", "manual"].includes(o.type) && !o.guide) h += `<div class="btns"><button data-op="manual" title="Replace this object by its actual needle points so single stitches can be moved (stitch-level editing). The DST does not change until you edit.">Convert to manual stitches</button></div>`;
   h += `<div class="btns"><button data-op="dup">Duplicate</button><button data-op="fh">Flip ↔</button><button data-op="fv">Flip ↕</button><button data-op="r90">Rotate 90°</button>${o.rings ? `<button data-op="outline">Add border</button>` : ""}<button data-op="del">Delete</button></div>`;
+  if (!["embellishment", "manual", "text"].includes(o.type) && !o.guide) h += `<div class="row"><label title="Preferred start / end of this object. The engine sews it in whichever direction starts nearest the start point and ends nearest the end point (same stitches, no new points).">Start / end</label><span class="note">${o.entry ? "start set" : "auto"} · ${o.exit ? "end set" : "auto"}</span></div><div class="btns"><button data-op="pickEntry">Set start…</button><button data-op="pickExit">Set end…</button><button data-op="clearEE">Clear</button></div>`;
   const bb = bbox(allPts(o)); const bw = bb ? +(bb[2] - bb[0]).toFixed(2) : 0, bh = bb ? +(bb[3] - bb[1]).toFixed(2) : 0;
   h += `<div class="row"><label>Width mm</label><input type="number" id="szW" value="${bw}" step="0.5" min="1"></div><div class="row"><label>Height mm</label><input type="number" id="szH" value="${bh}" step="0.5" min="1"></div><div class="row"><label>Keep proportions</label><input type="checkbox" id="szLock" checked></div>`;
   if (o.type !== "text") h += `<div class="row"><label>Rotate °</label><span style="display:flex;gap:4px"><input type="number" id="rotDeg" value="15" step="5" style="width:50%"><button data-op="rot" style="padding:3px 6px">Apply</button></span></div>`;
@@ -742,6 +766,9 @@ function renderProps() {
     fh: () => transformSel((p, cx) => [2 * cx - p[0], p[1]], false), fv: () => transformSel((p, cx, cy) => [p[0], 2 * cy - p[1]], false),
     r90: () => transformSel((p, cx, cy) => [cx - (p[1] - cy), cy + (p[0] - cx)], false),
     repeat: () => duplicate(parseFloat($("#repX").value) || 0, parseFloat($("#repY").value) || 0, parseInt($("#repN").value) - 1 || 1),
+    pickEntry: () => { S.pick = "entry"; $("#hint").textContent = "Click on the canvas to set the START point of this object. Esc cancels."; setView("design"); },
+    pickExit: () => { S.pick = "exit"; $("#hint").textContent = "Click on the canvas to set the END point of this object. Esc cancels."; setView("design"); },
+    clearEE: () => { const t = selObj(); if (t) { delete t.entry; delete t.exit; commit(); renderAll(); } },
     unpath: () => { const t = selObj(); if (t) { delete t.path; commit(); renderAll(); } },
     manual: async () => { const t = selObj(); if (!t) return;
       try { const r = await post("/api/to_manual", {design: S.doc, id: t.id}); const i = S.doc.objects.indexOf(t);
@@ -880,7 +907,7 @@ function setView(v) {
   // simulation controls (which call setView), must NOT move the position - it used to, so Step and the slider read back the end.
   if ((v === "stitch" || v === "3d") && was === "design" && !S.sim.playing && S.gen && S.gen.stitches) S.sim.i = S.gen.stitches.length;
   if (v === "3d") { Viewer3D.resize(); feed3d(true); }
-  if ((v === "stitch" || v === "3d") && was === "design" && !S.viewDstB64 && $("#sFile").checked && S.gen && S.gen.source === "plan") regen();
+  if ((v === "stitch" || v === "3d") && was === "design" && !S.viewDstB64 && $("#sFile").checked && S.gen && S.gen.source === "plan") { S._keepSim = true; regen(); }
   draw();
 }
 const simView = () => S.vmode === "3d" ? "3d" : "stitch";      // the simulation controls keep you in the 3D view instead of dropping you back to 2D
@@ -914,7 +941,7 @@ $("#bOpen").onclick = () => $("#fileOpen").click(); $("#bImport").onclick = () =
 $("#fileOpen").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); if (!j.doc || !Array.isArray(j.doc.objects)) throw new Error("not an EmbroideryStudio project"); loadDoc(j.doc); } catch (err) { alert("Could not open: " + err.message); } e.target.value = ""; };
 $("#fileImport").onchange = e => { const f = e.target.files[0]; if (f) importFile(f); e.target.value = ""; };
 $("#docName").oninput = e => { S.doc.name = e.target.value; }; $("#docName").onchange = () => commit();
-$("#bGroup").onclick = groupSelected; $("#bUngroup").onclick = ungroupSelected; $("#sJumps").onchange = draw; $("#sTrims").onchange = draw; $("#sRulers").onchange = draw; $("#sFile").onchange = () => { if (!S.viewDstB64) regen(); };
+$("#bGroup").onclick = groupSelected; $("#bUngroup").onclick = ungroupSelected; $("#sJumps").onchange = draw; $("#sTrims").onchange = draw; $("#sRulers").onchange = draw; $("#sFile").onchange = () => { if (!S.viewDstB64) { S._keepSim = true; regen(); } };
 $("#sBack").onclick = () => { S.sim.playing = false; $("#sPlay").textContent = "▶"; setView(simView()); S.sim.i = Math.max(0, S.sim.i - 1); draw(); }; $("#sPlay").onclick = togglePlay; $("#sStep").onclick = () => { S.sim.playing = false; setView(simView()); if (S.gen) S.sim.i = Math.min(S.gen.stitches.length, S.sim.i + 1); draw(); };
 $("#sReset").onclick = () => { S.sim.playing = false; $("#sPlay").textContent = "▶"; setView(simView()); S.sim.i = 0; draw(); };
 $("#sPos").oninput = e => { const v = +e.target.value;   /* read first: setView() redraws and re-syncs the slider to the old position */

@@ -135,6 +135,19 @@ await step('Phase 5: segmentation review lets you untick a colour and drop speck
   await pg.evaluate(()=>{const c=document.querySelector('#segRows .sk');c.checked=false;c.dispatchEvent(new Event('change',{bubbles:true}))});
   const after=await pg.evaluate(()=>document.querySelector('#segSum').innerText);if(before===after)throw new Error('summary unchanged');
   await pg.click('#segGo');await wait(2000);const s=await S();if(!s.n)throw new Error('nothing imported');return before+' -> '+after+' ('+s.n+' objects)'});
+await step('Phase 5b: set start / end point on an object; markers; generation honours it',async()=>{
+  await pg.click('#bNew');await wait(300);await pg.setInputFiles('#fileImport',ROOT+'/engine/samples/flower.svg');await wait(1500);
+  await pg.evaluate(()=>{__ES.sel=__ES.doc.objects[0].id;__ESapi.renderAll()});
+  await pg.click('[data-op="pickEntry"]');const r=await pg.evaluate(()=>{const c=document.querySelector('#cv').getBoundingClientRect();return {x:c.left+c.width/2,y:c.top+c.height/2}});
+  await pg.mouse.click(r.x,r.y);await wait(300);const e=await pg.evaluate(()=>__ES.doc.objects[0].entry);if(!e)throw new Error('entry not set');
+  await pg.click('[data-op="pickExit"]');await pg.mouse.click(r.x+40,r.y+40);await wait(300);if(!await pg.evaluate(()=>__ES.doc.objects[0].exit))throw new Error('exit not set');
+  const st=await S();if(st.iss)throw new Error('errors after hints');await pg.click('[data-op="clearEE"]');const c=await pg.evaluate(()=>!!(__ES.doc.objects[0].entry||__ES.doc.objects[0].exit));if(c)throw new Error('not cleared');return 'entry '+JSON.stringify(e)});
+await step('Phase 5b: clicking a region in the review preview leaves it out',async()=>{
+  await pg.click('#bNew');await wait(300);pg.removeAllListeners('dialog');pg.on('dialog',d=>d.accept());await pg.setInputFiles('#fileImport',ROOT+'/tools/e2e_art.png');await pg.waitForSelector('#dlgImport[open]');await pg.click('#impGo');await pg.waitForSelector('#dlgSeg[open]');
+  const before=await pg.evaluate(()=>document.querySelector('#segSum').innerText.split(' ')[0]);
+  const box=await pg.evaluate(()=>{const c=document.querySelector('#segCv').getBoundingClientRect();return {x:c.left,y:c.top,w:c.width,h:c.height}});
+  let changed=false;for(const fx of [.5,.3,.7,.4,.6]){for(const fy of [.5,.3,.7]){await pg.mouse.click(box.x+box.w*fx,box.y+box.h*fy);const a=await pg.evaluate(()=>document.querySelector('#segSum').innerText.split(' ')[0]);if(a!==before){changed=true;break}}if(changed)break}
+  if(!changed)throw new Error('no region toggled');await pg.click('#segGo');await wait(1500);return 'regions '+before+' -> fewer'});
 await pg.screenshot({path:SP+'/e2e-final.png'});
 for(const r of res)console.log(r[0],'|',r[1],'|',r[2]);
 console.log('page errors:',errs.length?errs:'none','| HTTP 5xx:',bad.length?bad:'none');console.log('artifacts in',SP);await b.close();
