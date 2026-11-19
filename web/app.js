@@ -386,6 +386,7 @@ function importSummary(r, scaled) {
   return l;
 }
 async function importFile(file) {
+  if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") { alert("PDF import is not currently supported. Please export your artwork as SVG, PNG or JPG."); return; }
   try {
     let res;
     if (/\.svg$/i.test(file.name)) { res = await post("/api/import/svg", {svg: await file.text()}); }
@@ -406,9 +407,9 @@ function saveProject() { download((S.doc.name || "design").replace(/[^\w-]+/g, "
 function loadDoc(d) { S.doc = Object.assign(newDoc(), d); S.doc.hoop = Object.assign({margin: 3}, S.doc.hoop); S.sel = null; S.n = 1 + Math.max(0, ...S.doc.objects.map(o => parseInt(String(o.id).replace(/\D/g, "")) || 0)); S.hist = []; S.hi = -1; commit(); renderAll(); fit(); }
 async function exportDst() {
   const r = await fetch("/api/export/dst", {method: "POST", body: JSON.stringify(S.doc)});
-  if (!r.ok) { const j = await r.json(); alert("Export blocked:\n" + (j.issues || [{message: j.error}]).filter(i => !i.severity || i.severity === "error").map(i => "• " + i.message).join("\n")); return; }
+  if (!r.ok) { const j = await r.json(); alert("This design cannot be exported yet:\n\n" + (j.issues || [{message: j.error}]).filter(i => !i.severity || i.severity === "error").map(i => "• " + friendlyLine(i)).join("\n")); return; }
   download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + ".dst", await r.arrayBuffer(), "application/octet-stream");
-  if ((S.gen && S.gen.issues || []).some(i => i.severity === "warning")) alert("Exported with warnings (see Checks). Stitch a test sample before production use.");
+  alert("DST downloaded." + ((S.gen && S.gen.issues || []).some(i => i.severity === "warning") ? " There are warnings (see Checks)." : "") + "\n\nThis software has not been validated on a physical machine yet. Stitch a test sample on your real fabric and stabiliser before production.");
 }
 function renderPreview(px) {
   const off = document.createElement("canvas"); off.width = off.height = px; const c = off.getContext("2d"), h = S.doc.hoop;
@@ -442,18 +443,13 @@ async function exportPackage() {
   if (!r.ok) { const j = await r.json().catch(() => ({})); alert("Package blocked:\n" + ((j.issues || []).filter(i => i.severity === "error").map(i => "• " + i.message).join("\n") || j.error || r.statusText)); return; }
   download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + "-package.zip", await r.arrayBuffer(), "application/zip");
 }
-async function exportExp() {
-  const r = await fetch("/api/export/exp", {method: "POST", body: JSON.stringify(S.doc)});
-  if (!r.ok) { const j = await r.json().catch(() => ({})); alert("Export blocked:\n" + ((j.issues || []).filter(i => i.severity === "error").map(i => "• " + i.message).join("\n") || j.error || r.statusText)); return; }
-  download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + ".exp", await r.arrayBuffer(), "application/octet-stream");
-}
 async function exportSvg() { if (!S.doc.objects.length) return; const r = await fetch("/api/export/svg", {method: "POST", body: JSON.stringify(S.doc)}); if (!r.ok) { alert("Preview failed"); return; } download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + ".preview.svg", await r.text(), "image/svg+xml"); }
 const b64 = buf => { let bin = ""; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192)); return btoa(bin); };
 function renderQuality(j, title) {
   const v = j.verify, a = j.analysis, m = v.metrics || {};
   $("#qTitle").textContent = title;
   $("#qBody").innerHTML = `<div class="grade"><span class="chip ${v.grade}">${v.grade}</span><span>${v.grade === "PASS" ? "Passed every stage." : v.grade === "WARN" ? "Usable, with points to review." : "Do not stitch this until the failures are fixed."}</span></div>
-  <div class="met"><span><b>${a.stitches}</b> stitches</span><span><b>${a.colour_blocks}</b> colour block(s)</span><span><b>${a.trims}</b> trims</span><span><b>${a.size_mm[0]} × ${a.size_mm[1]}</b> mm</span><span>≈ <b>${a.est_minutes}</b> min</span><span>median stitch <b>${a.len_median}</b> mm</span><span>max density <b>${a.dens_max}</b>/mm²</span></div>` +
+  <div class="met"><span><b>${a.stitches}</b> stitches</span><span><b>${a.colour_blocks}</b> colour block(s)</span><span><b>${a.trims}</b> trims</span><span><b>${a.size_mm[0]} × ${a.size_mm[1]}</b> mm</span><span>≈ <b>${a.est_minutes}</b> min <small>(estimate, not verified)</small></span><span>median stitch <b>${a.len_median}</b> mm</span><span>max density <b>${a.dens_max}</b>/mm²</span></div>` +
     v.stages.map(s => `<div class="stage"><b><span class="chip ${s.result}">${s.result}</span>${esc(s.stage)}</b><div class="chk2">${s.checks.map(c => `<span class="chip ${c.level}" style="font-size:10px;align-self:start">${c.level}</span><span>${esc(c.what)}</span><span class="ev">${esc(c.evidence)}</span>`).join("")}</div></div>`).join("") +
     `<p class="note">Automated checks of the file's structure and stitch data. They cannot replace a test stitch-out on your fabric and stabiliser.</p>`;
 }
@@ -485,7 +481,7 @@ function checklistHtml(cl) {
 }
 /* ---------------------------------------------------------------- auto-digitize wizard */
 const CATS = {blouse_neck: "Maggam blouse neck", floral: "Maggam floral motif", saree_border: "Saree border / motif", logo: "Logo / lettering"};
-const FABS = {cotton: "Cotton", blouse: "Blouse fabric (raw silk / cotton silk)", silk: "Silk", georgette: "Georgette / chiffon", velvet: "Velvet", stretch: "Stretch / knit", denim: "Denim / canvas"};
+const FABS = {cotton: "Cotton (experimental)", blouse: "Blouse fabric (experimental)", silk: "Silk (experimental)", georgette: "Georgette / chiffon (experimental)", velvet: "Velvet (experimental)", stretch: "Stretch / knit (experimental)", denim: "Denim / canvas (experimental)"};
 const WZ = {step: 1, file: null, res: null};
 const TESTSTEPS = ["Load the DST on the Ricoma and check the size shown matches the report", "Trace the design outline: it must clear the hoop", "Select needle, thread and stabiliser listed on the production sheet",
   "Stitch on a sample of the real garment fabric", "Watch for thread breaks, puckering, skipped stitches, registration (outlines on fills)", "Note what to change (density, underlay, pull comp) and adjust in the editor",
@@ -510,7 +506,7 @@ async function wizardRun() {
     WZ.res = r; $("#wzLog").textContent = $("#wzLog2").textContent = "• " + r.log.join("\n• ");
     const sv = await fetch("/api/export/svg", {method: "POST", body: JSON.stringify(r.design)});
     $("#wzPrev").innerHTML = sv.ok ? `<img alt="stitch preview" src="${URL.createObjectURL(new Blob([await sv.text()], {type: "image/svg+xml"}))}">` : "Preview not available";
-    const st = r.checklist.stats; $("#wzStats").textContent = `${st.stitches} stitches · ${st.color_changes + 1} colour(s) · ${st.trims} trims · ${st.width_mm} × ${st.height_mm} mm · ~${st.est_minutes} min`;
+    const st = r.checklist.stats; $("#wzStats").textContent = `${st.stitches} stitches · ${st.color_changes + 1} colour(s) · ${st.trims} trims · ${st.width_mm} × ${st.height_mm} mm · ~${st.est_minutes} min (estimate, not verified)`;
     $("#wzChecks").innerHTML = checklistHtml(r.checklist);
     $("#wzExport").disabled = !r.checklist.export_allowed;
     loadDoc(r.design); setView("stitch");
@@ -580,7 +576,7 @@ function renderLibrary() {
   const q = libQ.trim().toLowerCase();
   const list = LIB.filter(d => (libCat === "All" || d.category === libCat) && (!q || (d.name + " " + d.description + " " + d.category).toLowerCase().includes(q)));
   $("#libgrid").innerHTML = list.map(d => `<div class="card"><img loading="lazy" alt="${esc(d.name)}" src="/api/library/${d.id}/thumb.svg">
-    <div class="m"><b>${esc(d.name)}</b>${esc(d.category)} · ${d.width_mm} × ${d.height_mm} mm<br>${d.stitches} stitches · ${d.colours} colour${d.colours > 1 ? "s" : ""} · ~${d.est_minutes} min<br>${(d.threads || []).map(h => `<span class="sw2" style="background:${esc(h)}"></span>`).join("")}</div>
+    <div class="m"><b>${esc(d.name)}</b>${esc(d.category)} · ${d.width_mm} × ${d.height_mm} mm<br>${d.stitches} stitches · ${d.colours} colour${d.colours > 1 ? "s" : ""} · ~${d.est_minutes} min (est.)<br>${(d.threads || []).map(h => `<span class="sw2" style="background:${esc(h)}"></span>`).join("")}</div>
     <div class="b"><button data-act="open" data-id="${d.id}" title="Open in the editor">Open</button><button data-act="3d" data-id="${d.id}" title="Open and view in 3D">3D</button><a href="/api/library/${d.id}/dst" download="${d.id}.dst" title="Download the DST">DST</a></div></div>`).join("") || `<div class="note" style="padding:20px">${LIB.length ? "No designs match." : "The library is empty or could not be loaded."}</div>`;
 }
 async function openFromLibrary(id, to3d) {
@@ -683,11 +679,11 @@ function renderDesign() {
   <div class="row"><label>Safe margin mm</label><input type="number" id="hm" value="${d.hoop.margin}" step=".5" min="0"></div>
   <div class="row"><label>Stabiliser</label><select id="stab">${["cut-away", "tear-away", "wash-away", "none"].map(k => `<option ${k === (d.stabiliser || "cut-away") ? "selected" : ""}>${k}</option>`).join("")}</select></div>
   <div class="row"><label title="Finer thread needs closer stitch lines. 120/2 blouse thread: 0.22 mm; 40 wt: 0.40 mm">Thread weight</label><select id="thr">${Object.keys(THREADS).map(k => `<option value="${k}" ${k === (d.thread || "40wt") ? "selected" : ""}>${THREADS[k]}</option>`).join("")}</select></div>
-  <div class="row"><label>Fabric preset</label><select id="fab">${Object.keys(FABRICS).map(k => `<option ${k === d.fabric ? "selected" : ""}>${k}</option>`).join("")}</select></div>
+  <div class="row"><label>Fabric preset</label><select id="fab">${Object.keys(FABRICS).map(k => `<option value="${k}" ${k === d.fabric ? "selected" : ""}>${k} (experimental)</option>`).join("")}</select></div>
   <div class="row"><label title="Digitizing category: sets running-stitch length and underlay weight">Category</label><select id="pfCat">${Object.entries(CATS).map(([k, l]) => `<option value="${k}" ${k === ((d.profile || {}).category || "blouse_neck") ? "selected" : ""}>${l}</option>`).join("")}</select></div>
-  <div class="row"><label title="Profile fabric (7 fabrics) - independent of the older fabric preset above">Profile fabric</label><select id="pfFab">${Object.entries(FABS).map(([k, l]) => `<option value="${k}" ${k === ((d.profile || {}).fabric || "cotton") ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+  <div class="row"><label title="Experimental: values come from measurements of other files and have not been stitched on a machine">Profile fabric</label><select id="pfFab">${Object.entries(FABS).map(([k, l]) => `<option value="${k}" ${k === ((d.profile || {}).fabric || "cotton") ? "selected" : ""}>${l}</option>`).join("")}</select></div>
   <div class="btns"><button id="pfApply" title="Set density, underlay, pull / push compensation, corners, cut-hidden-layers on every object from the fabric + category + thread (values you set yourself are kept) and optimise the sewing order. Undoable.">Apply profile</button><button id="pfReset" title="Same, but replace values you set yourself too">Apply &amp; overwrite</button><button id="pfSeq" title="Only reorder objects (same colours, same layering) to cut trims and travel">Optimise sequence</button></div>
-  <div class="note">Fabric values are unverified starting points; they apply to new objects. <button id="fabApply" style="padding:1px 6px">Apply to all</button></div>
+  <div class="note"><b>Experimental:</b> fabric presets are starting values that have not been tested on a machine. They apply to new objects. <button id="fabApply" style="padding:1px 6px">Apply to all</button></div>
   <div class="row"><label>Max stitch mm</label><input type="number" id="mMax" value="${(d.machine || {}).max_stitch ?? 7}" step=".5" min="1" max="12.1"></div>
   <div class="row"><label title="Jumps longer than this get a trim">Trim above mm</label><input type="number" id="mTrim" value="${(d.machine || {}).trim_distance ?? 3}" step=".5" min=".5"></div>
   <div class="row"><label title="DST has no trim command; machines differ. Confirm on yours.">Trim jumps</label><input type="number" id="mJ" value="${(d.machine || {}).trim_jumps ?? 3}" step="1" min="1" max="6"></div>
@@ -745,14 +741,30 @@ function renderStats() {
   const g = S.gen, el = $("#stats"), il = $("#issues");
   if (!g) { el.innerHTML = `<span>Add objects to see stitch data.</span>`; il.innerHTML = ""; return; }
   if (g.error) { el.innerHTML = `<span class="e">${esc(g.error)}</span>`; il.innerHTML = ""; return; }
-  const s = g.stats; el.innerHTML = `<span>Stitches</span><b>${s.stitches}</b><span>Size</span><b>${s.width_mm} × ${s.height_mm} mm</b><span>Colour changes</span><b>${s.color_changes}</b><span>Trims / jumps</span><b>${s.trims} / ${s.jumps}</b><span>Est. time</span><b>~${s.est_minutes} min</b>`;
+  const s = g.stats; el.innerHTML = `<span>Stitches</span><b>${s.stitches}</b><span>Size</span><b>${s.width_mm} × ${s.height_mm} mm</b><span>Colour changes</span><b>${s.color_changes}</b><span>Trims / jumps</span><b>${s.trims} / ${s.jumps}</b><span title="Calculated from an assumed machine speed; not verified on a machine">Est. time</span><b>~${s.est_minutes} min <small>(estimate, not verified)</small></b>`;
   const items = g.issues.reduce((a, i) => { const k = i.code + i.severity; (a[k] = a[k] || {...i, n: 0}).n++; return a; }, {});
-  const lst = Object.values(items).map(i => `<li class="${i.severity === "error" ? "e" : "w"}">${i.severity === "error" ? "✖" : "⚠"} ${esc(HELP[i.code] || i.message)}${i.n > 1 ? ` <small>(×${i.n})</small>` : ""}</li>`);
+  const lst = Object.values(items).map(i => `<li class="${i.severity === "error" ? "e" : "w"}">${i.severity === "error" ? "✖" : "⚠"} ${esc(friendly(i)[0])}${i.n > 1 ? ` <small>(×${i.n})</small>` : ""}${friendly(i)[1] ? `<span class="advice">${esc(friendly(i)[1])}</span>` : ""}</li>`);
   (g.notes || []).forEach(n => lst.push(`<li class="w">ℹ ${esc(n)}</li>`));
   il.innerHTML = lst.join("") || `<li class="ok">✔ No problems found</li>`;
 }
-const HELP = {HOOP: null, STITCH_SHORT: "Some stitches are very short (<0.3 mm). Increase row spacing or simplify tiny shapes.", DENSITY: null, STITCH_LONG: "Some stitches are long and may snag. Shorten stitch length or split wide satin columns.", ZERO_LENGTH: "Duplicate stitch points found."};
-Object.keys(HELP).forEach(k => HELP[k] === null && delete HELP[k]);
+// Plain-language wording for shop owners: what it means + what to do. Numbers from the engine message are kept where they help.
+const HELP = {
+  HOOP: m => ["The design is too big for the hoop.", "Make it smaller, or pick a bigger hoop in the Design panel. " + (m.match(/\d[\d.]* ?x ?\d[\d.]* mm/) ? "(" + m.match(/\d[\d.]* ?x ?\d[\d.]* mm/)[0] + " does not fit with the safe margin)" : "")],
+  DENSITY: m => ["The stitches are packed very tightly in some spots, which can break needles or damage thin fabric.", "Open the stitch spacing a little, or use Auto-fix (Design panel)."],
+  STITCH_SHORT: () => ["Some stitches are extremely short.", "Increase row spacing or simplify tiny shapes."],
+  STITCH_LONG: () => ["Some stitches are long and may snag or loop.", "Shorten the stitch length or let wide satin columns split automatically."],
+  STITCH_TOO_LONG_DST: () => ["A stitch is longer than the DST format allows (12.1 mm).", "Shorten the stitch length."],
+  ZERO_LENGTH: () => ["Some points are stitched twice in the same place.", "Auto-fix removes duplicate points."],
+  COLOR_SEQ: () => ["A colour change goes to the thread already in use.", "Merge the two objects into one colour, or reorder them."],
+  DOUBLE_COLOR: () => ["Two colour changes follow each other.", "Remove the empty colour between them."],
+  EMPTY: () => ["There is nothing to stitch yet.", "Draw or import some artwork first."],
+  NO_END: () => ["The file does not end properly.", "Try exporting again; if it repeats, report it."],
+  MULTI_END: () => ["The file ends more than once.", "Try exporting again; if it repeats, report it."],
+  THREAD_INDEX: () => ["A thread colour is missing.", "Check the colours of your objects."]
+};
+const friendly = i => { const h = HELP[i.code]; return h ? h(i.message || "") : [i.message || "Something needs a look.", ""]; };
+const friendlyLine = i => { const [a, b] = friendly(i); return a + (b ? " " + b : ""); };
+
 
 /* ---------------------------------------------------------------- simulation */
 let raf = null;
@@ -795,7 +807,7 @@ $("#libq").oninput = e => { libQ = e.target.value; renderLibrary(); };
 $("#libcats").onclick = e => { if (e.target.dataset.cat) { libCat = e.target.dataset.cat; renderLibrary(); } };
 $("#libgrid").onclick = e => { const b = e.target.closest("button[data-act]"); if (b) openFromLibrary(b.dataset.id, b.dataset.act === "3d"); };
 $("#v3fab").onchange = e => Viewer3D.setFabric(e.target.value); $("#v3reset").onclick = () => Viewer3D.reset();
-$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bExp").onclick = exportExp; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => { $("#mMore").open = false; $("#fileDst").click(); }; $("#bQuality").onclick = qualityCheck; $("#bEnhance").onclick = () => { $("#mMore").open = false; $("#fileEnhance").click(); }; $("#fileEnhance").onchange = e => { const f = e.target.files[0]; if (f) enhanceFile(f); e.target.value = ""; }; $("#bLetter").onclick = openLettering; $("#ltGo").onclick = e => { e.preventDefault(); lettering(); }; $("#bSet").onclick = openSet; $("#bWizard").onclick = openWizard;
+$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => { $("#mMore").open = false; $("#fileDst").click(); }; $("#bQuality").onclick = qualityCheck; $("#sbMore").onclick = () => $("#dlgStatus").showModal(); fetch("/api/formats").then(r => r.json()).then(f => { $("#sbFmt").textContent = f.export.map(x => x.id.toUpperCase()).join(", ") + " only"; }).catch(() => {}); $("#bEnhance").onclick = () => { $("#mMore").open = false; $("#fileEnhance").click(); }; $("#fileEnhance").onchange = e => { const f = e.target.files[0]; if (f) enhanceFile(f); e.target.value = ""; }; $("#bLetter").onclick = openLettering; $("#ltGo").onclick = e => { e.preventDefault(); lettering(); }; $("#bSet").onclick = openSet; $("#bWizard").onclick = openWizard;
 $("#wzGo").onclick = e => { e.preventDefault(); wizardRun(); };
 $("#dlgWizard").addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (!b) return; e.preventDefault(); const n = +b.dataset.go; if (n > 2 && !WZ.res) return; if (n === 6) renderTestSteps(); wzStep(n); });
 $("#wzExport").onclick = e => { e.preventDefault(); exportDst(); };

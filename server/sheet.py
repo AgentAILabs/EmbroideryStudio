@@ -4,7 +4,7 @@ from datetime import datetime
 
 from stitchcraft_engine.design import generate, run_checks, machine
 from stitchcraft_engine.dst import write_dst, read_dst
-from stitchcraft_engine.exp import write_exp
+from stitchcraft_engine import formats
 from stitchcraft_engine.preview import preview_svg
 from stitchcraft_engine.checklist import colour_report_csv, evaluate as checklist_evaluate
 
@@ -49,11 +49,12 @@ def sheet_html(design: dict, pattern=None, notes=None, st=None, issues=None) -> 
 h1{{margin:0}}.m{{color:#555}}.sw{{display:inline-block;width:16px;height:16px;border:1px solid #000;vertical-align:middle}}.e{{color:#b91c1c}}.w{{color:#b45309}}
 .prev{{float:right;width:380px;border:1px solid #ccc;margin:0 0 12px 16px}}.prev svg{{width:100%;height:auto;display:block}}@media print{{body{{margin:8mm}}}}</style></head><body>
 <h1>{E(design.get('name', 'design'))}</h1><p class="m">EmbroideryStudio production sheet · {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+<p style="border:2px solid #b45309;background:#fffbeb;padding:6px 10px"><b>Not yet physically validated.</b> Export format: DST only. Fabric presets are experimental and the time is an estimate. Stitch a test sample on the real fabric before production.</p>
 <div class="prev">{svg}</div>
 <p><b>Design size:</b> {st['width_mm']} × {st['height_mm']} mm<br><b>Hoop:</b> {E(hoop)}<br>
-<b>Fabric preset:</b> {E(design.get('fabric', '-'))} (unverified starting values)<br><b>Stabiliser:</b> {E(design.get('stabiliser') or 'cut-away')}<br>
+<b>Fabric preset:</b> {E(design.get('fabric', '-'))} (<b>experimental</b> - not tested on a machine)<br><b>Stabiliser:</b> {E(design.get('stabiliser') or 'cut-away')}<br>
 <b>Stitches:</b> {st['stitches']}<br><b>Colour changes:</b> {st['color_changes']} · <b>Trims:</b> {st['trims']} · <b>Jumps:</b> {st['jumps']}<br>
-<b>Estimated run time:</b> ~{st['est_minutes']} min at {st['assumed_spm']:.0f} spm (assumed)<br>
+<b>Estimated run time:</b> ~{st['est_minutes']} min at an assumed {st['assumed_spm']:.0f} spm - <b>estimate, not verified on a machine</b><br>
 <b>Machine profile:</b> max stitch {m['max_stitch']} mm · trim above {m['trim_distance']} mm · {m['trim_jumps']} trim jumps (DST has no trim code - confirm on your machine)<br>
 <b>Thread locks:</b> {('tie-in/tie-off ' + str(m['lock_len']) + ' mm, ' + str(st.get('lock_stitches', 0)) + ' lock stitches added') if m['lock_len'] else 'off'} · trim at colour change: {'yes' if m['trim_at_color_change'] else 'no'} · trim at end: {'yes' if m['trim_at_end'] else 'no'}</p>
 <h3>Colour order</h3><table><tr><th>#</th><th>Thread</th><th>Stitches</th></tr>{rows}</table>
@@ -114,9 +115,10 @@ def package(design: dict):
         f"{n}.preview.svg": preview_svg(pattern, float(h.get("w", 0)), float(h.get("h", 0))).encode(),
         f"{n}.production-sheet.html": sheet_html(design, pattern, notes, st, rep.issues).encode(),
         f"{n}.stitchcraft.json": json.dumps(pattern.to_dict()).encode(),
-        f"{n}.exp": write_exp(pattern, trim_jumps=m["trim_jumps"]),
         f"{n}.colours.csv": colour_report_csv(design, st).encode(),
     }
+    if formats.is_exposed("exp"):                       # EXPERIMENTAL, off by default: DST is the only supported machine format
+        files[f"{n}.exp"] = formats.get_writer("exp")(pattern, trim_jumps=m["trim_jumps"])
     cut = applique_cut_svg(design)
     if cut:
         files[f"{n}.applique-cut.svg"] = cut.encode()
@@ -124,7 +126,7 @@ def package(design: dict):
     manifest = "\n".join([f"EmbroideryStudio export package · {datetime.now().isoformat(timespec='seconds')}",
                           f"design: {design.get('name', 'design')}", f"stitches: {st['stitches']}  colour changes: {st['color_changes']}",
                           f"trim jumps: {m['trim_jumps']}", f"DST records: {res.record_count}", f"DST sha256: {res.sha256}", "",
-                          f"{n}.exp: Melco EXP of the same stitches; trims are written as {m['trim_jumps']} zero-move jumps (no agreed trim opcode in EXP). Read back by pyembroidery in CI; not machine-tested.",
+                          "Machine format: DST only. DST has been validated in software; it has NOT been validated on a physical machine.",
                           DISCLAIMER, "", "CHECKS", checks, ""])
     files["MANIFEST.txt"] = manifest.encode()
     buf = io.BytesIO()

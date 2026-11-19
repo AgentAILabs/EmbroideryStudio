@@ -1,5 +1,5 @@
 """Builds the physical stitch-out test pack (requirements section F).
-    python3 tools/make_testpack.py [out_dir]       default: testpack/
+    python3 tools/make_testpack.py [out_dir] [--hoop WxH[xMARGIN]]      default: testpack/v2/  (testpack/ itself = v1, kept untouched)
 For each design: .dst (validated + round-trip read back), .esproj (open in the Studio), preview .svg,
 plus RESULTS.csv and RESULTS.html (printable sheet) to record what the machine actually did.
 Designs are deliberately plain so a failure points at ONE variable."""
@@ -97,11 +97,55 @@ def designs():
             end = start + 5
         return row
     out["12_trims_locks"] = D("12_trims_locks", trim_row("r", RED, -10) + trim_row("b", BLUE, 10))
+    # ---------------------------------------------------------------- v2 additions
+    # 13. orientation + measuring: a 60 x 40 mm frame (non-square, so a swapped X/Y is obvious), a horizontal and a vertical ruler line with a tick
+    #     every 10 mm, an arrow head on the +X end and on the +Y (up) end, and a filled square ONLY in the upper-right corner.
+    #     On the machine: the 60 mm side must run left-right, the arrow must point right / up, the square must be top-right as you face the machine.
+    def arrow(i, tip, d):  # small chevron at `tip`, pointing in direction d = (dx, dy) (engine y is down)
+        (tx, ty), (dx, dy) = tip, d; nx, ny = -dy, dx
+        return {"id": i, "type": "run", "color": BLACK, "points": [[tx - dx * 4 + nx * 2.5, ty - dy * 4 + ny * 2.5], [tx, ty], [tx - dx * 4 - nx * 2.5, ty - dy * 4 - ny * 2.5]]}
+    ticks = [{"id": f"th{k}", "type": "run", "color": BLACK, "points": [[-30 + k * 10, 0], [-30 + k * 10, -2.5]]} for k in range(7)] + \
+            [{"id": f"tv{k}", "type": "run", "color": BLACK, "points": [[0, 20 - k * 10], [2.5, 20 - k * 10]]} for k in range(5)]
+    out["13_axis_orientation"] = D("13_axis_orientation", [
+        {"id": "frame", "type": "run", "color": BLACK, "closed": True, "points": rect(-30, -20, 60, 40), "name": "60 x 40 mm frame"},
+        {"id": "hline", "type": "run", "color": BLACK, "points": [[-30, 0], [30, 0]], "name": "horizontal ruler, 60 mm"},
+        {"id": "vline", "type": "run", "color": BLACK, "points": [[0, 20], [0, -20]], "name": "vertical ruler, 40 mm"},
+        arrow("ah", (30, 0), (1, 0)), arrow("av", (0, -20), (0, -1)),
+        {"id": "marker", "type": "fill", "color": RED, "rings": [rect(18, -18, 10, 10)], "name": "marker: TOP-RIGHT only"}] + ticks)
+    # 14. small running-stitch design: a 24 mm circle and a 5-point star (2.5 mm stitches, no satin / fill)
+    import math as _m
+    star = [[(10 if k % 2 == 0 else 4.2) * _m.cos(_m.pi * k / 5 - _m.pi / 2) + 22, (10 if k % 2 == 0 else 4.2) * _m.sin(_m.pi * k / 5 - _m.pi / 2)] for k in range(10)]
+    out["14_running_small"] = D("14_running_small", [
+        {"id": "c", "type": "run", "color": BLUE, "closed": True, "points": [[-18 + 12 * _m.cos(k * _m.pi / 12), 12 * _m.sin(k * _m.pi / 12)] for k in range(24)], "params": {"stitch_len": 2.5}},
+        {"id": "s", "type": "run", "color": RED, "closed": True, "points": [[x - 18, y] for x, y in star], "params": {"stitch_len": 2.5}}])
+    # 15. jump movement: four small crosses at the corners of an 80 x 80 mm square. The needle must cross 80 mm between them (several
+    #     12.1 mm records per jump). Trim distance is set high so the thread is CARRIED (no trims): this isolates the frame movement.
+    def cross(i, cx, cy):
+        return [{"id": i + "a", "type": "run", "color": BLACK, "points": [[cx - 3, cy], [cx + 3, cy]]}, {"id": i + "b", "type": "run", "color": BLACK, "points": [[cx, cy - 3], [cx, cy + 3]]}]
+    d15 = D("15_jump_movement", cross("p1", -40, -40) + cross("p2", 40, -40) + cross("p3", 40, 40) + cross("p4", -40, 40))
+    d15["machine"] = {"trim_distance": 200, "trim_at_color_change": 0, "trim_at_end": 1}
+    out["15_jump_movement"] = d15
+    # 16. hoop boundary: the largest design the hoop check allows (hoop minus margin each side) with a frame and corner marks.
+    #     Needs the hoop this pack was generated for: run with --hoop WxH for your real hoop.
+    w, h = HOOP["w"] - 2 * HOOP["margin"], HOOP["h"] - 2 * HOOP["margin"]
+    out["16_hoop_boundary"] = D("16_hoop_boundary", [{"id": "fr", "type": "run", "color": BLACK, "closed": True, "points": rect(-w / 2, -h / 2, w, h), "name": "largest allowed area"},
+        {"id": "d1", "type": "run", "color": RED, "points": [[-w / 2, -h / 2], [-w / 2 + 8, -h / 2 + 8]]}, {"id": "d2", "type": "run", "color": RED, "points": [[w / 2, h / 2], [w / 2 - 8, h / 2 - 8]]}])
+    # 17-22. fabric-specific: one small design per PROVISIONAL fabric preset (30 mm tatami square + 40 mm satin column + outline), parameters
+    #     exactly as the editor applies that preset. Stitch each on that fabric; none of the preset values has been verified on a machine.
+    from stitchcraft_engine.design import FABRICS
+    for k, (fab, vals) in enumerate(FABRICS.items()):
+        pr = {"spacing": vals["spacing"], "pull_comp": vals["pull_comp"]}
+        out[f"{17 + k}_fabric_{fab}"] = D(f"{17 + k}_fabric_{fab}", [
+            {"id": "f", "type": "fill", "color": RED, "rings": [rect(-15, -22, 30, 22)], "params": dict(pr)},
+            {"id": "s", "type": "satin", "color": BLUE, "points": [[-20, 14], [20, 14]], "params": dict(pr, width=3)},
+            {"id": "o", "type": "run", "color": BLACK, "closed": True, "points": rect(-15, -22, 30, 22)}], fabric=fab)
     return out
 
 
-COLS = ["design", "file", "stitches", "size_mm", "est_min", "colour_changes", "thread_breaks", "puckering", "registration",
-        "trim_behaviour", "colour_change_position", "fabric", "stabiliser", "needle", "speed_spm", "pass_fail", "notes"]
+COLS = ["design", "file", "dst_version_sha256_12", "stitch_count", "size_mm", "est_min_UNVERIFIED", "colour_changes",
+        "machine_model", "fabric", "stabiliser", "thread", "needle", "hoop", "speed_spm",
+        "thread_breaks", "puckering", "registration", "jump_trim_behaviour", "colour_change_position", "overall_result", "notes"]
+# overall_result: leave EMPTY until stitched. Allowed once stitched: PASS / FAIL / PASS WITH NOTES. Nothing in this repository pre-fills it.
 
 
 def build(out_dir: Path):
@@ -112,30 +156,46 @@ def build(out_dir: Path):
         rep = run_checks(d, p)
         if not rep.ok:
             problems.append((name, [i.message for i in rep.errors])); continue
-        res = write_dst(p, trim_jumps=3)
+        from stitchcraft_engine.design import machine
+        res = write_dst(p, trim_jumps=machine(d)["trim_jumps"])
         back = read_dst(res.data)
         assert back.ends_properly and back.color_changes == st["color_changes"], name
         (out_dir / f"{name}.dst").write_bytes(res.data)
         (out_dir / f"{name}.esproj").write_text(json.dumps({"app": "EmbroideryStudio", "version": 1, "doc": d}, indent=1))
         (out_dir / f"{name}.preview.svg").write_text(preview_svg(p, HOOP["w"], HOOP["h"]))
-        rows.append({"design": name, "file": f"{name}.dst", "stitches": st["stitches"], "size_mm": f"{st['width_mm']} x {st['height_mm']}",
-                     "est_min": st["est_minutes"], "colour_changes": st["color_changes"],
-                     "warnings": "; ".join(sorted({i.code for i in rep.warnings} | set()))})
+        rows.append({"design": name, "file": f"{name}.dst", "dst_version_sha256_12": res.sha256[:12], "stitch_count": st["stitches"],
+                     "size_mm": f"{st['width_mm']} x {st['height_mm']}", "est_min_UNVERIFIED": st["est_minutes"], "colour_changes": st["color_changes"],
+                     "hoop": f"{d['hoop']['w']} x {d['hoop']['h']} mm", "fabric": d.get("fabric", "") if name[:2] in ("17", "18", "19", "20", "21", "22") else "",
+                     "warnings": "; ".join(sorted({i.code for i in rep.warnings} | set())), "sha256": res.sha256})
     with open(out_dir / "RESULTS.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=COLS, extrasaction="ignore"); w.writeheader(); w.writerows(rows)
-    tr = "".join(f"<tr><td><b>{html.escape(r['design'])}</b><br>{r['stitches']} st · {r['size_mm']} mm<br>~{r['est_min']} min · {r['colour_changes']} col.chg"
-                 f"{'<br><i>' + html.escape(r['warnings']) + '</i>' if r['warnings'] else ''}</td>" + "<td></td>" * 9 + "</tr>" for r in rows)
+    (out_dir / "MANIFEST.json").write_text(json.dumps({
+        "pack": "EmbroideryStudio machine test pack", "hoop_mm": [HOOP["w"], HOOP["h"], HOOP["margin"]], "physically_validated": False,
+        "note": "Every design below is UNSTITCHED. No result, pass or fail, exists for any file until a person records it in RESULTS.",
+        "files": [{"file": r["file"], "sha256": r["sha256"], "stitches": r["stitch_count"], "size_mm": r["size_mm"]} for r in rows]}, indent=1))
+    tr = "".join(f"<tr><td><b>{html.escape(r['design'])}</b><br>DST {r['dst_version_sha256_12']}<br>{r['stitch_count']} stitches · {r['size_mm']} mm<br>"
+                 f"est. ~{r['est_min_UNVERIFIED']} min (not verified) · {r['colour_changes']} colour change(s)"
+                 f"{'<br><i>' + html.escape(r['warnings']) + '</i>' if r['warnings'] else ''}</td>" + "<td></td>" * 8 + "</tr>" for r in rows)
     (out_dir / "RESULTS.html").write_text(f"""<!doctype html><meta charset=utf-8><title>EmbroideryStudio stitch-out results</title>
-<style>body{{font:12px system-ui;margin:16px}}table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #888;padding:6px;height:46px;vertical-align:top}}th{{background:#eee}}</style>
-<h2>EmbroideryStudio stitch-out results</h2><p>Machine: ________ Fabric: ________ Stabiliser: ________ Needle: ________ Speed: ________ spm Thread: ________ Date: ________</p>
-<table><tr><th>Design</th><th>Thread breaks</th><th>Puckering</th><th>Registration</th><th>Trim behaviour</th><th>Colour-change position</th><th>Density OK?</th><th>Pass / Fail</th><th>Fix needed</th><th>Notes</th></tr>{tr}</table>
-<p>Scale: 0 = none … 3 = severe. Record the fabric/stabiliser for EVERY design; re-run failures after changing ONE setting.</p>""", encoding="utf-8")
+<style>body{{font:12px system-ui;margin:16px}}table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #888;padding:6px;height:52px;vertical-align:top}}th{{background:#eee}}.box{{border:2px solid #b45309;background:#fffbeb;padding:8px;margin:8px 0}}</style>
+<h2>EmbroideryStudio stitch-out results</h2>
+<div class="box"><b>Status: NOT YET PHYSICALLY VALIDATED.</b> This pack has not been stitched. Fabric presets are provisional. Time estimates are not verified. Fill in this sheet at the machine; leave every box empty until you have actually stitched the design.</div>
+<table style="margin-bottom:10px"><tr><th>Machine model</th><td></td><th>Hoop used</th><td></td><th>Speed (spm)</th><td></td></tr>
+<tr><th>Fabric</th><td></td><th>Stabiliser</th><td></td><th>Needle</th><td></td></tr>
+<tr><th>Thread (brand / weight)</th><td></td><th>Date / operator</th><td></td><th>Pack version</th><td>{html.escape(str(out_dir.name))}</td></tr></table>
+<table><tr><th>Design / DST version</th><th>Thread breaks (count + where)</th><th>Fabric puckering (0-3)</th><th>Registration (outline vs fill, mm)</th><th>Jump / trim behaviour</th><th>Colour-change position</th><th>Overall: PASS / FAIL / PASS WITH NOTES</th><th>Measured size (mm) / orientation OK?</th><th>Notes / change needed</th></tr>{tr}</table>
+<p>Scale 0 = none … 3 = severe. Record the fabric and stabiliser for EVERY design. After a failure change ONE setting, regenerate that design only, and stitch it again.</p>""", encoding="utf-8")
     return rows, problems
 
 
 if __name__ == "__main__":
-    out = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "testpack"
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if "--hoop" in sys.argv:                                   # --hoop WxH[xM] : hoop size in mm (and safe margin) the hoop-boundary test is generated for
+        spec = sys.argv[sys.argv.index("--hoop") + 1]; args = [a for a in args if a != spec]
+        parts = [float(v) for v in spec.lower().split("x")]
+        HOOP.update(w=parts[0], h=parts[1], margin=parts[2] if len(parts) > 2 else HOOP["margin"])
+    out = Path(args[0]) if args else ROOT / "testpack" / "v2"
     rows, problems = build(out)
-    for r in rows: print(f"OK  {r['design']:20} {r['stitches']:>6} st  {r['size_mm']:>12} mm  ~{r['est_min']} min  {r['warnings']}")
+    for r in rows: print(f"OK  {r['design']:20} {r['stitch_count']:>6} st  {r['size_mm']:>12} mm  ~{r['est_min_UNVERIFIED']} min (unverified)  {r['warnings']}")
     for n, m in problems: print("FAIL", n, m)
     sys.exit(1 if problems else 0)

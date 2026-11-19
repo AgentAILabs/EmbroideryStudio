@@ -1,0 +1,110 @@
+{
+ "app": "EmbroideryStudio",
+ "version": 1,
+ "doc": {
+  "name": "08_satin_widths",
+  "hoop": {
+   "w": 100,
+   "h": 100,
+   "margin": 3
+  },
+  "fabric": "cotton",
+  "objects": [
+   {
+    "id": "s0",
+    "type": "satin",
+    "color": "#1e3a8a",
+    "points": [
+     [
+      -20,
+      -30
+     ],
+     [
+      20,
+      -30
+     ]
+    ],
+    "params": {
+     "width": 1.0
+    },
+    "name": "satin 1.0 mm"
+   },
+   {
+    "id": "s1",
+    "type": "satin",
+    "color": "#1e3a8a",
+    "points": [
+     [
+      -20,
+      -16
+     ],
+     [
+      20,
+      -16
+     ]
+    ],
+    "params": {
+     "width": 2.0
+    },
+    "name": "satin 2.0 mm"
+   },
+   {
+    "id": "s2",
+    "type": "satin",
+    "color": "#1e3a8a",
+    "points": [
+     [
+      -20,
+      -2
+     ],
+     [
+      20,
+      -2
+     ]
+    ],
+    "params": {
+     "width": 3.0
+    },
+    "name": "satin 3.0 mm"
+   },
+   {
+    "id": "s3",
+    "type": "satin",
+    "color": "#1e3a8a",
+    "points": [
+     [
+      -20,
+      12
+     ],
+     [
+      20,
+      12
+     ]
+    ],
+    "params": {
+     "width": 4.0
+    },
+    "name": "satin 4.0 mm"
+   },
+   {
+    "id": "s4",
+    "type": "satin",
+    "color": "#1e3a8a",
+    "points": [
+     [
+      -20,
+      26
+     ],
+     [
+      20,
+      26
+     ]
+    ],
+    "params": {
+     "width": 6.0
+    },
+    "name": "satin 6.0 mm"
+   }
+  ]
+ }
+}

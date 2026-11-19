@@ -48,7 +48,8 @@ Engine behaviours added while drawing it: fill rows shorter than the minimum sti
 | Endpoint | Purpose |
 |---|---|
 | POST /api/generate | design → stitches, stats, issues, notes |
-| POST /api/export/dst · /exp · /package · /sheet · /svg | exports (blocked on validation errors) |
+| POST /api/export/dst · /package · /sheet · /svg | exports (blocked on validation errors). `/api/export/exp` is closed unless `ES_EXPERIMENTAL_FORMATS=1` (dev only) |
+| GET /api/formats | exposed formats + validation status (drives the UI status strip) |
 | POST /api/import/svg · /raster · /dst | imports |
 | POST /api/tools/column-from-outline | shape → two rails, or 400 with the reason |
 | GET /api/templates · POST /api/template | template catalogue / instantiate |
@@ -75,3 +76,8 @@ Errors are JSON 4xx with `{"error": ...}`; unexpected failures are 500 with no i
 4. Nesting (outer/holes), then type choice: <1 mm → run along the midline; thin & hole-free → satin column from the outline; else fill with PCA angle.
 5. Ordering: colours by area (large first), fills → columns → runs, nearest-neighbour within a group to minimise jumps/trims.
 `tools/image_bench.py` draws four artworks at 1600 px (exact ground truth), degrades them (antialias, JPEG, 120 px, noise) and scores IoU against truth, object counts, cusps, outline error and stitch quality; `tests/test_studio.py` enforces thresholds. Legacy tracer kept as `quality="legacy"` for comparison.
+
+## Machine-format adapters (`formats.py`)
+`FORMATS` registry: `supported` (exposed), `experimental` (exists, exposed only with `ES_EXPERIMENTAL_FORMATS=1`), `planned` (no writer).
+Adding a format = write the adapter **and** commit a vendor reference file + byte fixtures + independent-reader test, then register it as `supported`.
+Until then the API, the packages and the UI show DST only. `describe()` feeds the status strip so the UI cannot claim more than the registry.

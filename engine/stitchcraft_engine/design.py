@@ -31,7 +31,7 @@ DEFAULTS = {
     "text": {"spacing": 1.0, "underlay": "auto", "pull_comp": 0.1},
     "applique": {"width": 2.5, "spacing": 0.4, "stitch_len": 2.5, "cover_color": None},
 }
-FABRICS = {  # unverified starting points; flagged as such in the UI until stitch-tested
+FABRICS = {  # EXPERIMENTAL: unverified starting points (no physical stitch-out yet). The UI, production sheet and test pack label them 'experimental'.
     "cotton": {"pull_comp": 0.2, "spacing": 0.40}, "silk": {"pull_comp": 0.3, "spacing": 0.45},
     "georgette": {"pull_comp": 0.35, "spacing": 0.45}, "velvet": {"pull_comp": 0.4, "spacing": 0.38},
     "denim": {"pull_comp": 0.1, "spacing": 0.40}, "knit": {"pull_comp": 0.4, "spacing": 0.42},

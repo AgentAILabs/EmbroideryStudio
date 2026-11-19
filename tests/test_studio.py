@@ -258,11 +258,11 @@ class TestPackTests(unittest.TestCase):
         mk = importlib.util.module_from_spec(spec); spec.loader.exec_module(mk)
         with tempfile.TemporaryDirectory() as t:
             rows, problems = mk.build(Path(t))
-            self.assertEqual(problems, []); self.assertEqual(len(rows), 12)
+            self.assertEqual(problems, []); self.assertEqual(len(rows), 22)          # 12 original + orientation, small running, jump, hoop boundary, 6 fabrics
             for r in rows:
                 self.assertTrue(read_dst((Path(t) / r["file"]).read_bytes()).ends_properly)
                 self.assertTrue((Path(t) / (r["design"] + ".esproj")).exists())
-            with open(Path(t) / "RESULTS.csv", encoding="utf-8") as fh: self.assertEqual(len(list(csv.DictReader(fh))), 12)
+            with open(Path(t) / "RESULTS.csv", encoding="utf-8") as fh: self.assertEqual(len(list(csv.DictReader(fh))), 22)
             self.assertIn("Thread breaks", (Path(t) / "RESULTS.html").read_text())
 
 
@@ -958,11 +958,15 @@ class TrimLockTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("mk2", Path(__file__).resolve().parent.parent / "tools" / "make_testpack.py")
         mk = importlib.util.module_from_spec(spec); spec.loader.exec_module(mk)
         for name, dsg in mk.designs().items():
-            off = json.loads(json.dumps(dsg)); off["machine"] = {"lock_len": 0, "trim_at_color_change": 0, "trim_at_end": 0}
+            off = json.loads(json.dumps(dsg)); off["machine"] = dict(dsg.get("machine") or {}, lock_len=0, trim_at_color_change=0, trim_at_end=0)   # keep the design's own machine settings
             p_on, _, st_on = generate(dsg); p_off, _, st_off = generate(off)
             codes_on = {i.code for i in run_checks(dsg, p_on).issues}; codes_off = {i.code for i in run_checks(off, p_off).issues}
             self.assertLessEqual(codes_on, codes_off | set(), (name, codes_on - codes_off))
-            self.assertEqual(st_on["stitches"] - st_off["stitches"], st_on["lock_stitches"], name)
+            # a colour that starts exactly where the previous run ended continues without a needle drop when nothing is cut, but needs one fresh
+            # anchor stitch after the colour-change cut: that stitch is real yet not a lock stitch
+            from stitchcraft_engine.model import Cmd
+            offs = p_off.stitches; anchors = sum(1 for i, x in enumerate(offs[:-1]) if x.cmd == Cmd.COLOR_CHANGE and offs[i + 1].cmd == Cmd.STITCH)
+            self.assertEqual(st_on["stitches"] - st_off["stitches"], st_on["lock_stitches"] + anchors, name)
             self.assertEqual(p_on.bbox(), p_off.bbox(), name)                         # locks never leave the stitched geometry
             self.assertGreaterEqual(st_on["est_minutes"], st_off["est_minutes"], name)
     def test_lock_count_reported_over_http_and_on_the_sheet(self):
@@ -1536,6 +1540,13 @@ class ExpWriterTests(unittest.TestCase):
 
 
 class ExpExportTests(unittest.TestCase):
+    """EXPERIMENTAL EXP adapter. Only reachable with ES_EXPERIMENTAL_FORMATS=1 (development); see ExpNotExposedByDefault for the default."""
+    def setUp(self):
+        import os; self._old = os.environ.get("ES_EXPERIMENTAL_FORMATS"); os.environ["ES_EXPERIMENTAL_FORMATS"] = "1"
+    def tearDown(self):
+        import os
+        if self._old is None: os.environ.pop("ES_EXPERIMENTAL_FORMATS", None)
+        else: os.environ["ES_EXPERIMENTAL_FORMATS"] = self._old
     D = lambda self: doc({"id": "a", "type": "fill", "color": "#c8102e", "rings": [SQ]}, {"id": "b", "type": "fill", "color": "#0000ff", "rings": [[[40, 0], [60, 0], [60, 20], [40, 20]]]})
     def test_api_exp_matches_the_pattern_and_honours_the_machine_trim_jumps(self):
         from stitchcraft_engine.exp import read_exp
@@ -1560,7 +1571,7 @@ class ExpExportTests(unittest.TestCase):
         data, err = server.sheet.package(self.D()); self.assertIsNone(err)
         z = zipfile.ZipFile(io.BytesIO(data)); name = next(n for n in z.namelist() if n.endswith(".exp"))
         self.assertEqual(z.read(name), server.api_exp(self.D())[0])
-        m = z.read("MANIFEST.txt").decode(); self.assertIn("Melco EXP", m); self.assertIn("zero-move jumps", m); self.assertIn("not machine-tested", m)
+        m = z.read("MANIFEST.txt").decode(); self.assertIn("DST only", m); self.assertIn("NOT been validated on a physical machine", m)
     def test_http_endpoint_and_ui_button(self):
         import threading, urllib.request, urllib.error
         from http.server import ThreadingHTTPServer
@@ -1573,4 +1584,46 @@ class ExpExportTests(unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError) as cm: urllib.request.urlopen(urllib.request.Request(base, data=json.dumps(bad).encode(), method="POST"))
             self.assertEqual(cm.exception.code, 422)
         finally: srv.shutdown(); srv.server_close()
-        web = Path(__file__).resolve().parent.parent / "web"; self.assertIn('id="bExp"', (web / "index.html").read_text()); self.assertIn("exportExp", (web / "app.js").read_text())
+        web = Path(__file__).resolve().parent.parent / "web"
+        self.assertNotIn('id="bExp"', (web / "index.html").read_text()); self.assertNotIn("exportExp", (web / "app.js").read_text())     # never a button, even in experimental mode
+
+
+class ExpNotExposedByDefault(unittest.TestCase):
+    """DST is the only supported machine export: no EXP API, no EXP file in packages, no EXP / PES / JEF button."""
+    def setUp(self):
+        import os; self._old = os.environ.pop("ES_EXPERIMENTAL_FORMATS", None)
+    def tearDown(self):
+        import os
+        if self._old is not None: os.environ["ES_EXPERIMENTAL_FORMATS"] = self._old
+    D = ExpExportTests.D
+    def test_api_refuses_with_a_clear_message(self):
+        with self.assertRaises(ValueError) as e: server.api_exp(self.D())
+        self.assertIn("DST is the only supported machine format", str(e.exception))
+    def test_package_has_no_exp_file(self):
+        import zipfile
+        z = zipfile.ZipFile(io.BytesIO(server.sheet.package(self.D())[0]))
+        self.assertEqual([n for n in z.namelist() if n.lower().endswith((".exp", ".pes", ".jef"))], []); self.assertTrue(any(n.endswith(".dst") for n in z.namelist()))
+    def test_registry_exposes_only_dst_and_plans_the_rest(self):
+        from stitchcraft_engine import formats
+        self.assertEqual([f.id for f in formats.exposed_formats()], ["dst"])
+        for fmt in ("pes", "jef", "exp"):
+            with self.assertRaises(formats.UnsupportedFormat) as e: formats.get_writer(fmt)
+            self.assertIn("DST is the only supported machine format", str(e.exception))
+        with self.assertRaises(formats.UnsupportedFormat): formats.get_writer("svg")
+        d = formats.describe(); self.assertEqual([f["id"] for f in d["export"]], ["dst"]); self.assertEqual({f["id"] for f in d["planned"]}, {"exp", "pes", "jef"})
+        self.assertEqual(d["machine_validation"], "not_yet_physically_validated")
+    def test_ui_has_no_export_button_for_other_formats(self):
+        web = Path(__file__).resolve().parent.parent / "web"; html = (web / "index.html").read_text(); js = (web / "app.js").read_text()
+        for bad in ('id="bExp"', '"#bExp"', 'id="bPes"', 'id="bJef"', "Export EXP", "Export PES", "Export JEF", "exportExp"):
+            self.assertNotIn(bad, html, bad); self.assertNotIn(bad, js, bad)
+    def test_http_endpoint_is_closed_and_formats_endpoint_reports_dst_only(self):
+        import threading, urllib.request, urllib.error
+        from http.server import ThreadingHTTPServer
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), server.H); threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            base = f"http://127.0.0.1:{srv.server_address[1]}"
+            with self.assertRaises(urllib.error.HTTPError) as cm: urllib.request.urlopen(urllib.request.Request(base + "/api/export/exp", data=json.dumps(self.D()).encode(), method="POST"))
+            self.assertEqual(cm.exception.code, 400)
+            with urllib.request.urlopen(base + "/api/formats") as r: info = json.loads(r.read())
+            self.assertEqual([f["id"] for f in info["export"]], ["dst"])
+        finally: srv.shutdown(); srv.server_close()

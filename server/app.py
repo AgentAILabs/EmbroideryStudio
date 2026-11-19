@@ -1,7 +1,8 @@
 """EmbroideryStudio API + static host (stdlib only).  python3 server/app.py [port]
 POST /api/generate        design JSON -> stitches, stats, issues
 POST /api/export/dst      design JSON -> .dst  (blocked on validation errors)
-POST /api/export/exp      design JSON -> Melco EXP (trims as zero-move jumps)
+POST /api/export/exp      EXPERIMENTAL, disabled unless ES_EXPERIMENTAL_FORMATS=1 (DST is the only supported machine format)
+GET  /api/formats         supported / planned formats + validation status (drives the UI status strip)
 POST /api/export/package  design JSON -> zip (dst, project, preview, sheet, manifest)
 POST /api/export/sheet    design JSON -> production sheet HTML
 POST /api/export/svg      design JSON -> preview SVG
@@ -22,7 +23,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "engine"))
 from stitchcraft_engine.design import generate, run_checks, FABRICS, machine, empty_stats            # noqa: E402
 from stitchcraft_engine.dst import write_dst, read_dst                          # noqa: E402
-from stitchcraft_engine.exp import write_exp                                    # noqa: E402
+from stitchcraft_engine import formats                                          # noqa: E402
 from stitchcraft_engine.model import Cmd                                        # noqa: E402
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
 from stitchcraft_engine.raster import digitize_image, enhance_image, RasterUnavailable        # noqa: E402
@@ -260,13 +261,14 @@ def api_dst_report(d):
 
 
 def api_exp(d):
-    """Melco EXP of the design, blocked on the same validation errors as the DST. Returns (bytes, None) or (None, error)."""
+    """EXPERIMENTAL Melco EXP - not exposed unless ES_EXPERIMENTAL_FORMATS=1 (see engine/stitchcraft_engine/formats.py)."""
+    writer = formats.get_writer("exp")              # raises UnsupportedFormat while EXP is not exposed
     check_design(d)
     pattern, notes, st = generate(d)
     rep = run_checks(d, pattern)
     if not rep.ok:
         return None, {"error": "Export blocked", "issues": issues(rep)}
-    return write_exp(pattern, trim_jumps=machine(d)["trim_jumps"]), None
+    return writer(pattern, trim_jumps=machine(d)["trim_jumps"]), None
 
 
 def api_svg(d):
@@ -277,7 +279,7 @@ def api_svg(d):
     if "<!ENTITY" in txt or "<!DOCTYPE" in txt.upper():
         raise ValueError("SVG with DOCTYPE/ENTITY declarations is rejected for safety; re-save it as plain SVG")
     if txt.lstrip()[:4] == "%PDF":
-        raise ValueError("PDF import is not supported yet; export the artwork as SVG")
+        raise ValueError(formats.PDF_MESSAGE)
     doc = parse_svg(txt)
     objs = []
     for sh in doc.shapes:
@@ -296,7 +298,7 @@ def api_svg(d):
 def api_raster(d):
     raw = base64.b64decode(d["data"])
     if raw[:4] == b"%PDF":
-        raise ValueError("PDF import is not supported yet; export the artwork as SVG or PNG")
+        raise ValueError(formats.PDF_MESSAGE)
     enh = None
     mode = str(d.get("enhance", "off"))
     if mode not in ("off", "auto", "always"):
@@ -348,6 +350,8 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, data, ctype, extra)
         if path == "/api/templates":
             return self._send(200, {"templates": templates.catalog()})
+        if path == "/api/formats":
+            return self._send(200, formats.describe())
         if path == "/api/health":
             return self._send(200, {"ok": True, "fabrics": FABRICS})
         f = (WEB / ("index.html" if path == "/" else path.lstrip("/"))).resolve()

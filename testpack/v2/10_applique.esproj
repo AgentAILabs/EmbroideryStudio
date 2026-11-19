@@ -1,0 +1,43 @@
+{
+ "app": "EmbroideryStudio",
+ "version": 1,
+ "doc": {
+  "name": "10_applique",
+  "hoop": {
+   "w": 100,
+   "h": 100,
+   "margin": 3
+  },
+  "fabric": "cotton",
+  "objects": [
+   {
+    "id": "a1",
+    "type": "applique",
+    "color": "#2e9e44",
+    "rings": [
+     [
+      [
+       -18,
+       -18
+      ],
+      [
+       18,
+       -18
+      ],
+      [
+       18,
+       18
+      ],
+      [
+       -18,
+       18
+      ]
+     ]
+    ],
+    "params": {
+     "width": 2.5
+    }
+   }
+  ]
+ }
+}

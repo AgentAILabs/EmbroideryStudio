@@ -32,7 +32,6 @@
     <button id="bEnhance" title="Upscale a PNG / JPG 200 % and sharpen it if it is blurry or small, then download it (also built into the import dialog)">Enhance image 2×…</button>
     <button id="bLetter" title="Lettering from a TrueType / OpenType font - Telugu, Devanagari, Tamil ... with proper shaping">TrueType lettering…</button>
     <button id="bViewDst" title="Inspect an existing .dst file (view + verification report)">Open DST to inspect…</button>
-    <button id="bExp" title="Export Melco EXP (same stitches as the DST; trims as zero-move jumps)">Export EXP (Melco)</button>
     <button id="bSvg" title="Export preview SVG">Preview SVG</button>
     <button id="bPng" title="Export preview PNG">Preview PNG</button>
     <button id="bSheet">Production sheet</button>
@@ -44,6 +43,27 @@
   <input type="file" id="fileOpen" accept=".esproj,.json" hidden>
   <input type="file" id="fileImport" accept=".svg,.png,.jpg,.jpeg" hidden>
 </header>
+<footer id="statusbar" aria-label="Product status">
+  <span class="sb ok" title="DST is the only supported machine format"><b>Export:</b> <span id="sbFmt">DST only</span></span>
+  <span class="sb warn" title="No design from this software has been stitched on a physical machine yet"><b>Machine validation:</b> not yet physically validated</span>
+  <span class="sb warn" title="Fabric values are starting points until stitched on a machine"><b>Fabric presets:</b> experimental</span>
+  <span class="sb warn" title="Time is calculated from an assumed machine speed"><b>Stitch time:</b> estimated, not verified</span>
+  <button id="sbMore" class="linkbtn">What does this mean?</button>
+</footer>
+<dialog id="dlgStatus">
+  <form method="dialog">
+    <h3>What has and has not been verified</h3>
+    <ul class="statuslist">
+      <li><b>Export format:</b> DST only. The file is checked by the software (structure, stitch limits, an independent reader) before you can download it. Other formats (PES, JEF, EXP) are not available yet.</li>
+      <li><b>Machine validation:</b> <b>none yet.</b> A file that downloads without warnings is not proof that your machine will stitch it well. Always stitch a sample on the real fabric first.</li>
+      <li><b>Fabric presets:</b> experimental starting values. Change them if your sample shows gaps, puckering or thread breaks.</li>
+      <li><b>Stitch time:</b> an estimate from an assumed speed (700 stitches per minute) plus fixed time for colour changes and trims. Your machine will differ.</li>
+      <li><b>Trims and jumps:</b> the DST format has no trim command. The number of "trim jumps" is a guess that must be confirmed on your machine (see the trim test in the test pack).</li>
+      <li><b>Importing artwork:</b> SVG, PNG and JPG. PDF is not supported - export your artwork as SVG, PNG or JPG.</li>
+    </ul>
+    <div class="row2"><button value="close" class="primary">OK</button></div>
+  </form>
+</dialog>
 <dialog id="dlgWizard">
   <form method="dialog">
     <h3>Auto digitize - professional profile</h3>
@@ -77,7 +97,7 @@
 <dialog id="dlgLetter">
   <form method="dialog">
     <h3>TrueType / OpenType lettering</h3>
-    <p class="hint">Upload a font you are licensed to embroider with (for Telugu e.g. Noto Sans Telugu, Ramabhadra; Devanagari: Noto Sans Devanagari). Complex scripts are shaped with HarfBuzz (conjuncts, vowel signs). No font = DejaVu Sans (Latin, Greek, Cyrillic, Arabic).</p>
+    <p class="hint">Upload a font you are licensed to embroider with (for Telugu e.g. Noto Sans Telugu, Ramabhadra; Devanagari: Noto Sans Devanagari). Complex scripts are shaped with HarfBuzz (conjuncts, vowel signs). No font = DejaVu Sans (Latin, Greek, Cyrillic, Arabic).<br><b>Caution:</b> Telugu and Hindi lettering has <b>not been verified</b> with real fonts yet - check the preview carefully, ask a native reader to approve it, and stitch a sample before use. Small letters (under ~8 mm) may not be legible in embroidery.</p>
     <label>Text <input type="text" id="ltText" value="Sri Lakshmi"></label>
     <label>Letter height (mm) <input type="number" id="ltH" value="15" min="3" max="200"></label>
     <label>Thread colour <input type="color" id="ltColor" value="#c8102e"></label>

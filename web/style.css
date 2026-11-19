@@ -1,7 +1,7 @@
 :root{--bg:#f4f5f7;--panel:#fff;--ink:#1f2430;--mute:#6b7280;--line:#dde0e6;--acc:#2563eb;--acc2:#1d4ed8;--warn:#b45309;--err:#b91c1c;--ok:#15803d;--canvas:#e9ecf1}
 @media (prefers-color-scheme:dark){:root{--bg:#14161b;--panel:#1c1f26;--ink:#e6e8ee;--mute:#9aa1ae;--line:#2d313b;--acc:#5b8cff;--acc2:#7aa2ff;--warn:#f59e0b;--err:#f87171;--ok:#4ade80;--canvas:#101216}}
 *{box-sizing:border-box}html,body{height:100%;margin:0}
-body{font:13px/1.35 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);display:grid;grid-template-columns:64px 1fr 300px;grid-template-rows:46px 1fr;grid-template-areas:"top top top" "tools stage side";overflow:hidden}
+body{font:13px/1.35 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);display:grid;grid-template-columns:64px 1fr 300px;grid-template-rows:46px 1fr 28px;grid-template-areas:"top top top" "tools stage side" "status status status";overflow:hidden}
 #top{grid-area:top;display:flex;align-items:center;gap:8px;padding:0 10px;background:var(--panel);border-bottom:1px solid var(--line);position:relative;z-index:20}
 #top>*{flex:none}#top .grow{flex:1 1 0;min-width:0}
 .brand{font-weight:700;white-space:nowrap}.logo{color:var(--acc)}.grow{flex:1}.grp{display:flex;gap:4px}
@@ -108,3 +108,12 @@ dialog#dlgWizard .row2{display:flex;justify-content:flex-end;gap:8px;margin-top:
 dialog#dlgLetter{border:1px solid var(--line);border-radius:10px;padding:16px;width:min(560px,94vw);background:var(--panel);color:var(--ink)}
 dialog#dlgLetter label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0}
 dialog#dlgLetter .row2{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+
+/* status strip: what is and is not verified */
+#statusbar{grid-area:status;display:flex;align-items:center;gap:6px 14px;padding:0 12px;background:var(--panel);border-top:1px solid var(--line);font-size:12px;overflow-x:auto;white-space:nowrap}
+#statusbar .sb{display:inline-flex;gap:4px;align-items:center}#statusbar .sb.ok b{color:var(--ok)}#statusbar .sb.warn b{color:var(--warn)}
+#statusbar .sb.warn::before{content:"⚠";color:var(--warn)}#statusbar .sb.ok::before{content:"✔";color:var(--ok)}
+.linkbtn{border:0;background:none;color:var(--acc);padding:0 4px;cursor:pointer;text-decoration:underline;font-size:12px}
+dialog#dlgStatus{border:1px solid var(--line);border-radius:10px;padding:16px;width:min(620px,94vw);background:var(--panel);color:var(--ink)}
+dialog#dlgStatus .row2{display:flex;justify-content:flex-end;margin-top:10px}.statuslist{padding-left:18px;line-height:1.5}.statuslist li{margin:6px 0}
+.advice{display:block;color:var(--mute);font-size:12px}

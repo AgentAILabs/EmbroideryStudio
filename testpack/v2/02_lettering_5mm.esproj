@@ -1,0 +1,24 @@
+{
+ "app": "EmbroideryStudio",
+ "version": 1,
+ "doc": {
+  "name": "02_lettering_5mm",
+  "hoop": {
+   "w": 100,
+   "h": 100,
+   "margin": 3
+  },
+  "fabric": "cotton",
+  "objects": [
+   {
+    "id": "t1",
+    "type": "text",
+    "text": "ABC HELLO 0123",
+    "height": 5,
+    "x": -45,
+    "y": -4,
+    "color": "#000000"
+   }
+  ]
+ }
+}

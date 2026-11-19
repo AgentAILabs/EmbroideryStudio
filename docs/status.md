@@ -1,4 +1,29 @@
 # Project status (audited against code + tests)
+
+## READ FIRST - validation status (updated 2026-11-19)
+**No design produced by this software has been stitched on a physical machine.** Everything below "software" is evidence about files, not about sewing.
+Full evidence and its limits: [`docs/testing/current-validation-report.md`](testing/current-validation-report.md). Feature plan: [`docs/roadmap/feature-gap-analysis.md`](roadmap/feature-gap-analysis.md).
+
+| Statement | Status | Note |
+|---|---|---|
+| DST export is implemented | ✅ software-validated | hand-written byte vectors, independent `pyembroidery` reader in CI (ran, 0 skipped), six-stage verifier, 15-item checklist. **Not machine-validated.** |
+| DST X/Y axis transposition bug fixed | ✅ fixed (commit `1980975`, 2026-11-18) | regression suite `tests/test_dst_axis.py` (18 tests; with the old swap re-introduced 12 of them fail) |
+| DST files made **before** the fix are potentially wrong | ⚠ must be regenerated | `tools/dst_provenance.py` flags them; procedure `docs/testing/regeneration-procedure.md`. Never reused silently |
+| DST files made by an **older engine** differ from the current output | ⚠ 11 of the 12 files in `testpack/` (v1) are STALE | kept untouched and marked superseded; use `testpack/v2/` |
+| Machine stitching has never been physically tested | 🧪 true | `testpack/v2`, checklist and blank report template are ready |
+| Fabric presets | ⚠ **experimental** | unverified starting values; labelled in the UI, sheet and test pack |
+| Trim / jump defaults (3 trim jumps, trim above 3 mm, 1.0 mm locks) | ⚠ unverified | design `12_trims_locks` exists to measure them |
+| Stitch time estimate | ⚠ estimated, not verified | assumed 700 spm + 20 s / colour change + 6 s / trim; labelled everywhere it is shown |
+| Only DST export is supported | ✅ | EXP writer exists but is **not exposed** (opt-in `ES_EXPERIMENTAL_FORMATS=1`, dev only); PES / JEF not started. Registry: `engine/stitchcraft_engine/formats.py` |
+| PES / JEF / EXP need valid reference files first | ✅ policy | documented in `formats.py` and the roadmap |
+| PDF import unsupported | ✅ | UI + API message: "PDF import is not currently supported. Please export your artwork as SVG, PNG or JPG." |
+| Bezier node handles | ❌ not implemented | roadmap #5 |
+| TrueType lettering | 🟡 **differs from the brief**: partial | built 2026-11-19 (HarfBuzz shaping, uploaded fonts, missing-glyph refusal); tested with DejaVu only |
+| Telugu / Hindi lettering | 🟡 **not verified** | engine is capable; never run with a Telugu / Devanagari font; dialog carries a caution |
+| Thread brand charts | ❌ not implemented | needs licensed data |
+| User accounts, cloud storage | ❌ not implemented | |
+| Windows desktop packaging | ❌ not implemented | |
+
 Legend: ✅ done & tested · 🟡 partial · ⏸ deferred (reason given) · 🧪 needs a physical machine / external input · 🔬 written but only runs in CI
 
 Verification: `./tools/run_tests.sh` (engine + studio suites; the pyembroidery cross-check and the image-import tests skip themselves where the optional libraries are missing),
@@ -14,7 +39,7 @@ save/reopen, SVG + PNG import, versions) with zero page errors / HTTP 5xx.
 | 4 | Engine as separate service behind versioned JSON contract | ✅ | HTTP service, `schema_version` contract tests; ⏸ job queue (not needed at this scale) |
 | 5 | .NET / MediatR / Konva | ⏸ | replaced by Python stdlib service + canvas editor: no installs, same contract |
 | 6 | Independent DST reader + pyembroidery cross-check in CI | ✅ | own reader fixed a long-jump bug; **the CI cross-check found that the writer had X and Y bit tables swapped (every DST was transposed) – fixed, pinned by hand-written byte vectors**; the cross-check runs in CI only (pyembroidery is not installed here) |
-| 7 | Fabric presets, flagged unverified | ✅ / 🧪 | six presets; values unverified until stitched |
+| 7 | Fabric presets | ⚠ experimental | six presets (+ seven profile fabrics); **values unverified until stitched**; shown as "experimental" in the UI |
 | 8 | FabricProfile, stabiliser, time estimate, trim rules | ✅ | stabiliser field → sheet; ⏸ thread brand charts (licensed data; generic hex palette) |
 | 9 | Indian-market: Maggam repeat, neckline templates, inch hoops | ✅ | repeat tool, border templates, neckline guides in inches (generic proportions); ⏸ Telugu/Hindi lettering (needs font files + Indic shaping) |
 | 10 | Auth / per-user ownership | ⏸ | single-user local tool; belongs to a hosted version |
@@ -69,7 +94,7 @@ save/reopen, SVG + PNG import, versions) with zero page errors / HTTP 5xx.
 ## Roadmap items deliberately not built (with reason)
 | Item | Why |
 |---|---|
-| PES / JEF writers | thread colours are indices into vendor palettes (65 / 78 colours) I cannot reproduce; wrong colours are worse than no file. **EXP is done** (no palette; CI-validated) |
+| PES / JEF writers | thread colours are indices into vendor palettes (65 / 78 colours) that cannot be reproduced; wrong colours are worse than no file. **EXP**: a writer exists (read back by pyembroidery in CI) but it is **not exposed** - no vendor reference file and no machine has confirmed it |
 | PDF import | needs a PDF vector parser (nothing may be installed here) |
 | TrueType + Telugu/Devanagari lettering | needs font files and Indic shaping rules |
 | Thread brand charts | licensed colour data |
