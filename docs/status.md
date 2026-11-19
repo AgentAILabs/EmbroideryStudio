@@ -136,5 +136,5 @@ the code's tables) and by `tests/test_crosscheck.py` in CI. What is still unprov
 | 15-item checklist + server-side export gate | ✅ | ChecklistTests, e2e |
 | Auto digitize wizard (6 steps) | ✅ | e2e step |
 | Colour sequence CSV, machine test record | ✅ | ChecklistTests, sheet |
-| Push (horizontal/vertical) comp, overlap cutting, decorative zig-zag tool | ❌ | roadmap |
+| Push compensation (fills + columns), overlap cutting with under-lap, zig-zag style | ✅ | `tests/test_overlap_push.py`; lotus -38 % stitches with cutting |
 | Stitch-out approval | ⏳ | needs the machine |

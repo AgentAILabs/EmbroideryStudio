@@ -169,3 +169,30 @@ def ring_self_intersections(ring: Sequence[Point], limit: int = 3) -> int:
                 if found >= limit:
                     return found
     return found
+
+
+def trim_polyline(pts: Sequence[Point], start: float, end: float) -> List[Point]:
+    """Cut `start` mm off the beginning and `end` mm off the end of a polyline (measured along it). Never trims more than a
+    third of its length from either end."""
+    pts = [tuple(p) for p in pts]
+    total = polyline_length(pts)
+    if total <= 1e-9 or (start <= 0 and end <= 0):
+        return pts
+    s0, s1 = max(0.0, min(start, total / 3)), total - max(0.0, min(end, total / 3))
+
+    def at(t):
+        acc = 0.0
+        for a, b in zip(pts, pts[1:]):
+            d = dist(a, b)
+            if acc + d >= t - 1e-12 and d > 1e-12:
+                u = (t - acc) / d
+                return (a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u)
+            acc += d
+        return pts[-1]
+    out, acc = [at(s0)], 0.0
+    for a, b in zip(pts, pts[1:]):
+        acc += dist(a, b)
+        if s0 + 1e-9 < acc < s1 - 1e-9:
+            out.append(b)
+    out.append(at(s1))
+    return out

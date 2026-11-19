@@ -12,6 +12,8 @@ Rules (each is logged with the object it changed):
   * pull comp - per fabric (0.15-0.40 mm), capped at 10 % of a narrow satin's width
   * shortening- on for every satin / column (inner side of tight curves)
   * running   - stitch length per category (2.0-2.5 mm)
+  * overlap   - fills do not sew what later objects cover (0.6 mm under-lap kept)
+  * push comp - stretch fabrics: fills and satins shortened 0.2 mm across the stitches
 """
 import copy, math
 from typing import List, Tuple
@@ -25,7 +27,7 @@ FABRICS = {
     "silk":      {"label": "Silk",                                   "k": 1.10, "pull": 0.25, "under": -1},
     "georgette": {"label": "Georgette / chiffon",                    "k": 1.12, "pull": 0.30, "under": -1},
     "velvet":    {"label": "Velvet",                                 "k": 0.95, "pull": 0.30, "under": 1},
-    "stretch":   {"label": "Stretch / knit",                         "k": 1.00, "pull": 0.40, "under": 1},
+    "stretch":   {"label": "Stretch / knit",                         "k": 1.00, "pull": 0.40, "under": 1, "push": 0.2},
     "denim":     {"label": "Denim / canvas",                         "k": 1.00, "pull": 0.15, "under": 0},
 }
 CATEGORIES = {
@@ -111,6 +113,8 @@ def apply_profile(design: dict, fabric: str = None, category: str = None, overwr
             put(o, "underlay", satin_underlay(w, shift))
             put(o, "pull_comp", round(min(F["pull"], max(0.05, 0.1 * w)), 2))
             put(o, "shorten", True)
+            if F.get("push") and w >= 2.0:
+                put(o, "push_comp", F["push"])
         elif t == "fill":
             rings = o.get("rings") or []
             if not rings:
@@ -119,6 +123,9 @@ def apply_profile(design: dict, fabric: str = None, category: str = None, overwr
             put(o, "spacing", round(min(SPACING_MAX, max(SPACING_MIN, 0.4 * tk * F["k"])), 3))
             put(o, "underlay", fill_underlay(area, shift))
             put(o, "pull_comp", F["pull"])
+            put(o, "cut_hidden", True)              # do not sew what a later object covers (keeps a 0.6 mm under-lap)
+            if F.get("push"):
+                put(o, "push_comp", F["push"])
         elif t == "run":
             put(o, "stitch_len", C["run_len"])
         elif t == "applique":

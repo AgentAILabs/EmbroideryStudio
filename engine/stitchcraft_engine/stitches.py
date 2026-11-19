@@ -196,9 +196,14 @@ def underlay_path(points: Sequence[Point], tol: float = 0.1) -> List[Point]:
 # ---------------------------------------------------------------- tatami / fill
 def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spacing: float = 0.4,
                 stitch_len: float = 3.5, stagger: int = 3, min_stitch: float = 0.3,
-                max_connect: float = 3.0, pull_comp: float = 0.0, regions: bool = False) -> List[List[Point]]:
+                max_connect: float = 3.0, pull_comp: float = 0.0, regions: bool = False,
+                exclude: Sequence[Sequence[Sequence[Point]]] = (), exclude_margin: float = 0.6,
+                push_comp: float = 0.0) -> List[List[Point]]:
     """Scanline fill with even-odd holes. Returns a list of runs; consecutive runs need a JUMP.
-    Needle penetrations are staggered row to row (`stagger` phases) for the classic tatami texture."""
+    Needle penetrations are staggered row to row (`stagger` phases) for the classic tatami texture.
+    exclude: shapes (each a list of rings, even-odd) stitched ON TOP later - the part of this fill hidden under them is not sewn,
+    except an under-lap of `exclude_margin` mm along each cut edge so no gap can open. push_comp: shorten the fill by this much
+    across the rows (half at each side), against the fabric pushing out perpendicular to the stitches."""
     if spacing <= 0 or stitch_len <= 0:
         raise DigitizingError("spacing and stitch_len must be > 0")
     ang = math.radians(angle_deg)
@@ -207,11 +212,14 @@ def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spaci
         raise DigitizingError("fill needs a ring with at least 3 points")
     ys = [p[1] for r in rot for p in r]
     ymin, ymax = min(ys), max(ys)
+    push = max(0.0, min(push_comp, (ymax - ymin) / 3))
+    ex_rot = [[[rotate(p, -ang) for p in ring] for ring in shape if len(ring) >= 3] for shape in exclude]
+    ex_rot = [sh for sh in ex_rot if sh]
 
     segs: List[List[Point]] = []
     rows_iv = []
-    j, y = 0, ymin + spacing / 2
-    while y < ymax:
+    j, y = 0, ymin + spacing / 2 + push / 2
+    while y < ymax - push / 2:
         xs = []
         for ring in rot:
             for i in range(len(ring)):
@@ -221,6 +229,9 @@ def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spaci
         xs.sort()
         # pull compensation: lengthen each row along the stitch direction (half per end)
         intervals = [(xs[i] - pull_comp / 2, xs[i + 1] + pull_comp / 2) for i in range(0, len(xs) - 1, 2) if xs[i + 1] - xs[i] > 1e-6]
+        if ex_rot:
+            intervals = _subtract(intervals, [iv for sh in ex_rot for iv in _scan(sh, y, -exclude_margin)])
+            intervals = [iv for iv in intervals if iv[1] - iv[0] >= 1.0]        # no slivers left beside a cut-out
         intervals = [iv for iv in intervals if iv[1] - iv[0] >= min_stitch]      # a row shorter than the minimum stitch (a pointed tip) adds nothing: neighbours cover it
         forward = j % 2 == 0
         phase = (j % max(stagger, 1)) / max(stagger, 1) * stitch_len
@@ -263,6 +274,33 @@ def tatami_fill(rings: Sequence[Sequence[Point]], angle_deg: float = 45.0, spaci
         runs.append(cur)
     return [_prune_short([rotate(p, ang) for p in run], min_stitch) for run in runs]
 
+
+
+def _scan(rings, y, grow=0.0):
+    """Even-odd intervals of `rings` on the scanline y, each grown by `grow` mm per end (negative = shrunk)."""
+    xs = []
+    for ring in rings:
+        for i in range(len(ring)):
+            (x0, y0), (x1, y1) = ring[i], ring[(i + 1) % len(ring)]
+            if (y0 <= y < y1) or (y1 <= y < y0):
+                xs.append(x0 + (y - y0) / (y1 - y0) * (x1 - x0))
+    xs.sort()
+    return [(xs[i] - grow, xs[i + 1] + grow) for i in range(0, len(xs) - 1, 2) if xs[i + 1] - xs[i] + 2 * grow > 1e-6]
+
+
+def _subtract(ivs, cuts):
+    out = list(ivs)
+    for ca, cb in cuts:
+        nxt = []
+        for a, b in out:
+            if cb <= a or ca >= b:
+                nxt.append((a, b)); continue
+            if ca > a:
+                nxt.append((a, ca))
+            if cb < b:
+                nxt.append((cb, b))
+        out = nxt
+    return out
 
 
 def _row_points(xa, xb, y, phase, stitch_len, min_stitch, forward):
