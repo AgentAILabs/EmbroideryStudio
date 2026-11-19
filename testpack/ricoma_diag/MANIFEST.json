@@ -1,0 +1,48 @@
+{
+ "pack": "ricoma_diag",
+ "physically_validated": false,
+ "files": [
+  {
+   "file": "RD1.DST",
+   "sha256": "37a924651ea1e3d0577ad1d5a71cb888c6de218eada87576007d1bebbdefb90b",
+   "bytes": 668,
+   "records": 52,
+   "stitches": 49,
+   "size_mm": [
+    30.0,
+    30.0
+   ],
+   "isolates": "plain running square, no locks, no trims: the simplest valid DST",
+   "software_checks": "no FAILED check",
+   "physically_validated": false
+  },
+  {
+   "file": "RD2.DST",
+   "sha256": "005144bd3ad56ef00d2f987b3c46e8227c9405f4bcb08f34c03411944e1bf693",
+   "bytes": 743,
+   "records": 77,
+   "stitches": 71,
+   "size_mm": [
+    30.0,
+    30.0
+   ],
+   "isolates": "adds lock stitches, a trim and the 3-zero-jump trim emulation (our production defaults)",
+   "software_checks": "no FAILED check",
+   "physically_validated": false
+  },
+  {
+   "file": "RD3.DST",
+   "sha256": "f56755b101d89d167fc68744a8e4a90c636fb66acf89680bfe30e194811c5a32",
+   "bytes": 2225,
+   "records": 571,
+   "stitches": 554,
+   "size_mm": [
+    30.0,
+    30.0
+   ],
+   "isolates": "adds a tatami fill with underlay (a few hundred stitches)",
+   "software_checks": "no FAILED check",
+   "physically_validated": false
+  }
+ ]
+}
