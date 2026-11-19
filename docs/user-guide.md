@@ -74,6 +74,15 @@ placement set, production sheet, or open in the editor for Expert changes) → 6
 What each step applies and why: `docs/digitizing-standard.md`. In the editor (Pro mode) every value it chose is visible and editable:
 underlay now includes *zigzag* and *edge+zigzag*, satins/columns have *Curve shortening*, *Style* (satin / decorative zigzag) and *Push comp*, fills have *Region order*, *Cut hidden layers* (with *Under-lap mm*) and *Push comp*.
 
+## Lettering, borders and stitch editing
+* **TrueType lettering** (More ▾ → TrueType lettering…): text, height, colour, script; upload a .ttf / .otf you are licensed to embroider with
+  (Telugu e.g. Noto Sans Telugu, Hindi e.g. Noto Sans Devanagari). Conjuncts and vowel signs are shaped by HarfBuzz. If the font lacks a character the
+  request is refused (it would stitch empty boxes). Letters become fill / satin column / running stitch by stroke width, like imported artwork.
+* **Text on a path**: select a text object → *Follow path* → pick a running-stitch or satin line (e.g. the neckline); align start / centre / end.
+* **Motif run**: a running stitch with *Style: motif* repeats wave / zigzag / scallop / diamond / leaf along the line; set repeat length and width.
+* **Bean stitch**: *Style: bean* sews every stitch three times for a bold, raised line.
+* **Manual stitches** (Pro): *Convert to manual stitches* turns an object into its exact needle points (the DST does not change); then drag single points.
+
 ## Placement sets: left / right / neck from one design
 1. Import or draw the design (artwork → *Import art*, or open one from the Library).
 2. Click **Placement set**. Tick the positions you need - left, right, neck, back neck, front, back, sleeve left/right, centre. Optionally give a width in mm per position (the design is scaled proportionally, 0.2×-3×).

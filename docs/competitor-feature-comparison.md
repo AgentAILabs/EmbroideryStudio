@@ -9,13 +9,13 @@ Nothing here is machine-proven except what `docs/status.md` says was stitched. W
 |---|---|---|---|
 | Tatami fill, angle, density, pull comp, underlay | many fill types, per-object | ◐ tatami (region-ordered, cut hidden layers, min row length) + contour + cross; angle / spacing / pull / push / expansion / H-V comp; underlay tatami, edge, edge+tatami | `stitches.py`; no stitch-effect library (gradient, stipple, carving, motif fills) |
 | Satin (centre-line + two-rail column), underlay, auto-split of long stitches | yes, corner handling, auto-spacing | ✅ satin + two-rail column; underlay centre / edge / zig-zag / edge+zig-zag; auto spacing by width; curve shortening; split of long stitches; **sharp corners split into overlapping pieces** (`corner_pieces`: 73 → 0 folded stitches in the test) | no automatic corner/join handling, no variable-width satin tool |
-| Running stitch, outline | yes, many run types (bean, motif run) | ◐ single and **bean (triple) run**, closed run | no motif run |
+| Running stitch, outline | yes, many run types (bean, motif run) | ✅ single, bean (triple), **motif run** (wave, zigzag, scallop, diamond, leaf; repeat length and width per object), closed | `stitches.motif_run`, `tests/test_new_features.py` |
 | Appliqué | automatic placement/tack/cover | ✅ placement → tack → satin cover, staggered starts, **1:1 cutting template** (patch = outline + 1/3 cover width, 50 mm scale bar) in every package | `sheet.applique_cut_svg` |
-| Lettering | many fonts, TrueType, on-path, auto-size | ◐ one built-in satin font, A-Z 0-9 | no TrueType, no Indic/Arabic shaping, no text on path |
+| Lettering | many fonts, TrueType, on-path, auto-size | ◐ built-in satin font **on a path**; **TrueType / OpenType from an uploaded font with HarfBuzz shaping** (Telugu, Devanagari, Tamil, Arabic ...); characters missing from the font are refused, never stitched as boxes | TrueType lettering is digitized through the image pipeline (fill / column / run by stroke width), not hand-tuned per-letter satin like Wilcom's own fonts; Telugu not yet verified with a real Telugu font (none installed here) |
 | Thread-weight / density presets | per fabric and thread | ✅ 40 wt / 60 wt / 120/2 spacing presets, fabric presets | `design.THREADS`; values derived from measuring 20 commercial files, not stitch-tested |
 | Auto trims, tie-in/tie-off, colour-change handling | yes | ✅ lock stitches (1.0 mm), trim trains, trim at colour change/end, smart start direction | trim test pack exists; **machine results pending** |
 | Pull-compensation / push-pull per object | yes | ✅ pull and push (direction-relative), horizontal / vertical, fill-outline expansion, fabric-specific | `tests/test_overlap_push.py` |
-| Stitch editing (move individual needle points) | yes | ❌ | roadmap |
+| Stitch editing (move individual needle points) | yes | ✅ **Convert to manual stitches** (Pro): an object becomes its exact needle points, byte-identical DST until you edit; drag single stitches | `api_to_manual`; 72 of 72 library objects convert losslessly |
 | Node (Bezier) editing | yes | ◐ polyline points + smoothing | no Bezier handles |
 
 ## Artwork, digitizing aids
