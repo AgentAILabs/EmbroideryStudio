@@ -23,7 +23,8 @@
 | Instant Smart Design (one click) | **new: "Instant smart design..." (More menu)**: file -> source-quality check -> routed (artwork -> auto-digitize, photo -> Photo Stitch, garment photo -> garment dialog) -> opened in the editor with a summary | `web/app.js instantSmart`, `/api/image/quality`, `/api/autodigitize` |
 
 ## Gaps that remain (not hidden)
-* **Shape recognition** (circles, rectangles, text recognised as primitives) is not implemented; everything is traced.
+* **Shape recognition** is implemented for circles / ellipses / rectangles / squares only (`smart_design.py`, opt-in `shapes=true`; on by default in Instant smart design and in the dialogs). Text, rounded rectangles and polygons are not recognised and stay as traced.
+* **Stitch-type presets** are implemented (`auto`, `logo_satin`, `line_art`, `fine_detail`, `fill_all`; `GET /api/presets`); they only move the run / column / fill boundaries - density, underlay and pull compensation still come from the fabric profile. The values are this project's own defaults, not Wilcom's (Wilcom does not publish its rules).
 * **Thread-chart colour matching** (matching artwork colours to a brand chart) is not implemented; no licensed chart data. Colours are the artwork's own.
 * **Speed.** Wilcom is native code; StitchCraft is pure Python. Measured here: artwork conversions take seconds, and complex photographs of embroidery take roughly 5-20 s. No claim of parity.
 * **Quality on the customer's pink-silk photos** is limited (see the digitizing reviews); Wilcom's own docs also warn that photographs and low-quality sources need manual work.

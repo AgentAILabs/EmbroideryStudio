@@ -489,7 +489,7 @@ function askImport(qrep) {
   return new Promise(resolve => {
     const dlg = $("#dlgImport"); $("#impW").value = Math.round(S.doc.hoop.w * .7); $("#impReport").hidden = !qrep; $("#impReport").innerHTML = qualityPanelHtml(qrep);
     const rec = qrep && qrep.workflow; [["#impGo", "vector", "Import as vector artwork"], ["#impPhoto", "photo", "Photo stitch instead…"], ["#impGarment", "garment_photo", "Garment photo…"]].forEach(([id, k, t]) => { $(id).textContent = t + (rec === k ? " (recommended)" : ""); $(id).classList.toggle("recommended", rec === k); });
-    dlg.onclose = () => resolve(dlg.returnValue === "go" ? {w: parseFloat($("#impW").value), c: parseInt($("#impC").value) || 6, q: $("#impQ").value, e: $("#impE").value} : dlg.returnValue === "photo" ? {photo: true, w: parseFloat($("#impW").value)} : dlg.returnValue === "garment" ? {garment: true, w: parseFloat($("#impW").value)} : null);
+    dlg.onclose = () => resolve(dlg.returnValue === "go" ? {w: parseFloat($("#impW").value), c: parseInt($("#impC").value) || 6, q: $("#impQ").value, e: $("#impE").value, p: $("#impP").value, s: $("#impS").checked} : dlg.returnValue === "photo" ? {photo: true, w: parseFloat($("#impW").value)} : dlg.returnValue === "garment" ? {garment: true, w: parseFloat($("#impW").value)} : null);
     dlg.showModal();
   });
 }
@@ -616,6 +616,8 @@ $("#sbMach").onclick = mtOpen; $("#mtClose").onclick = () => $("#dlgMachine").cl
 $("#mtExport").onclick = () => { const r = (MT.recs || []).filter(x => x.dst_sha256 === MT.sha); download("machine-test-" + (MT.sha || "").slice(0, 12) + ".json", JSON.stringify(r.length ? r[r.length - 1] : MT.recs[MT.recs.length - 1], null, 2), "application/json"); };
 $("#mtImportB").onclick = () => $("#mtImport").click();
 $("#mtImport").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { await post("/api/evidence/import", JSON.parse(await f.text())); await mtOpen(); } catch (er) { alert("Record refused: " + er.message); } e.target.value = ""; };
+/* ---------------------------------------------------------------- stitch-type presets (from the server, one list) */
+fetch("/api/presets").then(r => r.json()).then(j => { for (const id of ["#impP", "#wzP"]) { const el = $(id); if (!el) continue; el.innerHTML = j.presets.map(p => `<option value="${esc(p.id)}" ${p.id === "auto" ? "selected" : ""} title="thin &lt; ${p.thin_mm} mm run, up to ${p.column_max_mm} mm column">${esc(p.label)}</option>`).join(""); } }).catch(() => {});
 /* ---------------------------------------------------------------- instant smart design (one click) */
 async function instantSmart(file) {
   if (!/\.(png|jpe?g)$/i.test(file.name)) { alert("Use a PNG or JPG image. For SVG artwork use Import art."); return; }
@@ -625,7 +627,7 @@ async function instantSmart(file) {
     if (route === "photo") { alert("This looks like a photograph, so it goes to Photo stitch (tonal thread hatching) instead of flat regions."); openPhoto(file, w); return; }
     if (route === "garment_photo") { alert("This looks like a photo of a finished garment: isolate or separate the embroidery first."); $("#gaW").value = w; $("#dlgGarment").showModal(); gaLoad(file); return; }
     const name = file.name.replace(/\.[^.]+$/, "");
-    const r = await post("/api/autodigitize", {data, name, width_mm: w, colors: 6, quality: "high", enhance: "auto", fabric: "cotton", category: "blouse_neck", thread: S.doc.thread || "40wt", hoop_w: hw, hoop_h: S.doc.hoop.h});
+    const r = await post("/api/autodigitize", {data, name, width_mm: w, colors: 6, quality: "high", preset: "auto", shapes: true, enhance: "auto", fabric: "cotton", category: "blouse_neck", thread: S.doc.thread || "40wt", hoop_w: hw, hoop_h: S.doc.hoop.h});
     S.imgSrc = {name: file.name, b64: data, url: URL.createObjectURL(file), opts: {w, c: 6, q: "high", e: "auto"}, unresolved: ((r.import_report || {}).unresolved || []).length, decisions: {}};
     loadDoc(r.design); setView("stitch");
     const st = r.checklist.stats;
@@ -758,7 +760,7 @@ async function importFile(file) {
       S.imgSrc = {name: file.name, b64: btoa(bin), url: URL.createObjectURL(file), opts: o};       // the original stays in memory exactly as uploaded
       let erase = [];
       for (;;) {                                   // review -> (optional) erase pixels in the source image -> re-detect -> review again
-        res = await post("/api/import/raster", {data: btoa(bin), width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e, erase});
+        res = await post("/api/import/raster", {data: btoa(bin), width_mm: o.w, colors: o.c, quality: o.q, enhance: o.e, erase, preset: o.p || "auto", shapes: !!o.s});
         if (res.report) { res.report.objectsN = res.objects.length; res.notes = importSummary(res.report).concat(res.notes || []); }
         if (!res.objects.length) break;
         const kept = await reviewRegions(res.objects);
@@ -876,7 +878,7 @@ async function wizardRun() {
   try {
     const data = b64(new Uint8Array(await f.arrayBuffer()));
     const r = await post("/api/autodigitize", {data, name: $("#wzName").value || f.name.replace(/\.[^.]+$/, ""), width_mm: +$("#wzW").value || 80, colors: +$("#wzC").value || 6,
-      quality: $("#wzQ").value, enhance: "auto", fabric: $("#wzFab").value, category: $("#wzCat").value, thread: $("#wzThr").value, hoop_w: +$("#wzHW").value || 130, hoop_h: +$("#wzHH").value || 180});
+      quality: $("#wzQ").value, preset: $("#wzP").value, shapes: $("#wzS").checked, enhance: "auto", fabric: $("#wzFab").value, category: $("#wzCat").value, thread: $("#wzThr").value, hoop_w: +$("#wzHW").value || 130, hoop_h: +$("#wzHH").value || 180});
     S.imgSrc = {name: f.name, b64: data, url: URL.createObjectURL(f), opts: {w: +$("#wzW").value || 80, c: +$("#wzC").value || 6, q: $("#wzQ").value, e: "auto"}, unresolved: ((r.import_report || {}).unresolved || []).length, decisions: {}};
     const ist = (r.import_report || {}).inventory_status || {};
     r.log.push("detail inventory: " + Object.entries(ist).map(([k, v]) => v + " " + k.replace(/_/g, " ")).join(", ") + (S.imgSrc.unresolved ? " - " + S.imgSrc.unresolved + " detail(s) need your review (Image fidelity button)" : ""));

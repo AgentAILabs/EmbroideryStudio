@@ -444,26 +444,49 @@ def _round(r):
 
 
 def _make_object(outer, holes, color, quality_cfg, report):
-    """Pick the right stitch type for one connected shape: thin -> running line, narrow elongated -> satin column, else fill."""
+    """Pick the right stitch type for one connected shape: thin -> running line, narrow elongated -> satin column, else fill.
+    The boundaries come from the stitch-type preset (smart_design.PRESETS; default = THIN_MM / COLUMN_MAX_MM / MIN_ASPECT); with cfg['shapes'] a fill whose outline is an
+    ellipse / circle / rectangle is replaced by the ideal shape."""
     from .outline import column_from_outline
+    thin_mm = quality_cfg.get("thin_mm", THIN_MM); col_max = quality_cfg.get("column_max_mm", COLUMN_MAX_MM); min_asp = quality_cfg.get("min_aspect", MIN_ASPECT)
     area = _area(outer) - sum(_area(h) for h in holes)
     per = _perim(outer) + sum(_perim(h) for h in holes)
     w = 2 * area / per if per > 0 else 0.0
-    if not holes and w < COLUMN_MAX_MM:
+    if not holes and w < col_max:
         try:
             col = column_from_outline(outer)
         except ValueError:
             col = None
-        if col is not None and col["aspect"] >= MIN_ASPECT:
-            if w < THIN_MM:
+        if col is not None and col["aspect"] >= min_asp:
+            if w < thin_mm:
                 mid = [[(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] for a, b in zip(col["rail1"], col["rail2"])]
                 return {"type": "run", "color": color, "points": _round(mid), "smooth": False, "params": {"stitch_len": 2.0}}, "run"
-            if w >= THIN_MM:
+            if w >= thin_mm:
                 return {"type": "column", "color": color, "rail1": col["rail1"], "rail2": col["rail2"], "params": {"pull_comp": 0.2}}, "column"
+    if quality_cfg.get("stroke_satin") and thin_mm <= w <= col_max and area >= 2.0:
+        from .smart_design import stroke_columns
+        cols = stroke_columns(outer, holes, col_max)
+        if cols:
+            mk = lambda c: {"type": "column", "color": color, "rail1": _round(c["rail1"]), "rail2": _round(c["rail2"]), "params": {"pull_comp": 0.2}}
+            first = mk(cols[0]); first["_strokes"] = True; first["_extra"] = [mk(c) for c in cols[1:]]
+            report["stroke_satin"] = report.get("stroke_satin", 0) + 1
+            return first, "column"
     aspect = 1.0
+    shape_name = None
+    if quality_cfg.get("shapes"):
+        from .smart_design import recognize_shape
+        outer, holes, sinfo = recognize_shape(outer, holes)
+        if sinfo["outer"]:
+            shape_name = sinfo["outer"]["kind"]; cnt = report.setdefault("shapes", {}); cnt[shape_name] = cnt.get(shape_name, 0) + 1
+        for hi in sinfo["holes"]:
+            if hi:
+                cnt = report.setdefault("shapes", {}); cnt["hole_" + hi["kind"]] = cnt.get("hole_" + hi["kind"], 0) + 1
     xs, ys = [p[0] for p in outer], [p[1] for p in outer]
     ang = _major_axis_deg(outer) if (max(xs) - min(xs) > 0 and (max(xs) - min(xs)) / max(1e-9, max(ys) - min(ys)) > 2.0 or max(ys) - min(ys) > 2.0 * (max(xs) - min(xs))) else 45.0
-    return {"type": "fill", "color": color, "rings": [_round(outer)] + [_round(h) for h in holes], "params": {"angle": round(ang, 1), "pull_comp": 0.2}}, "fill"
+    fo = {"type": "fill", "color": color, "rings": [_round(outer)] + [_round(h) for h in holes], "params": {"angle": round(ang, 1), "pull_comp": 0.2}}
+    if shape_name:
+        fo["name"] = shape_name.capitalize()
+    return fo, "fill"
 
 
 def _shape_coverage(outer, holes, obj, width_mm=0.45):
@@ -602,7 +625,7 @@ def _photographic(rgb):
     return len(np.unique(t.reshape(-1, 3), axis=0)) > 400
 
 
-def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: str = "standard", decisions=None):
+def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: str = "standard", decisions=None, preset: str = "auto", shapes: bool = False):
     """Image -> editable objects with a quality report. Returns {"objects", "notes", "size_mm", "report", "inventory"}.
     `decisions` = {inventory id: "tack" | "omit"}: the user's review of details that are too small to stitch safely (tack = force a tack dot, omit = accept leaving it out).
     A run that exceeds TIME_BUDGET_S stops with a clear message instead of tying up the server."""
@@ -618,13 +641,14 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
     except ImportError as e:
         raise RasterUnavailable("image import needs the optional Pillow and NumPy packages (SVG import and everything else work without them)") from e
     Image.MAX_IMAGE_PIXELS = MAX_PIXELS
-    cfg = QUALITY[quality]; t0 = time.time()
+    from .smart_design import preset_cfg
+    cfg = dict(QUALITY[quality]); cfg.update(preset_cfg(preset)); cfg["shapes"] = bool(shapes); t0 = time.time()
     im = Image.open(io.BytesIO(data))
     if im.width * im.height > MAX_PIXELS:
         raise ValueError("image has too many pixels")
     is_jpeg = data[:3] == b"\xff\xd8\xff"
     src_w, src_h = im.size
-    notes, report = [], {"quality": quality, "source_px": [src_w, src_h]}
+    notes, report = [], {"quality": quality, "source_px": [src_w, src_h], "preset": preset, "shapes_recognised": bool(shapes)}
     dpi = src_w / (width_mm / 25.4); report["dpi"] = round(dpi)
     if dpi < 100:
         notes.append(f"Low resolution: about {dpi:.0f} DPI at {width_mm:g} mm wide. Edges will be rougher; use a larger image.")
@@ -712,7 +736,7 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
                 if sp:
                     queue.extend((ro, rh, "split") for ro, rh in sp[0] + sp[1]); split_n["count"] += 1
                     continue                                      # the parts are recorded individually (they partition this region)
-            if o is not None and kind in ("run", "column") and a_out >= 0.6 and is_resid is None:
+            if o is not None and kind in ("run", "column") and a_out >= 0.6 and is_resid is None and not o.get("_strokes"):
                 cov_, resid = _shape_coverage(outer, holes, o)
                 if cov_ < 0.95:                                  # a line / column would leave part of the shape unstitched (a bead on a line end, two lines meeting at a tip)
                     if resid and len(resid) <= 12:
@@ -733,8 +757,10 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
             if len(inventory) < INVENTORY_LIMIT: inventory.append(rec)
             if o is None:
                 continue
-            o["_a"] = a_out; o["_c"] = ci; o["_kind"] = kind; o["_inv"] = rec["id"]
+            o["_a"] = a_out; o["_c"] = ci; o["_kind"] = kind; o["_inv"] = rec["id"]; o.pop("_strokes", None)
             objs.append(o); kinds[kind] = kinds.get(kind, 0) + 1; areas[ci] = areas.get(ci, 0) + o["_a"]
+            for ex_ in o.pop("_extra", []):                                         # the other stroke columns of the same letter / logo shape
+                ex_.update({"_a": 0.0, "_c": ci, "_kind": "column", "_inv": rec["id"]}); objs.append(ex_); kinds["column"] = kinds.get("column", 0) + 1
             if is_resid != "resid": covered_area += a_out
     # order: colours by total area (largest first = bottom layer), inside a colour fills -> columns -> runs, nearest-neighbour for fewer jumps
     rank = {c: i for i, c in enumerate(sorted(areas, key=lambda c: -areas[c]))}
@@ -750,7 +776,7 @@ def digitize_image(data: bytes, width_mm: float, max_colors: int = 6, quality: s
     by_id = {rec["id"]: rec for rec in inventory}
     for i, o in enumerate(ordered):
         inv_id = o.pop("_inv", None)
-        o["id"] = f"img{i + 1}"; o["name"] = f"{o.pop('_kind').capitalize()} {i + 1}"; o.pop("_a"); o.pop("_c")
+        o["id"] = f"img{i + 1}"; kind_ = o.pop("_kind"); o["name"] = f"{o['name']} {i + 1}" if o.get("name") else f"{kind_.capitalize()} {i + 1}"; o.pop("_a"); o.pop("_c")
         if inv_id in by_id:
             by_id[inv_id]["object"] = o["id"]
     status_n = {}

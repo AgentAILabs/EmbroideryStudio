@@ -82,6 +82,8 @@
       <label>Hoop W × H (mm) <span><input type="number" id="wzHW" value="130" style="width:70px"> <input type="number" id="wzHH" value="180" style="width:70px"></span></label>
       <label>Thread colours <input type="number" id="wzC" value="6" min="2" max="8"></label>
       <label>Detail <select id="wzQ"><option value="standard">Standard</option><option value="high" selected>High (small details)</option><option value="maximum">Maximum (finest detail)</option><option value="draft">Draft</option></select></label>
+      <label title="Where the run / column / fill boundaries are">Stitch-type preset <select id="wzP"><option value="auto" selected>Auto</option><option value="logo_satin">Logo - satin columns</option><option value="line_art">Line art</option><option value="fine_detail">Fine detail / small text</option><option value="fill_all">Fills only</option></select></label>
+      <label title="Replace outlines that are circles, ellipses or rectangles by the ideal shape"><input type="checkbox" id="wzS" checked> Recognise shapes</label>
       <p class="hint">Rule-based digitizing: image clean-up, colour regions, stitch-type choice by shape width (running &lt; 1 mm, satin to ~5.5 mm, fill above), then density / underlay / pull compensation from the fabric profile. Starting values - always stitch a sample.</p>
       <div id="wzErr" class="err"></div>
       <div class="row2"><button value="cancel">Close</button><button id="wzGo" class="primary">Digitize</button></div>
@@ -227,6 +229,8 @@
     <label>Width in the hoop (mm) <input type="number" id="impW" min="5" max="1000" step="1"></label>
     <label>Thread colours <input type="number" id="impC" min="2" max="8" value="6"></label>
     <label>Quality <select id="impQ"><option value="draft">Draft (fast, coarse)</option><option value="standard">Standard</option><option value="high" selected>High (keeps small details)</option><option value="maximum">Maximum (finest detail, slower)</option></select></label>
+    <label title="Where the run / column / fill boundaries are">Stitch-type preset <select id="impP"><option value="auto" selected>Auto</option><option value="logo_satin">Logo - satin columns</option><option value="line_art">Line art</option><option value="fine_detail">Fine detail / small text</option><option value="fill_all">Fills only</option></select></label>
+    <label title="Replace outlines that are circles, ellipses or rectangles by the ideal shape"><input type="checkbox" id="impS" checked> Recognise shapes</label>
     <label>Enhance image (2× upscale + sharpen) <select id="impE"><option value="auto" selected>Auto – only if blurry / low-res</option><option value="always">Always</option><option value="off">Off</option></select></label>
     <div id="impReport" hidden></div>
     <div class="row"><button value="cancel" id="impCancel">Cancel</button><button value="garment" id="impGarment" title="The picture is a photo of a finished garment: find the embroidery first, ignoring folds, shadows and background">Garment photo…</button><button value="photo" id="impPhoto" title="For photographs: tonal thread hatching instead of flat colour regions">Photo stitch instead…</button><button value="go" class="primary" id="impGo">Import as vector artwork</button></div>

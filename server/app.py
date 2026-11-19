@@ -287,7 +287,7 @@ def api_autodigitize(d):
 
 
 def _autodigitize_core(d):
-    imp, full, original = _raster_full({k: d[k] for k in ("data", "width_mm", "colors", "quality", "enhance", "erase", "decisions") if k in d})
+    imp, full, original = _raster_full({k: d[k] for k in ("data", "width_mm", "colors", "quality", "enhance", "erase", "decisions", "preset", "shapes") if k in d})
     if not imp["objects"]:
         raise ValueError("; ".join(imp["notes"]) or "nothing to digitize")
     hoop = {"w": float(d.get("hoop_w", 100)), "h": float(d.get("hoop_h", 100)), "margin": 3}
@@ -636,11 +636,20 @@ def _raster_full(d):
         dec = d.get("decisions") or {}
         if not isinstance(dec, dict) or len(dec) > 2000 or any(v not in ("tack", "omit") for v in dec.values()):
             raise ValueError("decisions must be {inventory id: \"tack\" | \"omit\"}")
-        r = digitize_image(raw, float(d.get("width_mm", 80)), int(d.get("colors", 6)), str(d.get("quality", "standard")), dec)
+        from stitchcraft_engine.smart_design import PRESETS
+        preset = str(d.get("preset", "auto"))
+        if preset not in PRESETS:
+            raise ValueError(f"preset must be one of {sorted(PRESETS)}")
+        r = digitize_image(raw, float(d.get("width_mm", 80)), int(d.get("colors", 6)), str(d.get("quality", "standard")), dec, preset, bool(d.get("shapes", False)))
     except OSError as e:                                  # PIL: truncated / damaged / unrecognised image data
         raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
     return ({"objects": r["objects"], "notes": r["notes"], "width_mm": r["size_mm"][0], "height_mm": r["size_mm"][1], "report": dict(r["report"], enhance=enh),
              "source": fidelity.source_record(original, float(d.get("width_mm", 80))), "inventory": r.get("inventory", [])}, r, original)
+
+
+def api_presets(d=None):
+    from stitchcraft_engine.smart_design import PRESETS
+    return {"presets": [dict(id=k, **v) for k, v in PRESETS.items()], "note": "Presets choose where the run / column / fill boundaries are; density, underlay and pull compensation come from the fabric profile."}
 
 
 def api_enhance(d):
@@ -727,6 +736,8 @@ class H(BaseHTTPRequestHandler):
             if sha and not re.fullmatch(r"[0-9a-f]{64}", sha):
                 return self._send(400, {"error": "sha must be a 64-hex SHA-256"})
             return self._send(200, evidence.status_for(sha or None, name or None))
+        if path == "/api/presets":
+            return self._send(200, api_presets())
         if path == "/api/templates":
             return self._send(200, {"templates": templates.catalog()})
         if path == "/api/openapi.json":
