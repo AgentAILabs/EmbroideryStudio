@@ -127,7 +127,8 @@ def write_dst(pattern: Pattern, center: bool = True, trim_jumps: int = DEFAULT_T
         raise DstError("pattern has no END command")
 
     ext = (max(xs), -min(xs), max(ys), -min(ys))
-    label = (pattern.name or "DESIGN")[:16].upper()
+    from .machine_compat import label_for
+    label = label_for(pattern.name)
     header = (f"LA:{label:<16}\rST:{len(recs):7d}\rCO:{colors:3d}\r+X:{ext[0]:5d}\r-X:{ext[1]:5d}\r"
               f"+Y:{ext[2]:5d}\r-Y:{ext[3]:5d}\rAX:+{0:5d}\rAY:+{0:5d}\rMX:+{0:5d}\rMY:+{0:5d}\rPD:******\r").encode("ascii")
     header += b"\x1a"

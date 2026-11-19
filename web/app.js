@@ -753,8 +753,9 @@ async function exportDst() {
   if (S.imgSrc && S.imgSrc.unresolved > 0 && !confirm(S.imgSrc.unresolved + " detail(s) of the imported image are too small to stitch safely and are NOT in this DST.\nOpen 'Image fidelity' to review them (tack dot or accept omission).\n\nExport anyway?")) return;
   const r = await fetch("/api/export/dst", {method: "POST", body: JSON.stringify(S.doc)});
   if (!r.ok) { const j = await r.json(); alert("This design cannot be exported yet:\n\n" + (j.issues || [{message: j.error}]).filter(i => !i.severity || i.severity === "error").map(i => "• " + friendlyLine(i)).join("\n")); return; }
-  download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + ".dst", await r.arrayBuffer(), "application/octet-stream");
-  alert("DST downloaded." + ((S.gen && S.gen.issues || []).some(i => i.severity === "warning") ? " There are warnings (see Checks)." : "") + "\n\nThis software has not been validated on a physical machine yet. Stitch a test sample on your real fabric and stabiliser before production.");
+  const mfn = r.headers.get("X-Machine-Filename") || ((S.doc.name || "design").replace(/[^\w-]+/g, "_") + ".dst");
+  download(mfn, await r.arrayBuffer(), "application/octet-stream");
+  alert("DST downloaded as " + mfn + " (short upper-case name, a precaution for machine displays). Copy it to the USB root."  + ((S.gen && S.gen.issues || []).some(i => i.severity === "warning") ? " There are warnings (see Checks)." : "") + "\n\nThis software has not been validated on a physical machine yet. Stitch a test sample on your real fabric and stabiliser before production.");
 }
 function renderPreview(px) {
   const off = document.createElement("canvas"); off.width = off.height = px; const c = off.getContext("2d"), h = S.doc.hoop;
@@ -914,6 +915,8 @@ async function qualityCheck() {
       const mc = await post("/api/machine/check", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", `<div class="qscore"><h4>Machine profile: ${esc(mc.profile.manufacturer + " " + mc.profile.model)}</h4><p><b>Not validated</b> - ${esc(mc.profile.validation_statement)}</p>${mc.issues.length ? "<ul>" + mc.issues.map(i => `<li class="${i.severity === "error" ? "e" : "w"}">${i.severity === "error" ? "✖" : "⚠"} ${esc(i.message)}</li>`).join("") + "</ul>" : "<p>No profile problems found.</p>"}</div>`);
       const tr = await post("/api/travel", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", travelHtml(tr));
       const qr = await post("/api/quality", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", qualityScoreHtml(qr));
+      const pf = await post("/api/export/preflight", {design: S.doc});
+      $("#qBody").insertAdjacentHTML("afterbegin", `<div class="qscore"><h4>Machine pre-flight (structure of the DST file): ${esc(pf.verdict)} · file name ${esc(pf.suggested_filename)}</h4><table class="qt">${pf.checks.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.result)}</td><td title="${esc(c.detail || "")}">${esc(c.basis)}</td></tr>`).join("")}</table><small>${esc(pf.note)}</small></div>`);
       const sec = await post("/api/report/sections", Object.assign({design: S.doc}, S.imgSrc ? {image: S.imgSrc.b64, width_mm: S.imgSrc.opts.w} : {}));
       $("#qBody").insertAdjacentHTML("afterbegin", `<div class="qscore"><h4>Five separate validations (never combined into one score)</h4>${sectionsHtml(sec)}</div>`);
     }

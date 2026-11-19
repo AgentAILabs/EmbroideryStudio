@@ -721,8 +721,9 @@ class H(BaseHTTPRequestHandler):
                     return self._send(422, err)
                 name = sheet._safe(d.get("name"))
                 ops.log_event("info", "export_dst", rid=self._rid, design_sha=hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()[:16], dst_sha256=res.sha256, bytes=len(res.data), result="released")
+                from stitchcraft_engine import machine_compat
                 return self._send(200, res.data, "application/octet-stream",
-                                  {"Content-Disposition": f'attachment; filename="{name}.dst"', "X-SHA256": res.sha256})
+                                  {"Content-Disposition": f'attachment; filename="{name}.dst"', "X-SHA256": res.sha256, "X-Machine-Filename": machine_compat.filename_for(d.get("name"))})
             if path == "/api/tools/column-from-outline":
                 ring = d.get("ring")
                 if not isinstance(ring, list) or len(ring) > 5000:
@@ -760,6 +761,16 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_to_manual(d))
             if path == "/api/photo/stitch":
                 return self._send(200, api_photo_stitch(d))
+            if path == "/api/export/preflight":
+                from stitchcraft_engine import machine_compat
+                design = d.get("design") if isinstance(d.get("design"), dict) else d
+                check_design(design)
+                try:
+                    res = export_pipeline.export_dst(design)
+                except export_pipeline.ExportError as e:
+                    return self._send(422, e.to_dict())
+                fn = machine_compat.filename_for(design.get("name"))
+                return self._send(200, dict(machine_compat.preflight(res.data, fn, design.get("hoop")), dst_sha256=res.sha256, suggested_filename=fn))
             if path == "/api/report/sections":
                 return self._send(200, api_report_sections(d))
             if path == "/api/evidence":

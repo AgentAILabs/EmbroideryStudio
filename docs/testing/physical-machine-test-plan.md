@@ -38,3 +38,9 @@ When results exist, a person records them in the report template; only then may 
 5. The software never creates a result itself. This repository contains **no** evidence records (a test enforces it). API: `GET /api/evidence?sha=`, `GET /api/evidence/records`, `GET /api/evidence/checklist`, `POST /api/evidence`, `POST /api/evidence/import`.
 
 Current state: **0 records, status PENDING for every design. Physical validation has not been performed.**
+
+## If the machine does not list or preview a file (troubleshooting, added after a field report)
+Known from the DST layout (checked in software by `machine_compat.preflight`, shown in Quality check -> "Machine pre-flight"): 512-byte header with the 12 fields LA ST CO +X -X +Y -Y AX AY MX MY PD, plain-ASCII label, ST / CO / extents consistent with the records, one END record, no record over 12.1 mm.
+**Defects found and fixed in this round:** (1) a design name containing a carriage return injected an extra header line; a 0x1A in the name broke the header; (2) a non-ASCII name (e.g. Telugu) crashed the export. The header label is now sanitised (`machine_compat.label_for`); names that were already plain are byte-identical, so no delivered file changed.
+Precautions (advice from dealers / forums, **not** a Ricoma specification; Ricoma's own pages could not be read from the build environment): the download is now named with an upper-case, letters-and-digits, at most 8 character name and `.DST` (`X-Machine-Filename`); copy it to the USB root; FAT32 media (one forum report: under 2 GB). Try `testpack/ricoma_diag/RD1..RD3.DST` first: the first one that does not appear isolates the cause.
+**The root cause of the original "not shown on the display" report is NOT established.** No machine evidence has been supplied; none of the above has been tested on a Ricoma.
