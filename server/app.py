@@ -329,6 +329,56 @@ def api_report_sections(d):
     return _sections(design, original, float(d.get("width_mm", 80)), d.get("validation") if isinstance(d.get("validation"), dict) else None)
 
 
+def _threads_param(v):
+    from stitchcraft_engine import thread_separation as TS
+    if v is None:
+        return None
+    if not (isinstance(v, list) and 1 <= len(v) <= 4):
+        raise ValueError("threads must be a list of 1-4 thread classes")
+    out = []
+    for t in v:
+        if not isinstance(t, dict) or not re.fullmatch(r"[a-z0-9_]{1,16}", str(t.get("id", ""))) or not re.fullmatch(r"#[0-9a-fA-F]{6}", str(t.get("hex", ""))):
+            raise ValueError("each thread needs an id (a-z0-9_) and a #rrggbb hex")
+        h = t.get("hue")
+        if not (isinstance(h, list) and len(h) == 2 and all(isinstance(x, (int, float)) and 0 <= x <= 360 for x in h)):
+            raise ValueError("hue must be [from, to] degrees 0-360")
+        sm, vm, mp = t.get("sat_min", 0.3), t.get("val_min", 0.35), t.get("min_px", 120)
+        if not (isinstance(sm, (int, float)) and 0 <= sm <= 1 and isinstance(vm, (int, float)) and 0 <= vm <= 1 and isinstance(mp, int) and 10 <= mp <= 5000):
+            raise ValueError("sat_min / val_min must be 0-1 and min_px 10-5000")
+        out.append({"id": t["id"], "hex": t["hex"].lower(), "hue": [float(h[0]), float(h[1])], "sat_min": float(sm), "val_min": float(vm), "min_px": mp, "rosette": bool(t.get("rosette"))})
+    return out
+
+
+def api_garment_digitize(d):
+    """Garment photo -> thread-separated design (red / gold by hue, radial-satin rosettes, one smooth border line, strays removed, leaf angles) -> validated DST.
+    Heuristic; software validation only; physical validation PENDING."""
+    from stitchcraft_engine import thread_separation as TS, motif_isolation as MI, photo_validation as PV
+    ops.check_base64_upload(d.get("data"), "image")
+    raw = base64.b64decode(d["data"])
+    if not (raw[:8] == b"\x89PNG\r\n\x1a\n" or raw[:3] == b"\xff\xd8\xff"):
+        raise ValueError("unsupported image type: only PNG and JPEG are accepted")
+    width = float(d.get("width_mm", 130))
+    raw = MI.crop_region(raw, d.get("region"))
+    try:
+        plan = TS.prepare(raw, width, _threads_param(d.get("threads")), border=bool(d.get("border", True)))
+    except OSError as e:
+        raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
+    hoop = {"w": float(d.get("hoop_w") or 180), "h": float(d.get("hoop_h") or 220), "margin": 3}
+    out = api_autodigitize({"data": base64.b64encode(plan["layer_png"]).decode(), "width_mm": width, "colors": max(2, len(plan["threads"]) + 1), "quality": "high",
+                            "hoop_w": hoop["w"], "hoop_h": hoop["h"], "name": d.get("name") or "garment", "fabric": d.get("fabric", "silk"), "category": d.get("category", "blouse_neck")})
+    design = TS.finish(out["design"], plan); design["hoop"] = hoop; design["name"] = placements_mod.slug(d.get("name") or "garment")
+    check_design(design)
+    try:
+        exp = export_pipeline.export_dst(design); sim = export_pipeline.decoded_simulation(design)
+    except export_pipeline.ExportError as e:
+        return {"error": str(e), "export_error": e.to_dict(), "design": design}
+    w_mm = plan["size_px"][0] * plan["scale"]; h_mm = plan["size_px"][1] * plan["scale"]; ox = design["source"]["thread_separation"]
+    from stitchcraft_engine import machine_compat
+    return {"design": design, "separation": ox, "dst": {"sha256": exp.sha256, "bytes": len(exp.data), "records": exp.record_count, "counts": exp.report["counts"], "filename": machine_compat.filename_for(design["name"])},
+            "preflight": machine_compat.preflight(exp.data, machine_compat.filename_for(design["name"]), hoop), "sections": _sections(design, raw, width, None, None, exp),
+            "honesty": ["Heuristic colour-by-hue separation tuned on pink silk; check the result against the photo.", "Stones / beads are not stitched.", "Physical machine validation is PENDING."]}
+
+
 def api_photo_stitch(d):
     """Photo Stitch Engine: image -> tonal flow-field hatching design -> validated DST -> thread-texture preview from the DECODED DST -> photo validation.
     Software validation only; physical machine validation is separate and PENDING."""
@@ -761,6 +811,8 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_to_manual(d))
             if path == "/api/photo/stitch":
                 return self._send(200, api_photo_stitch(d))
+            if path == "/api/garment/digitize":
+                return self._send(200, api_garment_digitize(d))
             if path == "/api/export/preflight":
                 from stitchcraft_engine import machine_compat
                 design = d.get("design") if isinstance(d.get("design"), dict) else d

@@ -62,6 +62,8 @@ Audit register: `docs/testing/technical-audit-report.md`. Roadmap: `docs/roadmap
 | Physical validation workflow (checklist, evidence record bound to the DST SHA-256, sealed JSON, statuses, live status chip, Machine test dialog) | ✅ workflow / 🧪 **results: none** | `evidence.py`, `evidence/`, `docs/testing/physical-machine-test-plan.md`. **0 records exist; status PENDING for every design.** A test enforces that the repository ships no records |
 | Photo physical test files | 🧪 ready, never stitched | `testpack/photo_v1/` (`tools/make_photo_testfiles.py`, hash manifest, `physically_validated: false`) |
 | Defect found: wide satin trims and jumps its own length after the underlay | 🟡 fix available, **off by default** | machine setting `underlay_entry`; default unchanged so delivered hash-pinned DSTs stay identical (see stitch-quality-validation.md) |
+| Thread-separation digitizing of garment photos (hue classes, radial-satin rosettes, one smooth border line, stray removal, leaf angles) | 🟡 heuristic | `thread_separation.py`, `POST /api/garment/digitize`, garment dialog button; tuned on pink silk; curved borders / individual petals / midribs not handled |
+| DST header label sanitised, machine-safe file name, byte-level pre-flight | ✅ software | `machine_compat.py`; root cause of a field report of a file not showing on a Ricoma display NOT established |
 | Physical machine validation | ❌ **NOT DONE** | no stitch-out has been performed; nothing in this upgrade claims otherwise |
 
 ## Image-to-DST fidelity (2026-11-19)

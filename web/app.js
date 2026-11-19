@@ -647,6 +647,16 @@ async function gaSend(where) {
 $("#bGarment").onclick = () => { $("#mMore").open = false; $("#dlgGarment").showModal(); };
 $("#gaFile").onchange = e => e.target.files[0] && gaLoad(e.target.files[0]);
 $("#gaRun").onclick = () => gaRun(false); $("#gaClose").onclick = () => $("#dlgGarment").close(); $("#gaTh").oninput = () => { $("#gaThV").textContent = (+$("#gaTh").value).toFixed(2); };
+$("#gaThread").onclick = async () => {
+  if (!GA.b64) { alert("Choose a garment photo first."); return; }
+  $("#gaInfo").textContent = "Separating thread colours and digitizing (a few seconds)…"; $("#gaThread").disabled = true;
+  try {
+    const r = await post("/api/garment/digitize", {data: GA.b64, width_mm: +$("#gaW").value || 130, region: gaRegion(), name: GA.name, hoop_w: S.doc.hoop.w, hoop_h: S.doc.hoop.h});
+    if (r.error) { $("#gaInfo").textContent = "Export refused: " + r.error; return; }
+    loadDoc(r.design); $("#dlgGarment").close(); setView("stitch");
+    const c = r.separation; alert(`Thread-separated design opened: ${c.rosettes} radial-satin rosettes, ${c.border_lines} border line(s), ${c.strays_removed} stray objects removed, ${c.leaf_fills_angled} leaf fills angled.\nDST pre-flight: ${r.preflight.verdict}; file name ${r.dst.filename}.\nHeuristic - compare with the photo. Stones are not stitched. Physical validation: PENDING.`);
+  } catch (e) { $("#gaInfo").textContent = "Digitizing failed: " + e.message; } finally { $("#gaThread").disabled = false; }
+};
 $("#gaPhoto").onclick = () => gaSend("photo"); $("#gaVec").onclick = () => gaSend("vector");
 /* ---------------------------------------------------------------- fidelity workspace */
 const FID = {mode: "orig", z: 1, x: 0, y: 0, rep: null, imgs: {}};

@@ -220,6 +220,12 @@ await step('Q9: Machine test dialog - live status chip starts PENDING; an incomp
   await pg.fill('#mt_operator','e2e');await pg.click('#mtSave');await pg.waitForFunction(()=>/INCOMPLETE/.test(document.querySelector('#mtStatus').innerText),null,{timeout:30000});
   const st=await pg.evaluate(()=>document.querySelector('#sbMachT').innerText);if(!/INCOMPLETE/.test(st))throw new Error('chip '+st);
   await pg.click('#mtClose');return 'chip '+st});
+await step('Garment photo: Digitize with thread separation opens a design in the editor (rosettes, border, pre-flight)',async()=>{
+  await pg.click('#bNew');await wait(300);pg.removeAllListeners('dialog');let msg='';pg.on('dialog',d=>{msg=d.message();d.accept()});
+  await pg.evaluate(()=>{document.querySelector('#mMore').open=true});await pg.click('#bGarment');await pg.waitForSelector('#dlgGarment[open]');await pg.setInputFiles('#gaFile',ROOT+'/tools/e2e_threads.png');await wait(300);
+  await pg.fill('#gaW','50');await pg.click('#gaThread');await pg.waitForFunction(()=>!document.querySelector('#dlgGarment').open,null,{timeout:120000});await wait(800);
+  if(!/radial-satin rosettes/.test(msg)||!/pre-flight: PASSED/.test(msg))throw new Error('summary '+msg);
+  const s2=await S();if(!s2.n||s2.iss)throw new Error('editor state '+JSON.stringify(s2));return msg.split('\n')[0]});
 await step('Q5: Garment photo dialog - isolate embroidery (overlay, motif list), then send the motif to Photo stitch',async()=>{
   await pg.click('#bNew');await wait(300);
   await pg.evaluate(()=>{document.querySelector('#mMore').open=true});await pg.click('#bGarment');await pg.waitForSelector('#dlgGarment[open]');await pg.setInputFiles('#gaFile',ROOT+'/tools/e2e_garment.png');await wait(300);
