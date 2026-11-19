@@ -128,6 +128,8 @@ def _satin_objs(oid, th, path, width, spacing, pull, underlay, split=0.0, shorte
     top = satin_stitch(path[::-1] if end_at_start and under else path, width, spacing, pull, split, shorten)
     if end_at_start and under and dist(under[-1][-1], top[0]) > 1e-6:
         top = [tuple(under[-1][-1])] + top
+    if end_at_start and under and 1e-6 < dist(top[-1], under[0][0]) <= 1.5:
+        top = top + [tuple(under[0][0])]
     return StitchObject(oid, "satin", th, [top], under)
 
 
@@ -161,9 +163,11 @@ def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0, shorten=
         under.append(zigzag_underlay(a, b))
     if end_at_start and under:          # underlay travels out, the satin comes back: the object ends where it started (no trim to the next)
         top = satin_from_rails(a[::-1], b[::-1], spacing, split, shorten)
-        tail = under[-1][-1]
+        tail, home = under[-1][-1], under[0][0]
         if dist(tail, top[0]) > 1e-6:
             top = [tuple(tail)] + top     # one short stitch inside the tip instead of a jump + duplicate needle drop
+        if 1e-6 < dist(top[-1], home) <= 1.5:
+            top = top + [tuple(home)]     # finish exactly where the object started (centre of the base), not on a rail corner
         return StitchObject(oid, "satin", th, [top], under)
     return StitchObject(oid, "satin", th, [satin_from_rails(a, b, spacing, split, shorten)], under)
 

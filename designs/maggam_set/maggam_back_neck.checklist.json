@@ -3,7 +3,7 @@
   "profile: Maggam blouse neck on Silk, thread 120 (starting values - confirm with a stitch-out)",
   "set pull_comp on 294 object(s), shorten on 289 object(s), spacing on 150 object(s)",
   "centred in the hoop",
-  "sequence kept: already optimal for this design (trims 48, travel 2070 mm)"
+  "sequence optimised (motifs): trims 44 -> 44, travel 1875 -> 1217 mm (colour order and layering kept)"
  ],
  "items": [
   {
@@ -52,7 +52,7 @@
    "n": 8,
    "title": "No excessively short stitches",
    "level": "PASS",
-   "evidence": "0 stitch(es) under 0.3 mm; 0.0% in clusters of 2+ stitches < 0.5 mm (0.49% incl. lone row turns and locks)"
+   "evidence": "0 stitch(es) under 0.3 mm; 0.3% in clusters of 2+ stitches < 0.5 mm (0.77% incl. lone row turns and locks)"
   },
   {
    "n": 9,
@@ -64,37 +64,37 @@
    "n": 10,
    "title": "No unintended long jumps",
    "level": "PASS",
-   "evidence": "every travel over 3 mm is trimmed (48 trims)"
+   "evidence": "every travel over 3 mm is trimmed (44 trims)"
   },
   {
    "n": 11,
    "title": "Thread trims and colour stops checked",
    "level": "PASS",
-   "evidence": "1 colour stop(s) for 2 colour block(s); 48 trims; trim at colour change on"
+   "evidence": "1 colour stop(s) for 2 colour block(s); 44 trims; trim at colour change on"
   },
   {
    "n": 12,
    "title": "Tie-in and tie-off points checked",
    "level": "PASS",
-   "evidence": "240 lock stitches of 1 mm; 48 tie-in(s) over 48 thread start(s); 127 carried continuation(s) need none"
+   "evidence": "202 lock stitches of 1 mm; 44 tie-in(s) over 44 thread start(s); 134 carried continuation(s) need none"
   },
   {
    "n": 13,
    "title": "Stitch count within production limits",
    "level": "PASS",
-   "evidence": "7045 stitches, ~15.2 min at 700 spm (limit 150,000)"
+   "evidence": "8053 stitches, ~16.2 min at 700 spm (limit 150,000)"
   },
   {
    "n": 14,
    "title": "DST header and command sequence validated",
    "level": "PASS",
-   "evidence": "container PASS, encoding PASS; 7494 records, sha256 dd262c1bc9f4"
+   "evidence": "container PASS, encoding PASS; 8427 records, sha256 0c5dc25cd911"
   },
   {
    "n": 15,
    "title": "DST reopened and simulated successfully",
    "level": "PASS",
-   "evidence": "reopened: 7045 stitch records, ends with END=True; simulation PASS (span 198.4x104.4 mm)"
+   "evidence": "reopened: 8053 stitch records, ends with END=True; simulation PASS (span 198.4x104.4 mm)"
   }
  ],
  "passed": 15,
@@ -102,21 +102,21 @@
  "export_allowed": true,
  "verify_grade": "PASS",
  "stats": {
-  "stitches": 7045,
+  "stitches": 8053,
   "color_changes": 1,
-  "trims": 48,
+  "trims": 44,
   "width_mm": 198.31,
   "height_mm": 104.35,
-  "est_minutes": 15.2
+  "est_minutes": 16.2
  },
  "colour_sequence": [
   {
    "hex": "#d0102c",
-   "stitches": 3506
+   "stitches": 3488
   },
   {
    "hex": "#c9a227",
-   "stitches": 3539
+   "stitches": 4565
   }
  ]
 }

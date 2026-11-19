@@ -21,7 +21,7 @@ from stitchcraft_engine import profiles, sequence, placements, checklist  # noqa
 import sheet                                                                 # noqa: E402
 
 GOLD, RED = "#c9a227", "#d0102c"
-GOLD_SPACING = 0.35          # metallic-look gold: more open than the red, fewer thread breaks
+GOLD_SPACING = 0.27          # metallic-look gold: ~25 % more open than the 0.21 mm the measured commercial files use on every colour
 FABRIC, CATEGORY, THREAD = "silk", "blouse_neck", "120"
 
 
@@ -96,30 +96,40 @@ def leaf_rails(x0, y0, ang, L, W, n=9):
     return a, c
 
 
-def fern(b, x0, y0, ang, L=16.0, name="Red fern", pairs=3, curve=0.0):
-    """Red fern sprig: a short stem (running stitch) with pairs of pointed satin leaflets and a tip leaflet."""
+def fern(b, x0, y0, ang, L=16.0, name="Red fern", pairs=3, curve=0.0, from_base=False):
+    """Red fern sprig: a short stem (running stitch) with pairs of pointed satin leaflets and a tip leaflet.
+    One continuous thread, no jump inside the fern: every leaflet runs out on a centre-run underlay and its satin comes back to the stem.
+    Default order: start at the stem top, finish at the base. from_base=True: start at the base, finish at the top - so the second
+    fern of a pair sharing a base continues exactly where the first one ended (no trim between them)."""
     pts = []
     for k in range(9):
         t = k / 8; a = ang + curve * (t - 0.5)
         pts.append((x0 + math.cos(ang) * L * t + math.cos(a + math.pi / 2) * curve * 2 * t * t,
                     y0 + math.sin(ang) * L * t + math.sin(a + math.pi / 2) * curve * 2 * t * t))
-    # One continuous thread: start at the stem top, tip leaflet (out on its underlay, satin back), then stem segment down to the
-    # next pair, both leaflets (each returns to the stem), ... and the last stem segment ends at the base. No jump inside a fern.
-    tx, ty = pts[6]
-    a, c = leaf_rails(tx, ty, ang, L * 0.36, max(2.2, L * 0.13))
-    col(b, f"{name} tip", RED, a, c, underlay="center", end_at_start=True)
-    cur = 6
-    for i in reversed(range(pairs)):
-        t = 0.28 + 0.22 * i
-        k = min(len(pts) - 1, int(round(t * 8)))
-        run(b, f"{name} stem", RED, pts[k:cur + 1][::-1], stitch_len=2.0)
-        cur = k
-        px, py = pts[k]
+    stops = {1: [3], 2: [1, 4], 3: [1, 3, 5]}[pairs]      # stem points (of 9): first pair 1/8 up the stem - little bare stem
+
+    def tip():
+        tx, ty = pts[6]
+        a, c = leaf_rails(tx, ty, ang, L * 0.36, max(2.2, L * 0.13))
+        col(b, f"{name} tip", RED, a, c, underlay="center", end_at_start=True)
+
+    def pair(i):
+        px, py = pts[stops[i]]
         ll = L * (0.42 - 0.07 * i); ww = max(2.0, ll * 0.36)
         for side in (-1, 1):
             a, c = leaf_rails(px, py, ang + side * math.radians(52), ll, ww)
             col(b, f"{name} leaflet", RED, a, c, underlay="center", end_at_start=True)
-    run(b, f"{name} stem", RED, pts[:cur + 1][::-1], stitch_len=2.0)
+
+    if from_base:
+        cur = 0
+        for i in range(pairs):
+            run(b, f"{name} stem", RED, pts[cur:stops[i] + 1], stitch_len=2.0); cur = stops[i]; pair(i)
+        run(b, f"{name} stem", RED, pts[cur:7], stitch_len=2.0); tip()
+    else:
+        tip(); cur = 6
+        for i in reversed(range(pairs)):
+            run(b, f"{name} stem", RED, pts[stops[i]:cur + 1][::-1], stitch_len=2.0); cur = stops[i]; pair(i)
+        run(b, f"{name} stem", RED, pts[:cur + 1][::-1], stitch_len=2.0)
 
 
 def scallop_band(b, path, width=2.2, period=13.0, amp=2.6, inward=+1, name="Gold scalloped line"):
@@ -139,7 +149,7 @@ def scallop_band(b, path, width=2.2, period=13.0, amp=2.6, inward=+1, name="Gold
     # split into pieces of ~45 mm so no column is absurdly long (cleaner sequencing, smaller trims on a break)
     step = max(2, int(45 / 0.5))
     for k in range(0, len(a) - 1, step):
-        col(b, name, GOLD, a[k:k + step + 1], c[k:k + step + 1], spacing=GOLD_SPACING, underlay="center", shorten=True)
+        col(b, name, GOLD, a[k:k + step + 1], c[k:k + step + 1], spacing=GOLD_SPACING, underlay="edge", shorten=True)   # edge run returns to the start, satin runs forward: pieces chain with no jump
 
 
 def resample(path, step):
@@ -233,7 +243,7 @@ def front_neck():
         else:
             bx, by = px + out[0] * 7, py + out[1] * 7
             fern(left, bx, by, ang - 0.45, 17, f"Neck fern {k}a")
-            fern(left, bx, by, ang + 0.45, 17, f"Neck fern {k}b")
+            fern(left, bx, by, ang + 0.45, 17, f"Neck fern {k}b", from_base=True)
         k += 1; s += 15.5
     (px, py), (nx, ny) = along(path, half)
     gold_flower(b, px + nx * 13, py + ny * 13, 9.5, petals=14, name="Centre flower")
@@ -264,7 +274,7 @@ def back_neck():
         fern(b, x0, y0, a, 15, f"Rim fern {deg}")
     for x in range(-80, 81, 32):
         fern(b, x - 7, -5, math.radians(-115), 13, f"Base fern {x}a", pairs=2)
-        fern(b, x + 7, -5, math.radians(-65), 13, f"Base fern {x}b", pairs=2)
+        fern(b, x + 7, -5, math.radians(-65), 13, f"Base fern {x}b", pairs=2, from_base=True)
         small_flower(b, x + 16, -9, 4.2, name=f"Base small flower {x}")
     for deg in (225, 255, 285, 315):
         a = math.radians(deg); fern(b, -0 + 22 * math.cos(a), -40 + 22 * math.sin(a), a, 12, f"Centre fern {deg}", pairs=2)

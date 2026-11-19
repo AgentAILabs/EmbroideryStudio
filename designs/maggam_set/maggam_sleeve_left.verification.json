@@ -19,7 +19,7 @@
     {
      "level": "PASS",
      "what": "header ST equals the record count (incl. END, as Wilcom/Tajima files do)",
-     "evidence": "ST=2258 records=2258"
+     "evidence": "ST=2488 records=2488"
     },
     {
      "level": "PASS",
@@ -40,7 +40,7 @@
     {
      "level": "PASS",
      "what": "every record re-encodes to the same bytes (movement + command flag)",
-     "evidence": "0 mismatch(es) in 2258 records"
+     "evidence": "0 mismatch(es) in 2488 records"
     },
     {
      "level": "PASS",
@@ -66,7 +66,7 @@
     {
      "level": "PASS",
      "what": "no runs of very short stitches (< 0.5 mm, two or more in a row)",
-     "evidence": "0.0% clustered (0.39% incl. lone row-turn / lock stitches)"
+     "evidence": "0.17% clustered (0.52% incl. lone row-turn / lock stitches)"
     },
     {
      "level": "PASS",
@@ -87,17 +87,17 @@
     {
      "level": "PASS",
      "what": "needle penetrations per mm2 <= 39",
-     "evidence": "max 8, p90 3.0"
+     "evidence": "max 7, p90 4.0"
     },
     {
      "level": "PASS",
      "what": "no thread-break / fabric-cut cluster (<= 12 penetrations in 0.2 mm)",
-     "evidence": "max 5"
+     "evidence": "max 3"
     },
     {
      "level": "PASS",
      "what": "satin line spacing 0.15-0.55 mm (coverage vs. thread-break)",
-     "evidence": "median 0.32 mm over 1464 zig-zags (thread preset k=0.55)"
+     "evidence": "median 0.27 mm over 1734 zig-zags (thread preset k=0.55)"
     }
    ]
   },
@@ -108,22 +108,22 @@
     {
      "level": "PASS",
      "what": "travel (jumps) is not wildly more than stitching",
-     "evidence": "travel 666 mm vs stitched 3642 mm"
+     "evidence": "travel 539 mm vs stitched 4171 mm"
     },
     {
      "level": "PASS",
      "what": "trims are jump trains of >= 3 records",
-     "evidence": "23 trim(s), 31 carried jump(s)"
+     "evidence": "13 trim(s), 41 carried jump(s)"
     },
     {
      "level": "PASS",
      "what": "fresh thread starts are tied in (>= half of the starts after a trim / colour change)",
-     "evidence": "21 tie-in(s) over 21 thread start(s); 31 carried continuation(s) need none"
+     "evidence": "12 tie-in(s) over 12 thread start(s); 40 carried continuation(s) need none"
     },
     {
      "level": "PASS",
      "what": "few orphan pieces (1-2 stitches between two cuts)",
-     "evidence": "0 of 21 thread start(s)"
+     "evidence": "0 of 12 thread start(s)"
     }
    ]
   },
@@ -139,26 +139,26 @@
     {
      "level": "PASS",
      "what": "end position (information: the frame returns home itself)",
-     "evidence": "end offset 38.9 mm from start"
+     "evidence": "end offset 36.7 mm from start"
     },
     {
      "level": "PASS",
      "what": "run time is reasonable",
-     "evidence": "~6.0 min at 700 spm"
+     "evidence": "~5.4 min at 700 spm"
     }
    ]
   }
  ],
  "metrics": {
-  "stitches": 2103,
+  "stitches": 2371,
   "colour_blocks": 2,
-  "trims": 23,
+  "trims": 14,
   "size_mm": [
    115.0,
    50.6
   ],
-  "est_minutes": 6.0,
-  "dens_max": 8,
+  "est_minutes": 5.4,
+  "dens_max": 7,
   "len_median": 1.8
  }
 }

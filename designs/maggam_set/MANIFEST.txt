@@ -1,21 +1,12 @@
-EmbroideryStudio export package · 2026-11-19T01:37:44
+EmbroideryStudio export package · 2026-11-19T02:21:20
 design: maggam_back_neck
-stitches: 7045  colour changes: 1
+stitches: 8053  colour changes: 1
 trim jumps: 3
-DST records: 7494
-DST sha256: dd262c1bc9f4a3db986a850adc7da9440b73a6393453ed18176a7c49ea42792c
+DST records: 8427
+DST sha256: 0c5dc25cd911079eee81003f0c4d1e57a70a59961ed93750db2d64ecb4ce57eb
 
 maggam_back_neck.exp: Melco EXP of the same stitches; trims are written as 3 zero-move jumps (no agreed trim opcode in EXP). Read back by pyembroidery in CI; not machine-tested.
 NOT machine-tested. Stitch a sample on matching fabric and stabiliser before production use.
 
 CHECKS
-NOTE r110: skipped (running stitch needs at least 2 points)
-NOTE r121: skipped (running stitch needs at least 2 points)
-NOTE r132: skipped (running stitch needs at least 2 points)
-NOTE r143: skipped (running stitch needs at least 2 points)
-NOTE r154: skipped (running stitch needs at least 2 points)
-NOTE r165: skipped (running stitch needs at least 2 points)
-NOTE r176: skipped (running stitch needs at least 2 points)
-NOTE r187: skipped (running stitch needs at least 2 points)
-NOTE r198: skipped (running stitch needs at least 2 points)
-NOTE r209: skipped (running stitch needs at least 2 points)
+No problems found
