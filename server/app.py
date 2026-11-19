@@ -27,7 +27,7 @@ from stitchcraft_engine import formats                                          
 from stitchcraft_engine.model import Cmd                                        # noqa: E402
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
 from stitchcraft_engine.raster import digitize_image, enhance_image, RasterUnavailable        # noqa: E402
-from stitchcraft_engine import templates, dst_analyze, dst_verify, checklist, profiles, sequence, placements as placements_mod                                        # noqa: E402
+from stitchcraft_engine import templates, dst_analyze, dst_verify, checklist, profiles, sequence, export_pipeline, placements as placements_mod                                        # noqa: E402
 from stitchcraft_engine.outline import column_from_outline                      # noqa: E402
 import sheet                                                                   # noqa: E402
 
@@ -100,20 +100,14 @@ def api_generate(d):
 
 
 def api_dst(d):
+    """Validated export: returns (ExportResult, None) or (None, error dict with stage + structured issues). Never returns an unverified file."""
     check_design(d)
-    pattern, notes, st = generate(d)
-    rep = run_checks(d, pattern)
-    if not rep.ok:
-        return None, {"error": "Export blocked", "issues": issues(rep)}
-    res = write_dst(pattern, trim_jumps=machine(d)["trim_jumps"])
-    back = read_dst(res.data)
-    if not back.ends_properly or back.color_changes != int(back.header["CO"]):
-        return None, {"error": "DST round-trip check failed"}
-    fails = [i for i in checklist.evaluate(d)["items"] if i["level"] == "FAIL"]
-    if fails:                                        # production checklist gate: never hand a FAIL to the machine
-        return None, {"error": "Export blocked by the production checklist",
-                      "issues": [{"code": f"CHECK{i['n']}", "severity": "error", "message": f"{i['title']}: {i['evidence']}"} for i in fails]}
-    return res, None
+    try:
+        return export_pipeline.export_dst(d), None
+    except export_pipeline.ExportError as e:
+        if e.code == "EXPORT_NO_STITCHES":
+            raise ValueError(str(e)) from e              # unchanged API contract: nothing to stitch is a 400, not a 422 refusal
+        return None, e.to_dict()
 
 
 def api_preview_svg(d):

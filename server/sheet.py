@@ -4,7 +4,7 @@ from datetime import datetime
 
 from stitchcraft_engine.design import generate, run_checks, machine
 from stitchcraft_engine.dst import write_dst, read_dst
-from stitchcraft_engine import formats
+from stitchcraft_engine import formats, export_pipeline
 from stitchcraft_engine.preview import preview_svg
 from stitchcraft_engine.checklist import colour_report_csv, evaluate as checklist_evaluate
 
@@ -103,14 +103,15 @@ def package(design: dict):
     if not rep.ok:
         return None, {"error": "Export blocked", "issues": [{"code": i.code, "severity": i.severity, "message": i.message} for i in rep.issues]}
     m = machine(design)
-    res = write_dst(pattern, trim_jumps=m["trim_jumps"])
-    back = read_dst(res.data)
-    if not back.ends_properly or back.color_changes != st["color_changes"]:
-        return None, {"error": "DST round-trip check failed"}
+    try:
+        res = export_pipeline.export_dst(design)              # write -> re-read -> decode-compare; refuses a file that differs from the plan
+    except export_pipeline.ExportError as e:
+        return None, e.to_dict()
     n = _safe(design.get("name"))
     h = design.get("hoop", {})
     files = {
         f"{n}.dst": res.data,
+        f"{n}.export-report.json": json.dumps(res.report, indent=1).encode(),
         f"{n}.esproj": json.dumps({"app": "EmbroideryStudio", "version": 1, "doc": design}, indent=1).encode(),
         f"{n}.preview.svg": preview_svg(pattern, float(h.get("w", 0)), float(h.get("h", 0))).encode(),
         f"{n}.production-sheet.html": sheet_html(design, pattern, notes, st, rep.issues).encode(),
@@ -164,13 +165,17 @@ def placement_set(design: dict, spec: list, source_side: str = "left", thread=No
         if not rep.ok:
             row.update(status="blocked", reason="; ".join(i.message for i in rep.errors)[:300]); rows.append(row); continue
         m = machine(d)
-        res = write_dst(pattern, trim_jumps=m["trim_jumps"])
+        try:
+            res = export_pipeline.export_dst(d)
+        except export_pipeline.ExportError as e:
+            row.update(status="blocked", reason=f"{e.stage}: {e}"[:300]); rows.append(row); continue
         h = d.get("hoop", {})
         ver = dst_verify.verify(res.data, (float(h.get("w", 100)), float(h.get("h", 100))), k, 15, f"{name}.dst")
         if ver["grade"] == "FAIL":
             row.update(status="blocked", reason="verification FAIL: " + "; ".join(c["what"] for s in ver["stages"] for c in s["checks"] if c["level"] == "FAIL")[:300])
             rows.append(row); continue
         files[f"{name}.dst"] = res.data
+        files[f"{name}.export-report.json"] = json.dumps(res.report, indent=1).encode()
         files[f"{name}.esproj"] = json.dumps({"app": "EmbroideryStudio", "version": 1, "doc": d}, indent=1).encode()
         files[f"{name}.preview.svg"] = preview_svg(pattern, float(h.get("w", 0)), float(h.get("h", 0))).encode()
         files[f"{name}.production-sheet.html"] = sheet_html(d, pattern, notes, st, rep.issues).encode()

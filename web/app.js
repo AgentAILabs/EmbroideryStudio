@@ -760,7 +760,12 @@ const HELP = {
   EMPTY: () => ["There is nothing to stitch yet.", "Draw or import some artwork first."],
   NO_END: () => ["The file does not end properly.", "Try exporting again; if it repeats, report it."],
   MULTI_END: () => ["The file ends more than once.", "Try exporting again; if it repeats, report it."],
-  THREAD_INDEX: () => ["A thread colour is missing.", "Check the colours of your objects."]
+  THREAD_INDEX: () => ["A thread colour is missing.", "Check the colours of your objects."],
+  EXPORT_MISMATCH: () => ["The generated file did not match the stitch plan, so it was not released.", "Nothing was downloaded. Try again; if it repeats, report it with the design file."],
+  EXPORT_TRUNCATED: () => ["The generated file was cut short, so it was not released.", "Try again; if it repeats, report it."],
+  EXPORT_DIMENSIONS: () => ["The generated file has a different size or orientation than the design, so it was not released.", "Report it with the design file."],
+  EXPORT_BAD_HEADER: () => ["The generated file header is inconsistent, so it was not released.", "Report it with the design file."],
+  EXPORT_READER_MISMATCH: () => ["An independent DST reader disagrees with the generated file, so it was not released.", "Report it with the design file."]
 };
 const friendly = i => { const h = HELP[i.code]; return h ? h(i.message || "") : [i.message || "Something needs a look.", ""]; };
 const friendlyLine = i => { const [a, b] = friendly(i); return a + (b ? " " + b : ""); };
