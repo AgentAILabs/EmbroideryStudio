@@ -424,6 +424,18 @@ def api_threads_consumption(d):
     return threads.consumption(pattern)
 
 
+def api_assistant(d):
+    """Digitizing assistant: applies a natural-language request to the design's real objects (rule-based interpreter, no external service)."""
+    from stitchcraft_engine import assistant
+    design = d.get("design")
+    if not isinstance(design, dict):
+        raise ValueError("design is required")
+    check_design(design)
+    out = assistant.run(design, d.get("text"))
+    check_design(out["design"])
+    return out
+
+
 def api_photo_stitch(d):
     """Photo Stitch Engine: image -> tonal flow-field hatching design -> validated DST -> thread-texture preview from the DECODED DST -> photo validation.
     Software validation only; physical machine validation is separate and PENDING."""
@@ -900,6 +912,8 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_to_manual(d))
             if path == "/api/photo/stitch":
                 return self._send(200, api_photo_stitch(d))
+            if path == "/api/assistant":
+                return self._send(200, api_assistant(d))
             if path == "/api/threads/import":
                 return self._send(200, api_threads_import(d))
             if path == "/api/threads/delete":

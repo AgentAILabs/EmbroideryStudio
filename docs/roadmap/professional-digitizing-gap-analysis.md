@@ -23,7 +23,7 @@ Legend: ✅ exists and tested · 🟡 partial · ❌ missing · 🧪 needs outsi
 | 9 | Optimization advisor, apply individually/auto | 🟡 | quality report, travel report, checklist, auto-fix; no per-recommendation "apply" buttons for all items |
 | 10 | Production info: stitches, colour changes, trims, size, thread use, time, complexity, hoop | ✅/🟡 | production report; complexity rating missing |
 | 11 | Workspace layout, 10-step workflow | ✅/🟡 | wizard + dialogs; some steps are separate dialogs |
-| 12 | AI digitizing assistant applying real edits | ❌ | not present |
+| 12 | AI digitizing assistant applying real edits | ✅ rule-based | `assistant.py`, `POST /api/assistant`, dialog (More menu): borders -> satin, tatami for large areas, density up/down, fewer colour changes, small lettering, cap, left chest, reduce stitch count, fabric profiles (denim ...), scale, remove tiny details, convert (opens the image chooser). It edits real objects as one undo step, reports before/after stitches, lists what it did not understand. **No external AI / LLM** (owner decision); presets are unverified starting values |
 | 13 | Architecture, background jobs, large uploads | 🟡 | modules are separated; server is threaded stdlib; long operations are synchronous with time budgets (no job queue) |
 
 Hard constraints carried over: stdlib Python server + vanilla JS, no migration; Pillow / NumPy optional with a pure-Python fallback; nothing installed on the office laptop without approval; no physical validation claimed without machine evidence; no fabricated thread-chart data.

@@ -29,6 +29,7 @@
   <button id="bSet" title="Make the same design for left / right / neck ... as separate, named, verified DST files">Placement set</button>
   <button id="bQuality" title="Run the six-stage DST verification on this design (or on the .dst you are viewing)">Quality check</button>
   <details class="menu" id="mMore"><summary title="More exports and tools">More ▾</summary><div class="pop">
+    <button id="bAssist" title="Digitizing assistant: type what you want (make the borders satin, tatami for large areas, denser, fewer colour changes, cap, left chest, denim ...) and it edits the objects">Digitizing assistant…</button>
     <button id="bThreads" title="Thread libraries: import your own brand palettes (CSV / JSON), match the design colours to real thread codes, replace colours, estimate thread use">Thread libraries…</button>
     <button id="bFormats" title="Export in other machine formats (JEF, PES, EXP, XXX, U01, SEW): software-verified only, never machine-tested">Other machine formats…</button>
     <button id="bInstant" title="One click, like an instant smart design: choose a PNG / JPG and it is checked, routed to the right workflow (artwork -> auto-digitize, photo -> Photo stitch, garment photo -> garment dialog) and opened in the editor">Instant smart design…</button>
@@ -133,6 +134,15 @@
     <div id="qBody" class="qbody">Running…</div>
     <div class="row2"><button value="close" class="primary">Close</button></div>
   </form>
+</dialog>
+<dialog id="dlgAssist">
+  <div class="fidwrap">
+    <div class="fidhead"><h3>Digitizing assistant</h3><small>Rule-based: it understands a defined set of embroidery commands and edits your real objects (one undo step). It uses no external AI and says when it does not understand. Preset values are starting points - stitch a sample.</small></div>
+    <div class="row"><textarea id="asText" rows="3" style="width:100%" placeholder="e.g. make the borders satin stitch, use tatami fill for large areas and reduce unnecessary colour changes"></textarea></div>
+    <div class="row" id="asChips"></div>
+    <div class="row"><button type="button" id="asRun" class="primary">Apply</button><button type="button" id="asClose">Close</button></div>
+    <div id="asOut" class="note"></div>
+  </div>
 </dialog>
 <dialog id="dlgThreads">
   <div class="fidwrap">

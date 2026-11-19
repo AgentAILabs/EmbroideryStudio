@@ -616,6 +616,25 @@ $("#sbMach").onclick = mtOpen; $("#mtClose").onclick = () => $("#dlgMachine").cl
 $("#mtExport").onclick = () => { const r = (MT.recs || []).filter(x => x.dst_sha256 === MT.sha); download("machine-test-" + (MT.sha || "").slice(0, 12) + ".json", JSON.stringify(r.length ? r[r.length - 1] : MT.recs[MT.recs.length - 1], null, 2), "application/json"); };
 $("#mtImportB").onclick = () => $("#mtImport").click();
 $("#mtImport").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { await post("/api/evidence/import", JSON.parse(await f.text())); await mtOpen(); } catch (er) { alert("Record refused: " + er.message); } e.target.value = ""; };
+/* ---------------------------------------------------------------- digitizing assistant */
+const AS_EXAMPLES = ["make the borders satin stitch", "use tatami fill for large areas", "increase stitch density by 15%", "reduce unnecessary colour changes", "improve small lettering", "optimize this design for a cap", "prepare this design for a left-chest logo", "reduce the overall stitch count", "make the embroidery suitable for denim", "remove tiny details"];
+function openAssist() { $("#mMore").open = false; $("#asOut").textContent = ""; $("#asChips").innerHTML = AS_EXAMPLES.map(t => `<button type="button" data-t="${esc(t)}">${esc(t)}</button>`).join(""); $("#dlgAssist").showModal(); }
+$("#bAssist").onclick = openAssist; $("#asClose").onclick = () => $("#dlgAssist").close();
+$("#asChips").onclick = e => { const t = e.target.dataset && e.target.dataset.t; if (t) { $("#asText").value = ($("#asText").value ? $("#asText").value + ", " : "") + t; } };
+$("#asRun").onclick = async () => {
+  const text = $("#asText").value.trim(); if (!text) { $("#asOut").textContent = "Type a request first."; return; }
+  $("#asRun").disabled = true; $("#asOut").textContent = "Working…";
+  try {
+    const r = await post("/api/assistant", {design: S.doc, text});
+    if (r.applied.some(a => a.changed > 0)) { S.doc = r.design; commit(); renderAll(); fit(); }
+    const m = x => (x.stitches == null ? "?" : x.stitches);
+    $("#asOut").innerHTML = (r.applied.map(a => `<div class="${a.changed ? "ok" : "no"}">${a.changed ? "✔" : "•"} ${esc(a.request)}: ${esc(a.detail)}</div>`).join("") +
+      r.not_understood.map(x => `<div class="no">✘ not understood: "${esc(x)}"</div>`).join("") +
+      `<div>Stitches ${m(r.before)} → ${m(r.after)} · objects ${r.before.objects} → ${r.after.objects}</div>` +
+      (r.not_understood.length ? `<details><summary>What I understand</summary>${r.supported_commands.map(c => `<div><b>${esc(c.say)}</b> - ${esc(c.does)}</div>`).join("")}</details>` : "") + `<small>${esc(r.note)}</small>`);
+    if (r.action === "open_image") { $("#dlgAssist").close(); $("#fileInstant").click(); }
+  } catch (e) { $("#asOut").textContent = "Failed: " + e.message; } finally { $("#asRun").disabled = false; }
+};
 /* ---------------------------------------------------------------- thread libraries */
 async function thPalettes(sel) {
   const j = await (await fetch("/api/threads/palettes")).json();
