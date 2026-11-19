@@ -51,6 +51,11 @@ def transform_design(d: dict, scale: float = 1.0, mirror: bool = False, rotate: 
     a = math.radians(rotate); cs, sn = math.cos(a), math.sin(a)
     for o in d.get("objects", []):
         t = o.get("type")
+        if t == "text" and o.get("path"):
+            o["height"] = round(float(o.get("height", 10)) * scale, 3)
+            pth = [_pt(p, scale, mirror, cs, sn) for p in o["path"]]
+            o["path"] = pth[::-1] if mirror else pth            # mirrored path is walked the other way so the text still reads left to right
+            continue
         if t == "text":
             b = _bbox(o)
             cx, cy = ((b[0] + b[2]) / 2, (b[1] + b[3]) / 2) if b else (o.get("x", 0), o.get("y", 0))
@@ -91,6 +96,8 @@ def centre_design(d: dict) -> dict:
     for o in d["objects"]:
         if o.get("type") == "text":
             o["x"] = round(o.get("x", 0) + dx, 3); o["y"] = round(o.get("y", 0) + dy, 3)
+            if o.get("path"):
+                o["path"] = [[round(p[0] + dx, 3), round(p[1] + dy, 3)] for p in o["path"]]
         for k in ("points", "rail1", "rail2"):
             if k in o:
                 o[k] = [[round(p[0] + dx, 3), round(p[1] + dy, 3)] for p in o[k]]
