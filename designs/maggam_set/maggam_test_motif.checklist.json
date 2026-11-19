@@ -88,7 +88,7 @@
    "n": 14,
    "title": "DST header and command sequence validated",
    "level": "PASS",
-   "evidence": "container PASS, encoding PASS; 1104 records, sha256 5c182297c096"
+   "evidence": "container PASS, encoding PASS; 1104 records, sha256 08348abd1204"
   },
   {
    "n": 15,

@@ -124,6 +124,8 @@ def apply_profile(design: dict, fabric: str = None, category: str = None, overwr
             put(o, "underlay", satin_underlay(w, shift))
             put(o, "pull_comp", round(min(F["pull"], max(0.05, 0.1 * w)), 2))
             put(o, "shorten", True)
+            if t == "satin":
+                put(o, "corners", True)                 # split sharp corners into overlapping pieces (no folded satin)
             if F.get("push") and w >= 2.0:
                 put(o, "push_comp", F["push"])
         elif t == "fill":

@@ -106,7 +106,10 @@ def fern(b, x0, y0, ang, L=16.0, name="Red fern", pairs=3, curve=0.0, from_base=
         t = k / 8; a = ang + curve * (t - 0.5)
         pts.append((x0 + math.cos(ang) * L * t + math.cos(a + math.pi / 2) * curve * 2 * t * t,
                     y0 + math.sin(ang) * L * t + math.sin(a + math.pi / 2) * curve * 2 * t * t))
-    stops = {1: [3], 2: [1, 4], 3: [1, 3, 5]}[pairs]      # stem points (of 9): first pair 1/8 up the stem - little bare stem
+    if not 1 <= pairs <= 5:
+        raise ValueError("fern pairs must be 1-5")
+    # stem points (of 9) for the leaflet pairs: first pair 1/8 up the stem (little bare stem), spread evenly up to point 5
+    stops = [3] if pairs == 1 else [1 + round(i * 4 / (pairs - 1)) for i in range(pairs)]
 
     def tip():
         tx, ty = pts[6]
@@ -210,16 +213,11 @@ def neck_path(half_w=62.0, top=-120.0, r=62.0):
 
 
 def mirror_objects(objs, b, suffix=" (R)"):
-    """True left-right mirror copies (x -> -x; fill angles mirrored), with new ids - for symmetric necklines."""
-    out = []
-    for o in copy.deepcopy(objs):
+    """True left-right mirror copies with new ids, for symmetric necklines: geometry via placements.transform_design (x -> -x,
+    tatami angles mirrored, lettering kept readable)."""
+    out = placements.transform_design({"objects": copy.deepcopy(objs)}, 1.0, True)["objects"]
+    for o in out:
         o["id"] = b.id("m"); o["name"] = (o.get("name") or "") + suffix
-        for k in ("points", "rail1", "rail2"):
-            if k in o:
-                o[k] = [[R(-x), R(y)] for x, y in o[k]]
-        if "rings" in o:
-            o["rings"] = [[[R(-x), R(y)] for x, y in r] for r in o["rings"]]
-        out.append(o)
     return out
 
 

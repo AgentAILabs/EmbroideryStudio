@@ -3,7 +3,7 @@
   "profile: Maggam blouse neck on Silk, thread 120 (starting values - confirm with a stitch-out)",
   "set pull_comp on 465 object(s), shorten on 455 object(s), spacing on 168 object(s)",
   "centred in the hoop",
-  "sequence optimised (motifs): trims 43 -> 43, travel 2915 -> 1849 mm (colour order and layering kept)"
+  "sequence optimised (motifs): trims 43 -> 43, travel 2915 -> 2026 mm (colour order and layering kept)"
  ],
  "items": [
   {
@@ -88,7 +88,7 @@
    "n": 14,
    "title": "DST header and command sequence validated",
    "level": "PASS",
-   "evidence": "container PASS, encoding PASS; 14548 records, sha256 b36a3d83c549"
+   "evidence": "container PASS, encoding PASS; 14564 records, sha256 a0944e2f2306"
   },
   {
    "n": 15,

@@ -151,7 +151,8 @@ def autofix(design: dict, max_rounds: int = 3) -> Tuple[dict, List[str]]:
                     o = {"id": o["id"], "type": "run", "color": o.get("color"), "name": o.get("name"), "points": mid, "smooth": o.get("smooth", False)}
                     log.append(f"'{name}': column only {w:.2f} mm wide - converted to a running stitch along its centre line")
         if t == "satin" and float((o.get("params") or {}).get("width", DEFAULTS["satin"]["width"])) < 0.8 and len(o.get("points", [])) >= 2:
-            o = {"id": o["id"], "type": "run", "color": o.get("color"), "name": o.get("name"), "points": o["points"], "smooth": o.get("smooth", False)}
+            o = {"id": o["id"], "type": "run", "color": o.get("color"), "name": o.get("name"), "points": o["points"], "smooth": o.get("smooth", False),
+                 "closed": bool(o.get("closed"))}                       # a closed satin ring stays a closed outline
             log.append(f"'{name}': satin narrower than 0.8 mm - converted to a running stitch")
         keep.append(o)
     d["objects"] = keep
@@ -178,17 +179,26 @@ def autofix(design: dict, max_rounds: int = 3) -> Tuple[dict, List[str]]:
         if not any(i.code == "DENSITY" for i in rep.issues):
             break
         th = THREADS.get(d.get("thread") or "40wt", THREADS["40wt"])
-        changed = 0
-        for o in d["objects"]:
-            if o.get("type") in ("fill", "satin", "column", "applique"):
-                cur = (o.get("params") or {}).get("spacing")
-                base = cur if cur else round(DEFAULTS[o["type"]]["spacing"] * th["k"], 3)
-                new = round(min(base * 1.15, 0.7), 3)
-                if new > base + 1e-9:
-                    o["params"] = dict(o.get("params") or {}, spacing=new); changed += 1
+        stitched = [o for o in d["objects"] if o.get("type") in ("fill", "satin", "column", "applique") and not o.get("hidden") and not o.get("guide")]
+        # values the user chose stay untouched as long as opening the default ones is possible; only then are explicit ones opened (named)
+        pool = [o for o in stitched if "spacing" not in (o.get("params") or {}) or o.get("_autospaced")]
+        explicit = False
+        if not pool or all(round(min((o.get("params") or {}).get("spacing", 0.4) * 1.15, 0.7), 3) <= (o.get("params") or {}).get("spacing", 0.4) + 1e-9 for o in pool):
+            pool, explicit = stitched, True
+        changed = []
+        for o in pool:
+            cur = (o.get("params") or {}).get("spacing")
+            base = cur if cur else round(DEFAULTS[o["type"]]["spacing"] * th["k"], 3)
+            new = round(min(base * 1.15, 0.7), 3)
+            if new > base + 1e-9:
+                o["params"] = dict(o.get("params") or {}, spacing=new); o["_autospaced"] = True
+                changed.append(o.get("name") or o.get("id"))
         if not changed:
             break
-        log.append(f"round {rnd + 1}: needle penetrations too dense - opened stitch spacing by 15% on {changed} object(s)")
+        log.append(f"round {rnd + 1}: needle penetrations too dense - opened stitch spacing by 15% on {len(changed)} object(s)" +
+                   (f" incl. user-set values: {', '.join(map(str, changed[:5]))}" if explicit else " (default-spaced objects only)"))
+    for o in d["objects"]:
+        o.pop("_autospaced", None)
     return d, log
 
 

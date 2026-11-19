@@ -21,11 +21,17 @@ def _pts(o):
 
 
 def _ends(o):
+    """(entry, exit) of an object as the builder will sew it. A satin / column with end_at_start and an underlay that reaches the
+    far end comes back to its start, so its exit is its start."""
     if o.get("type") == "fill":
         pts = _pts(o); c = (sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)); return c, c
     for k in ("points", "rail1"):
         if o.get(k):
-            return tuple(o[k][0]), tuple(o[k][-1])
+            a = tuple(o[k][0])
+            p = o.get("params") or {}
+            if o.get("type") in ("satin", "column") and p.get("end_at_start") and p.get("underlay", "auto") not in ("none", "edge"):
+                return a, a
+            return a, tuple(o[k][-1])
     pts = _pts(o) or [(0, 0)]
     return pts[0], pts[-1]
 
@@ -100,6 +106,23 @@ def _motifs(objs: List[dict], touch: float = 1.0) -> List[List[int]]:
                         if j != i:
                             parent[find(i)] = find(j)
             grid.setdefault((gx, gy), set()).add(i)
+    # containment: a detail lying INSIDE an area (fill, appliqué, column band) belongs with it even when it does not touch its outline
+    # - otherwise it could be moved ahead of the area and be buried under it
+    from .geometry import point_in_polygon
+    clouds = [_cloud(o, 2.0) for o in objs]
+    boxes = [_bbox(o) for o in objs]
+    for i, o in enumerate(objs):
+        if o.get("type") in ("fill", "applique") and o.get("rings"):
+            area = [[tuple(p) for p in r] for r in o["rings"]]
+        elif o.get("type") == "column" and o.get("rail1") and o.get("rail2"):
+            area = [[tuple(p) for p in o["rail1"]] + [tuple(p) for p in o["rail2"]][::-1]]
+        else:
+            continue
+        for j in range(n):
+            if j == i or find(i) == find(j) or not boxes[i] or not boxes[j] or not _overlap(boxes[i], boxes[j], 0.0):
+                continue
+            if any(point_in_polygon(q, area) for q in clouds[j][::3] or clouds[j]):
+                parent[find(j)] = find(i)
     groups = {}
     for i in range(n):
         groups.setdefault(find(i), []).append(i)
@@ -122,17 +145,34 @@ def _motif_order(objs: List[dict], start) -> List[int]:
     while left:
         nxt = min(left, key=lambda a: (first(a) if cur is None else cost(cur, a), a))
         order.append(nxt); left.discard(nxt); cur = nxt
-    def total(o):
-        return first(o[0]) + sum(cost(a, b) for a, b in zip(o, o[1:]))
-    best, improved = total(order), True
-    while improved and m <= 400:
-        improved = False
+    # 2-opt on an open path with asymmetric costs. Reversing order[i..k] flips the direction of the edges inside the segment, so the
+    # gain is computed in O(1) from prefix sums of forward and backward edge costs; prefix sums are rebuilt only after a move.
+    # deterministic work budget (not wall-clock time): the same design always gives the same DST on any machine
+    budget = 1_500_000
+    while budget > 0:
+        budget -= m * (m - 1) // 2
+        F = [0.0]; Bk = [0.0]
+        for a, b in zip(order, order[1:]):
+            F.append(F[-1] + cost(a, b)); Bk.append(Bk[-1] + cost(b, a))
+        best_gain, best_ik = 1e-6, None
         for i in range(m - 1):
             for k in range(i + 1, m):
-                cand = order[:i] + order[i:k + 1][::-1] + order[k + 1:]
-                t = total(cand)
-                if t + 1e-6 < best:
-                    order, best, improved = cand, t, True
+                inner_old = F[k] - F[i]; inner_new = Bk[k] - Bk[i]
+                if i == 0:
+                    old_in, new_in = first(order[0]), first(order[k])
+                else:
+                    old_in, new_in = cost(order[i - 1], order[i]), cost(order[i - 1], order[k])
+                if k == m - 1:
+                    old_out = new_out = 0.0
+                else:
+                    old_out, new_out = cost(order[k], order[k + 1]), cost(order[i], order[k + 1])
+                gain = (old_in + inner_old + old_out) - (new_in + inner_new + new_out)
+                if gain > best_gain:
+                    best_gain, best_ik = gain, (i, k)
+        if best_ik is None:
+            break
+        i, k = best_ik                                          # best-improvement 2-opt: apply the largest gain of this pass
+        order = order[:i] + order[i:k + 1][::-1] + order[k + 1:]
     return [i for g in order for i in groups[g]]
 
 

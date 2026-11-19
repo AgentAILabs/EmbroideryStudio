@@ -1,9 +1,9 @@
-EmbroideryStudio export package · 2026-11-19T02:21:20
+EmbroideryStudio export package · 2026-11-19T02:55:38
 design: maggam_back_neck
 stitches: 8053  colour changes: 1
 trim jumps: 3
-DST records: 8427
-DST sha256: 0c5dc25cd911079eee81003f0c4d1e57a70a59961ed93750db2d64ecb4ce57eb
+DST records: 8425
+DST sha256: d951720d4219be9990bed031e898064c189d5a93b95768874d7c294f81b751fb
 
 maggam_back_neck.exp: Melco EXP of the same stitches; trims are written as 3 zero-move jumps (no agreed trim opcode in EXP). Read back by pyembroidery in CI; not machine-tested.
 NOT machine-tested. Stitch a sample on matching fabric and stabiliser before production use.
