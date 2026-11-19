@@ -168,6 +168,17 @@ await step('Phase 5c: erase brush removes pixels from the source and re-detects 
   await pg.click('#segApply');await pg.waitForFunction(()=>document.querySelector('#dlgSeg[open]'),null,{timeout:15000});await wait(500);
   const after=await pg.evaluate(()=>document.querySelector('#segSum').innerText.split(' ')[0]);
   await pg.click('#segGo');await wait(1500);const s=await S();if(!s.n)throw new Error('nothing imported');return 'regions '+before+' -> '+after+' after erasing; imported '+s.n});
+await step('Phase 5d: Bezier node handles - enable, drag a handle, stitches follow, export ok',async()=>{
+  await pg.click('#bNew');await wait(300);await pg.setInputFiles('#fileImport',ROOT+'/engine/samples/flower.svg');await wait(1500);
+  const before=(await S()).st;await pg.evaluate(()=>{__ES.sel=__ES.doc.objects.find(o=>o.type==='fill').id;__ESapi.renderAll()});
+  await pg.click('[data-op="nodes"]');await wait(400);const hn=await pg.evaluate(()=>__ES.doc.objects.find(o=>o.id===__ES.sel).handles.length);if(!hn)throw new Error('no handles');
+  const pos=await pg.evaluate(()=>{const o=__ES.doc.objects.find(x=>x.id===__ES.sel),h=o.handles[0],q=__ESapi.toScreen([h[2],h[3]]),r=document.querySelector('#cv').getBoundingClientRect();return {x:r.left+q[0],y:r.top+q[1],hx:h[2],hy:h[3]}});
+  await pg.mouse.move(pos.x,pos.y);await pg.mouse.down();await pg.mouse.move(pos.x+30,pos.y+25,{steps:6});await pg.mouse.up();await wait(800);
+  const moved=await pg.evaluate(()=>{const h=__ES.doc.objects.find(x=>x.id===__ES.sel).handles[0];return [h[2],h[3]]});if(Math.abs(moved[0]-pos.hx)<.5&&Math.abs(moved[1]-pos.hy)<.5)throw new Error('handle did not move');
+  const st=await S();if(st.iss)throw new Error('errors after handle edit');
+  const [dl]=await Promise.all([pg.waitForEvent('download',{timeout:30000}),pg.click('#bExport')]);const fp=SP+'/bez.dst';await dl.saveAs(fp);if(fs.statSync(fp).size<600)throw new Error('empty dst');
+  await pg.click('[data-op="straight"]');if(await pg.evaluate(()=>!!__ES.doc.objects.find(x=>x.id===__ES.sel).handles))throw new Error('handles not removed');
+  return hn+' handles; moved to '+moved.map(v=>v.toFixed(1)).join(',')+'; DST '+fs.statSync(fp).size+' B'});
 await pg.screenshot({path:SP+'/e2e-final.png'});
 for(const r of res)console.log(r[0],'|',r[1],'|',r[2]);
 console.log('page errors:',errs.length?errs:'none','| HTTP 5xx:',bad.length?bad:'none');console.log('artifacts in',SP);await b.close();

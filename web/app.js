@@ -65,6 +65,7 @@ function mapPts(o, f) {
   if (o.rings) o.rings = o.rings.map(r => r.map(p => f(p)));
   if (o.points) o.points = o.points.map(p => f(p));
   if (o.rail1) { o.rail1 = o.rail1.map(p => f(p)); o.rail2 = o.rail2.map(p => f(p)); }
+  if (o.handles) o.handles = o.handles.map(h => { const a = f([h[0], h[1]]), b = f([h[2], h[3]]); return [a[0], a[1], b[0], b[1]]; });
   if (o.entry) o.entry = f(o.entry);
   if (o.exit) o.exit = f(o.exit);
   if (o.type === "text") { const p = f([o.x, o.y]); o.x = p[0]; o.y = p[1]; if (o.path) o.path = o.path.map(q => f(q)); }
@@ -92,7 +93,24 @@ function warpToPath(strokes, path, h, align) {     // same maths as engine stitc
 function smooth(P, closed, n = 8) { if (P.length < 3) return P; const m = P.length, seg = closed ? m : m - 1, g = closed ? i => P[((i % m) + m) % m] : i => P[Math.max(0, Math.min(m - 1, i))]; const out = [P[0]];
   for (let i = 0; i < seg; i++) { const [a, b, c, d] = [g(i - 1), g(i), g(i + 1), g(i + 2)]; for (let k = 1; k <= n; k++) { const t = k / n; out.push([0, 1].map(j => .5 * (2 * b[j] + (-a[j] + c[j]) * t + (2 * a[j] - 5 * b[j] + 4 * c[j] - d[j]) * t * t + (-a[j] + 3 * b[j] - 3 * c[j] + d[j]) * t ** 3))); } }
   return closed ? out.slice(0, -1) : out; }
-const shown = (o, pts, closed) => o.smooth ? smooth(pts, closed) : pts;
+const listsOf = o => o.rings ? o.rings : o.rail1 ? [o.rail1, o.rail2] : [o.points || []];
+const nVerts = o => listsOf(o).reduce((a, l) => a + l.length, 0);
+function bez(P, H, closed, n = 12) {          // cubic Bezier through the nodes; H[i] = [inX, inY, outX, outY] absolute (same maths as geometry.bezier_flatten)
+  const m = P.length; if (m < 2) return P; const seg = closed ? m : m - 1, out = [P[0]];
+  for (let i = 0; i < seg; i++) { const a = P[i], d = P[(i + 1) % m], b = [H[i][2], H[i][3]], c = [H[(i + 1) % m][0], H[(i + 1) % m][1]];
+    for (let k = 1; k <= n; k++) { const t = k / n, u = 1 - t; out.push([u ** 3 * a[0] + 3 * u * u * t * b[0] + 3 * u * t * t * c[0] + t ** 3 * d[0], u ** 3 * a[1] + 3 * u * u * t * b[1] + 3 * u * t * t * c[1] + t ** 3 * d[1]]); } }
+  return closed ? out.slice(0, -1) : out;
+}
+function handleOffset(o, arr) { let n = 0; for (const l of listsOf(o)) { if (l === arr) return n; n += l.length; } return -1; }
+const shown = (o, pts, closed) => {
+  if (o.handles && o.handles.length === nVerts(o)) { const off = handleOffset(o, pts); if (off >= 0) return bez(pts, o.handles.slice(off, off + pts.length), closed); }
+  return o.smooth ? smooth(pts, closed) : pts;
+};
+function catmullHandles(P, closed) { const m = P.length; return P.map((b, i) => { const a = (closed || i) ? P[(i - 1 + m) % m] : P[0], c = (closed || i < m - 1) ? P[(i + 1) % m] : P[m - 1], tx = (c[0] - a[0]) / 6, ty = (c[1] - a[1]) / 6; return [b[0] - tx, b[1] - ty, b[0] + tx, b[1] + ty]; }); }
+function curveNodes(o) {                       // switch an object to Bezier node editing (starting from the Catmull-Rom curve it already shows)
+  const closedOf = arr => o.rings ? true : (arr === o.points ? !!o.closed : false);
+  o.handles = listsOf(o).flatMap(l => catmullHandles(l, closedOf(l))); delete o.smooth; commit(); renderAll();
+}
 const dist2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2;
 function segDist(p, a, b) { const dx = b[0] - a[0], dy = b[1] - a[1], l = dx * dx + dy * dy; let t = l ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l : 0; t = Math.max(0, Math.min(1, t)); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); }
 function inRing(p, r) { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { if ((r[i][1] > p[1]) !== (r[j][1] > p[1]) && p[0] < (r[j][0] - r[i][0]) * (p[1] - r[i][1]) / (r[j][1] - r[i][1]) + r[i][0]) c = !c; } return c; }
@@ -175,6 +193,8 @@ function drawObjects(c) {
       const b = bbox(allPts(o)); if (b) { const a = toScreen([b[0], b[1]]), d = toScreen([b[2], b[3]]); c.strokeStyle = "#2563eb"; c.setLineDash([4, 3]); c.lineWidth = 1; c.strokeRect(a[0] - 4, a[1] - 4, d[0] - a[0] + 8, d[1] - a[1] + 8); c.setLineDash([]); }
       if (o.entry) { const q = toScreen(o.entry); c.fillStyle = "#16a34a"; c.beginPath(); c.arc(q[0], q[1], 6, 0, 7); c.fill(); c.fillStyle = "#fff"; c.font = "bold 9px sans-serif"; c.fillText("S", q[0] - 3, q[1] + 3); }
       if (o.exit) { const q = toScreen(o.exit); c.fillStyle = "#dc2626"; c.fillRect(q[0] - 6, q[1] - 6, 12, 12); c.fillStyle = "#fff"; c.font = "bold 9px sans-serif"; c.fillText("E", q[0] - 3, q[1] + 3); }
+      if (o.handles && o.handles.length === nVerts(o) && S.tool === "select") { const pts = listsOf(o).flat(); c.save(); c.lineWidth = 1; o.handles.forEach((h, i) => { const n = toScreen(pts[i]), a = toScreen([h[0], h[1]]), b = toScreen([h[2], h[3]]);
+        c.strokeStyle = "#f59e0b"; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(n[0], n[1]); c.lineTo(b[0], b[1]); c.stroke(); c.fillStyle = "#f59e0b"; for (const q of [a, b]) { c.beginPath(); c.arc(q[0], q[1], 3.5, 0, 7); c.fill(); } }); c.restore(); }
       if (o.type !== "text" && S.tool === "select") for (const p of allPts(o)) { const q = toScreen(p), hollow = o.type === "embellishment"; c.strokeStyle = "#2563eb"; c.lineWidth = 1.5; c.beginPath(); c.rect(q[0] - 4, q[1] - 4, 8, 8); if (!hollow) { c.fillStyle = "#fff"; c.fill(); } c.stroke(); }
     }
   }
@@ -324,7 +344,11 @@ cv.addEventListener("pointerdown", e => {
   if (S.vmode === "stitch" && t === "select") { inspectAt(sx, sy); return; }
   if (t === "select") {
     const o = selObj();
-    if (o && o.type !== "text") { const tolPx = 8 / S.view.z; const lists = o.rings ? o.rings : o.rail1 ? [o.rail1, o.rail2] : [o.points]; for (const arr of lists) { for (let i = 0; i < arr.length; i++) if (dist2(arr[i], w) < tolPx * tolPx) { drag = {type: "vertex", arr, i}; return; } } }
+    if (o && o.type !== "text") { const tolPx = 8 / S.view.z; const lists = o.rings ? o.rings : o.rail1 ? [o.rail1, o.rail2] : [o.points];
+      if (o.handles && o.handles.length === nVerts(o)) for (let gi = 0; gi < o.handles.length; gi++) for (const wh of [0, 2]) if (dist2([o.handles[gi][wh], o.handles[gi][wh + 1]], w) < tolPx * tolPx) {
+        if (e.altKey) { const n = lists.flat()[gi]; o.handles[gi][wh] = n[0]; o.handles[gi][wh + 1] = n[1]; commit(); renderAll(); return; }       // Alt-click a handle = make that side a corner
+        drag = {type: "handle", gi, wh}; return; }
+      let base = 0; for (const arr of lists) { for (let i = 0; i < arr.length; i++) if (dist2(arr[i], w) < tolPx * tolPx) { drag = {type: "vertex", arr, i, gi: base + i}; return; } base += arr.length; } }
     const tol = 5 / S.view.z; let found = null;
     for (let i = S.doc.objects.length - 1; i >= 0; i--) if (hit(S.doc.objects[i], w, tol)) { found = S.doc.objects[i]; break; }
     if (found) selectWithGroup(found.id, e.shiftKey || e.ctrlKey || e.metaKey); else { S.sel = null; S.multi = new Set(); }
@@ -348,7 +372,11 @@ cv.addEventListener("pointermove", e => {
   if (!drag) { if (S.draft) draw(); return; }
   if (drag.type === "pan") { S.view.x = drag.vx - (sx - drag.sx) / S.view.z; S.view.y = drag.vy - (sy - drag.sy) / S.view.z; }
   else if (drag.type === "move") { let dx = w[0] - drag.last[0], dy = w[1] - drag.last[1]; selObjs().forEach(o => mapPts(o, p => [p[0] + dx, p[1] + dy])); drag.last = w; drag.moved = true; }
-  else if (drag.type === "vertex") { const p = snapP(w, e.altKey); drag.arr[drag.i][0] = p[0]; drag.arr[drag.i][1] = p[1]; drag.moved = true; }
+  else if (drag.type === "vertex") { const p = snapP(w, e.altKey), o = selObj(); const dx = p[0] - drag.arr[drag.i][0], dy = p[1] - drag.arr[drag.i][1];
+    if (o && o.handles && o.handles.length === nVerts(o) && drag.gi !== undefined) { const h = o.handles[drag.gi]; h[0] += dx; h[1] += dy; h[2] += dx; h[3] += dy; }     // handles travel with their node
+    drag.arr[drag.i][0] = p[0]; drag.arr[drag.i][1] = p[1]; drag.moved = true; }
+  else if (drag.type === "handle") { const o = selObj(), p = snapP(w, e.shiftKey), h = o.handles[drag.gi], n = listsOf(o).flat()[drag.gi]; h[drag.wh] = p[0]; h[drag.wh + 1] = p[1];
+    if (!e.altKey) { const ow = drag.wh === 0 ? 2 : 0; h[ow] = 2 * n[0] - p[0]; h[ow + 1] = 2 * n[1] - p[1]; } drag.moved = true; }       // smooth node: the opposite handle mirrors (hold Alt for a cusp)
   else if (drag.type === "shape") S.draft.b = S.cursor;
   draw();
 });
@@ -738,6 +766,7 @@ function renderProps() {
   if (o.type === "embellishment") h += field("Type", "kind", o, {options: ["bead", "stone", "sequin"], direct: 1}) + field("Size mm", "size_mm", o, {direct: 1, step: .5, min: 1}) + `<div class="note">${o.points.length} placed · not stitched · listed on the production sheet. Click the canvas with the Bead tool to add more.</div>`;
   else h += field("Guide only (not stitched)", "guide", o, {type: "check", direct: 1});
   if (o.type !== "text" && o.type !== "embellishment") h += field("Smooth curve", "smooth", o, {type: "check", direct: 1});
+  if (!["text", "embellishment", "manual"].includes(o.type) && !o.guide) h += `<div class="row"><label title="Drag the orange handles to shape each node. Alt-click a handle = corner on that side; Alt-drag = cusp. Handles are baked into the stitches.">Curve nodes</label><span class="note">${o.handles ? "Bezier handles on" : "off"}</span></div><div class="btns"><button data-op="nodes">${o.handles ? "Reset handles" : "Edit curve nodes"}</button>${o.handles ? '<button data-op="straight">Remove handles</button>' : ""}</div>`;
   if (o.type === "fill") h += field("Pattern", "pattern", o, {options: ["tatami", "contour", "cross"], tip: "tatami = rows · contour = concentric rings · cross = cross-stitch grid"}) + (P(o, "pattern") === "cross" ? field("Cross size mm", "cross_size", o, {step: .5, min: 1}) : "");
   if (o.type === "fill") { const pt = P(o, "pattern");
     if (pt === "tatami") h += field("Direction °", "angle", o, {step: 5, tip: "Stitch angle"});
@@ -784,6 +813,8 @@ function renderProps() {
     fh: () => transformSel((p, cx) => [2 * cx - p[0], p[1]], false), fv: () => transformSel((p, cx, cy) => [p[0], 2 * cy - p[1]], false),
     r90: () => transformSel((p, cx, cy) => [cx - (p[1] - cy), cy + (p[0] - cx)], false),
     repeat: () => duplicate(parseFloat($("#repX").value) || 0, parseFloat($("#repY").value) || 0, parseInt($("#repN").value) - 1 || 1),
+    nodes: () => { const t = selObj(); if (t) curveNodes(t); },
+    straight: () => { const t = selObj(); if (t) { delete t.handles; commit(); renderAll(); } },
     pickEntry: () => { S.pick = "entry"; $("#hint").textContent = "Click on the canvas to set the START point of this object. Esc cancels."; setView("design"); },
     pickExit: () => { S.pick = "exit"; $("#hint").textContent = "Click on the canvas to set the END point of this object. Esc cancels."; setView("design"); },
     clearEE: () => { const t = selObj(); if (t) { delete t.entry; delete t.exit; commit(); renderAll(); } },

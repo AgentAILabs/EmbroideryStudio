@@ -80,6 +80,33 @@ def smooth(pts: Sequence[Point], closed: bool = False, n: int = 8) -> List[Point
     return out[:-1] if closed else out
 
 
+def bezier_flatten(pts: Sequence[Point], handles, closed: bool = False, n: int = 12) -> List[Point]:
+    """Cubic Bezier through the nodes. handles[i] = [inX, inY, outX, outY] in ABSOLUTE coordinates; a handle equal to its node (or missing) is a corner.
+    Segment i runs node i -> node i+1 with control points out(i) and in(i+1)."""
+    P = [tuple(p) for p in pts]
+    m = len(P)
+    if m < 2 or not handles or len(handles) != m:
+        return P
+
+    def hin(i):
+        h = handles[i]
+        return (h[0], h[1])
+
+    def hout(i):
+        h = handles[i]
+        return (h[2], h[3])
+    seg = m if closed else m - 1
+    out = [P[0]]
+    for i in range(seg):
+        a, d = P[i], P[(i + 1) % m]
+        b, c = hout(i), hin((i + 1) % m)
+        for k in range(1, n + 1):
+            t = k / n; u = 1 - t
+            out.append((u ** 3 * a[0] + 3 * u * u * t * b[0] + 3 * u * t * t * c[0] + t ** 3 * d[0],
+                        u ** 3 * a[1] + 3 * u * u * t * b[1] + 3 * u * t * t * c[1] + t ** 3 * d[1]))
+    return out[:-1] if closed else out
+
+
 def _signed_area(r: Sequence[Point]) -> float:
     return sum(r[i][0] * r[(i + 1) % len(r)][1] - r[(i + 1) % len(r)][0] * r[i][1] for i in range(len(r))) / 2
 

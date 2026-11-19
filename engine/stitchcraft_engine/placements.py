@@ -47,7 +47,8 @@ def transform_design(d: dict, scale: float = 1.0, mirror: bool = False, rotate: 
     """Scale -> mirror left-right -> rotate (degrees, clockwise on screen) about the origin. Positions and sizes move; stitch
     parameters that are physical (satin width, spacing, stitch length, bead size) stay as they are. A mirrored tatami fill runs
     in the mirrored direction. Lettering is never mirrored (it would read backwards): only its position is mirrored."""
-    d = copy.deepcopy(d)
+    from .design import expand_handles
+    d = copy.deepcopy(expand_handles(d))                  # Bezier handles are baked into the outline before it is transformed
     a = math.radians(rotate); cs, sn = math.cos(a), math.sin(a)
     for o in d.get("objects", []):
         t = o.get("type")
@@ -122,7 +123,8 @@ def _finite(pts):
 def autofix(design: dict, max_rounds: int = 3) -> Tuple[dict, List[str]]:
     """Returns (corrected design, human-readable log). Never raises on a design generate() can handle; never removes anything it
     cannot name in the log."""
-    d = copy.deepcopy(design); log: List[str] = []
+    from .design import expand_handles
+    d = copy.deepcopy(expand_handles(design)); log: List[str] = []
     hoop = d.setdefault("hoop", {"w": 100, "h": 100, "margin": 3})
     keep = []
     for o in d.get("objects", []):

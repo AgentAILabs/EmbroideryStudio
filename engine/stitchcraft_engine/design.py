@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from .builder import StitchObject, build_pattern
 from .font import layout_text
-from .geometry import dist, polygon_area, smooth, inset_ring, rotate_closed, ring_self_intersections, trim_polyline, outset_ring, scale_axes
+from .geometry import bezier_flatten, dist, polygon_area, smooth, inset_ring, rotate_closed, ring_self_intersections, trim_polyline, outset_ring, scale_axes
 from .model import Cmd, Pattern, ThreadColor
 from .stitches import (DigitizingError, satin_from_rails, contour_fill, cross_fill, center_walk_underlay, edge_walk_underlay, running_stitch,
                        satin_stitch, tatami_fill, underlay_path, zigzag_underlay, rails_from_centerline,
@@ -253,8 +253,40 @@ def machine(design: dict) -> dict:
     return m
 
 
+def expand_handles(design: dict) -> dict:
+    """Objects with Bezier node `handles` are replaced by their flattened polylines (handles and `smooth` removed) so that every later stage - stitching,
+    validation, quality checks - sees exactly the outline the editor shows. Designs without handles are returned unchanged (same object)."""
+    objs = design.get("objects") or []
+    if not any(isinstance(o, dict) and o.get("handles") for o in objs):
+        return design
+    new = []
+    for o in objs:
+        h = o.get("handles") if isinstance(o, dict) else None
+        if not h:
+            new.append(o); continue
+        nverts = sum(len(r) for r in o["rings"]) if o.get("rings") else (len(o.get("rail1") or []) + len(o.get("rail2") or []) if o.get("rail1") is not None and o.get("rail2") is not None else len(o.get("points") or []))
+        if len(h) != nverts:                                        # handles no longer match the vertices (outline edited elsewhere): ignore them, keep the polygon
+            new.append({k: v for k, v in o.items() if k != "handles"}); continue
+        o2 = {k: v for k, v in o.items() if k not in ("handles", "smooth")}
+        closed = bool(o.get("closed")) or o.get("type") in ("fill", "applique")
+        if o.get("rings"):                                         # handles are aligned with the vertices of all rings, in order
+            i, rings = 0, []
+            for r in o["rings"]:
+                rings.append([list(p) for p in bezier_flatten(r, h[i:i + len(r)], True)]); i += len(r)
+            o2["rings"] = rings
+        elif o.get("rail1") is not None and o.get("rail2") is not None:
+            n1 = len(o["rail1"])
+            o2["rail1"] = [list(p) for p in bezier_flatten(o["rail1"], h[:n1], False)]
+            o2["rail2"] = [list(p) for p in bezier_flatten(o["rail2"], h[n1:], False)]
+        elif o.get("points") is not None:
+            o2["points"] = [list(p) for p in bezier_flatten(o["points"], h, closed and o.get("type") != "fill" and bool(o.get("closed")))]
+        new.append(o2)
+    return dict(design, objects=new)
+
+
 def generate(design: dict, trim_distance: Optional[float] = None):
     """Returns (pattern, notes, stats). Raises ValueError when nothing can be generated."""
+    design = expand_handles(design)
     if trim_distance is None:
         trim_distance = machine(design)["trim_distance"]
     threads: List[ThreadColor] = []

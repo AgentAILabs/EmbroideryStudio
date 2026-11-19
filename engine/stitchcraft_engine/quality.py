@@ -62,6 +62,8 @@ def _polylines_cross(a, b) -> bool:
 # ---------------------------------------------------------------- geometry
 def validate_geometry(design: dict) -> List[dict]:
     """Structural checks that stop a design from stitching wrongly. Errors block export; warnings do not."""
+    from .design import expand_handles
+    design = expand_handles(design)
     out: List[dict] = []
     for ob in design.get("objects", []):
         oid, typ = str(ob.get("id")), ob.get("type")
@@ -177,6 +179,8 @@ def _object_points(pattern: Pattern) -> Dict[str, List[Tuple[float, float]]]:
 
 def boundary_check(design: dict, pattern: Pattern, max_points: int = 4000) -> dict:
     """Stitches that land outside the object they belong to (beyond compensation tolerance). Returns {checked, outside, issues}."""
+    from .design import expand_handles
+    design = expand_handles(design)
     by = _object_points(pattern)
     issues, checked, outside = [], 0, 0
     for ob in design.get("objects", []):
@@ -220,6 +224,8 @@ def boundary_check(design: dict, pattern: Pattern, max_points: int = 4000) -> di
 def coverage_check(design: dict, pattern: Pattern, max_cells: int = 90000, max_stitches: int = 200000) -> dict:
     """Raster check for unstitched gaps inside fills. A stitch 'covers' the cell it passes through and its 8 neighbours.
     Cells hidden under a later object are covered by that object's stitches, so overlap removal does not cause false gaps."""
+    from .design import expand_handles
+    design = expand_handles(design)
     fills = [ob for ob in design.get("objects", []) if ob.get("type") == "fill" and ob.get("rings")]
     n_st = sum(1 for s in pattern.stitches if s.cmd == Cmd.STITCH)
     if not fills:
@@ -292,7 +298,8 @@ def _clamp(v: float) -> int:
 
 
 def quality_report(design: dict, pattern: Pattern, notes: Optional[List[str]] = None) -> dict:
-    from .design import machine, run_checks, _p
+    from .design import machine, run_checks, _p, expand_handles
+    design = expand_handles(design)
     m = machine(design)
     geo = validate_geometry(design)
     rep = run_checks(design, pattern)

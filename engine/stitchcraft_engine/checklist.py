@@ -41,6 +41,8 @@ def _overlap_ratio(pattern, kinds: Dict[str, str], cell: float = 0.5) -> float:
 
 
 def evaluate(design: dict) -> dict:
+    from .design import expand_handles
+    design = expand_handles(design)
     items: List[dict] = []
     objs = [o for o in design.get("objects", []) if not o.get("hidden") and not o.get("guide") and o.get("type") != "embellishment"]
     m = machine(design)
