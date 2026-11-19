@@ -156,3 +156,16 @@ the code's tables) and by `tests/test_crosscheck.py` in CI. What is still unprov
 | Text on a path (built-in font follows a run / satin line; mirroring keeps it readable) | ✅ | TextOnPathTests, e2e |
 | Stitch-level editing: convert to manual stitches | ✅ lossless | 72 / 72 library objects byte-identical after conversion; moving one point changes exactly one stitch |
 | TrueType / OpenType lettering, HarfBuzz shaping via Pillow Raqm | ✅ | Arabic joins (2 shapes vs 5 unshaped); missing glyphs refused. **Telugu / Devanagari need a font upload and were not verified with a real Telugu font (none installed here)** |
+
+## UI wiring audit (2026-11-19)
+Method: every server endpoint vs. what `web/app.js` calls; every engine parameter vs. an editor field; UI vs. engine defaults; then 56 property
+values driven through the real UI (fill + satin) and the 7 other object types, watching page errors, HTTP errors and invalid output.
+| Gap found | Fix |
+|---|---|
+| `/api/profile` (fabric / category profile + sequence optimiser) had **no UI** - only the wizard could use it | Design panel: Category, Profile fabric, *Apply profile*, *Apply & overwrite*, *Optimise sequence* (undoable) |
+| `/api/enhance` had no standalone UI | More ▾ → *Enhance image 2×…* downloads the upscaled PNG |
+| No editor field for `end_at_start`, `corner_angle`, appliqué `cover_color` | Pro-mode fields added (corner angle appears when corner splitting is on) |
+| Machine `smart_direction` and `min_stitch` had no control | Machine panel checkbox + number |
+| **Bug:** fields that add other fields (stitch *Style* → motif options, *Split sharp corners* → corner angle, fill *Pattern*) did not appear until the object was reselected | Panel rebuilds on those changes |
+| Guard | `tests/test_ui_wiring.py` fails if an endpoint / engine parameter / machine setting ships without UI, or UI and engine defaults drift (it fails on the pre-fix UI) |
+Result of the exploratory run: 0 invalid outputs, 0 page errors across all object types; the only HTTP 400 was the Quality check correctly refusing a design with nothing to stitch.

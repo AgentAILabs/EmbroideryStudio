@@ -225,8 +225,12 @@ def api_autodigitize(d):
 
 
 def api_profile(d):
+    """Apply a fabric / category profile and / or optimise the sewing sequence of the CURRENT design (the editor's Profile panel).
+    profile=false -> sequence only; optimize=false -> profile only."""
     check_design(d["design"])
-    design, log = profiles.apply_profile(d["design"], d.get("fabric"), d.get("category"), bool(d.get("overwrite")))
+    design, log = d["design"], []
+    if d.get("profile", True):
+        design, log = profiles.apply_profile(design, d.get("fabric"), d.get("category"), bool(d.get("overwrite")))
     design, l2 = sequence.optimize_sequence(design) if d.get("optimize", True) else (design, [])
     return {"design": design, "log": log + l2}
 
