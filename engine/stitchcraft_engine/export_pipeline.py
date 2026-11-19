@@ -280,3 +280,31 @@ def decoded_simulation(design: dict) -> dict:
         out.append([round(x, 3), round(y, 3), code[s.cmd], s.thread, idx.get(s.object_id, -1)])
     return {"stitches": out, "objects": ids, "threads": [t.hex for t in pattern.threads], "stats": st, "notes": notes,
             "sha256": res.sha256, "pattern": pattern}
+
+
+def export_format(design: dict, fmt: str) -> ExportResult:
+    """Export in any exposed machine format. DST runs the full pipeline. Every other format first passes the SAME gating as DST (generate, validate, geometry, checklist,
+    machine profile, decode-compare of the DST), then the pattern is encoded and - when pyembroidery is installed - READ BACK and compared stitch by stitch; a mismatch refuses
+    the export. The report says plainly which validation ran and that no machine validation exists."""
+    from . import formats, encoders
+    if fmt == "dst":
+        return export_dst(design)
+    info = formats.FORMATS.get(fmt)
+    if info is None or not formats.is_exposed(fmt):
+        raise ExportError(f"{fmt!r} export is not available" + (f" ({info.note})" if info else ""), "format", "EXPORT_FORMAT_UNAVAILABLE")
+    gate = export_dst(design)                                                   # same refusals as a DST export
+    pattern, notes, st = generate(design); m = machine(design)
+    try:
+        data = formats.get_writer(fmt)(pattern, trim_jumps=m["trim_jumps"])
+    except (ValueError, encoders.EncodeError) as e:
+        raise ExportError(f"{info.label}: {e}", "encode", "EXPORT_ENCODE_FAILED") from e
+    data = bytes(data)
+    ver = encoders.verify_with_pyembroidery(data, fmt, pattern) if fmt != "exp" else {"ran": False, "result": "EXP is verified by tests/test_crosscheck.py"}
+    if ver.get("result") == "FAIL":
+        raise ExportError(f"The independent reader disagrees with the {info.label} file ({ver}). The export was refused.", "independent-reader", "EXPORT_READER_MISMATCH")
+    import hashlib
+    sha = hashlib.sha256(data).hexdigest()
+    report = {"format": fmt, "label": info.label, "bytes": len(data), "sha256": sha, "dst_gate_sha256": gate.sha256, "counts": gate.report["counts"], "size_mm": gate.report["size_mm"],
+              "validation": {"software": "PASSED: the DST gating pipeline for this design", "independent_reader": ver, "physical_machine": "NOT DONE - no stitch-out on any machine",
+                             "tier": info.status}, "note": info.note}
+    return ExportResult(data, sha, gate.record_count, report, list(gate.warnings))

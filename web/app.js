@@ -616,6 +616,27 @@ $("#sbMach").onclick = mtOpen; $("#mtClose").onclick = () => $("#dlgMachine").cl
 $("#mtExport").onclick = () => { const r = (MT.recs || []).filter(x => x.dst_sha256 === MT.sha); download("machine-test-" + (MT.sha || "").slice(0, 12) + ".json", JSON.stringify(r.length ? r[r.length - 1] : MT.recs[MT.recs.length - 1], null, 2), "application/json"); };
 $("#mtImportB").onclick = () => $("#mtImport").click();
 $("#mtImport").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { await post("/api/evidence/import", JSON.parse(await f.text())); await mtOpen(); } catch (er) { alert("Record refused: " + er.message); } e.target.value = ""; };
+/* ---------------------------------------------------------------- other machine formats */
+const EXPORT_URL = {dst: "/api/export/dst", exp: "/api/export/exp", jef: "/api/export/jef", pes: "/api/export/pes", xxx: "/api/export/xxx", u01: "/api/export/u01", sew: "/api/export/sew", vp3: "/api/export/vp3", hus: "/api/export/hus"};
+async function openFormats() {
+  $("#mMore").open = false; $("#dlgFormats").showModal(); $("#fmList").textContent = "Loading…";
+  const f = await (await fetch("/api/formats")).json();
+  $("#fmList").innerHTML = f.export.map(x => `<div class="fmrow"><b>${esc(x.label)} (${esc(x.ext)})</b><span><span class="tier ${x.status === "supported" ? "supported" : ""}">${x.status === "supported" ? "full DST pipeline, not machine-tested" : "software-verified, not machine-tested"}</span><br><small>${esc(x.note)}</small></span><button type="button" data-fmt="${esc(x.id)}">Download</button></div>`).join("")
+    + f.planned.map(x => `<div class="fmrow"><b>${esc(x.label)}</b><span><small>not implemented yet: ${esc(x.needs || "")}</small></span><span></span></div>`).join("");
+  $("#fmList").onclick = async e => {
+    const id = e.target.dataset && e.target.dataset.fmt; if (!id) return;
+    if (!S.doc.objects.length) { alert("The design is empty."); return; }
+    e.target.disabled = true;
+    try {
+      const r = await fetch(EXPORT_URL[id], {method: "POST", body: JSON.stringify(S.doc)});
+      if (!r.ok) { const j = await r.json().catch(() => ({})); alert("Not exported: " + (j.error || r.statusText)); return; }
+      const cd = r.headers.get("Content-Disposition") || "", m = /filename="([^"]+)"/.exec(cd), name = m ? m[1] : (S.doc.name || "design") + "." + id;
+      download(name, await r.arrayBuffer(), "application/octet-stream");
+      alert(name + " downloaded. Validation: " + (id === "dst" ? "full DST pipeline" : "software-verified (independent read-back)") + ". NOT tested on a machine - sew a scrap first.");
+    } finally { e.target.disabled = false; }
+  };
+}
+$("#bFormats").onclick = openFormats; $("#fmClose").onclick = () => $("#dlgFormats").close();
 /* ---------------------------------------------------------------- stitch-type presets (from the server, one list) */
 fetch("/api/presets").then(r => r.json()).then(j => { for (const id of ["#impP", "#wzP"]) { const el = $(id); if (!el) continue; el.innerHTML = j.presets.map(p => `<option value="${esc(p.id)}" ${p.id === "auto" ? "selected" : ""} title="thin &lt; ${p.thin_mm} mm run, up to ${p.column_max_mm} mm column">${esc(p.label)}</option>`).join(""); } }).catch(() => {});
 /* ---------------------------------------------------------------- instant smart design (one click) */
@@ -1246,7 +1267,7 @@ $("#libq").oninput = e => { libQ = e.target.value; renderLibrary(); };
 $("#libcats").onclick = e => { if (e.target.dataset.cat) { libCat = e.target.dataset.cat; renderLibrary(); } };
 $("#libgrid").onclick = e => { const b = e.target.closest("button[data-act]"); if (b) openFromLibrary(b.dataset.id, b.dataset.act === "3d"); };
 $("#v3fab").onchange = e => Viewer3D.setFabric(e.target.value); $("#v3reset").onclick = () => Viewer3D.reset();
-$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => { $("#mMore").open = false; $("#fileDst").click(); }; $("#bQuality").onclick = qualityCheck; $("#sbMore").onclick = () => $("#dlgStatus").showModal(); fetch("/api/formats").then(r => r.json()).then(f => { $("#sbFmt").textContent = f.export.map(x => x.id.toUpperCase()).join(", ") + " only"; }).catch(() => {}); $("#bEnhance").onclick = () => { $("#mMore").open = false; $("#fileEnhance").click(); }; $("#fileEnhance").onchange = e => { const f = e.target.files[0]; if (f) enhanceFile(f); e.target.value = ""; }; $("#bLetter").onclick = openLettering; $("#ltGo").onclick = e => { e.preventDefault(); lettering(); }; $("#bSet").onclick = openSet; $("#bWizard").onclick = openWizard;
+$("#bFit").onclick = fit; $("#bUndo").onclick = undo; $("#bRedo").onclick = redo; $("#bSave").onclick = saveProject; $("#bExport").onclick = exportDst; $("#bSheet").onclick = productionSheet; $("#bPkg").onclick = exportPackage; $("#bSvg").onclick = exportSvg; $("#bPng").onclick = exportPng; $("#bViewDst").onclick = () => { $("#mMore").open = false; $("#fileDst").click(); }; $("#bQuality").onclick = qualityCheck; $("#sbMore").onclick = () => $("#dlgStatus").showModal(); fetch("/api/formats").then(r => r.json()).then(f => { $("#sbFmt").textContent = "DST validated; " + (f.export.length - 1) + " more software-verified"; }).catch(() => {}); $("#bEnhance").onclick = () => { $("#mMore").open = false; $("#fileEnhance").click(); }; $("#fileEnhance").onchange = e => { const f = e.target.files[0]; if (f) enhanceFile(f); e.target.value = ""; }; $("#bLetter").onclick = openLettering; $("#ltGo").onclick = e => { e.preventDefault(); lettering(); }; $("#bSet").onclick = openSet; $("#bWizard").onclick = openWizard;
 $("#wzGo").onclick = e => { e.preventDefault(); wizardRun(); };
 $("#dlgWizard").addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (!b) return; e.preventDefault(); const n = +b.dataset.go; if (n > 2 && !WZ.res) return; if (n === 6) renderTestSteps(); wzStep(n); });
 $("#wzExport").onclick = e => { e.preventDefault(); exportDst(); };

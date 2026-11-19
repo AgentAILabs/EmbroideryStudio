@@ -29,6 +29,7 @@
   <button id="bSet" title="Make the same design for left / right / neck ... as separate, named, verified DST files">Placement set</button>
   <button id="bQuality" title="Run the six-stage DST verification on this design (or on the .dst you are viewing)">Quality check</button>
   <details class="menu" id="mMore"><summary title="More exports and tools">More ▾</summary><div class="pop">
+    <button id="bFormats" title="Export in other machine formats (JEF, PES, EXP, XXX, U01, SEW): software-verified only, never machine-tested">Other machine formats…</button>
     <button id="bInstant" title="One click, like an instant smart design: choose a PNG / JPG and it is checked, routed to the right workflow (artwork -> auto-digitize, photo -> Photo stitch, garment photo -> garment dialog) and opened in the editor">Instant smart design…</button>
     <button id="bGarment" title="Garment photo: find the embroidery in a photo of a finished garment (ignoring folds, shadows, background), then send it to the vector or photo workflow">Garment photo…</button>
     <button id="bPhoto" title="Photo stitch: turn a photograph into tonal thread hatching (separate from vector artwork)">Photo stitch…</button>
@@ -131,6 +132,13 @@
     <div id="qBody" class="qbody">Running…</div>
     <div class="row2"><button value="close" class="primary">Close</button></div>
   </form>
+</dialog>
+<dialog id="dlgFormats">
+  <div class="fidwrap">
+    <div class="fidhead"><h3>Export machine formats</h3><small>DST goes through the full validation pipeline. The other formats are encoded by this software and READ BACK with an independent library when it is available - that proves the file is readable and the stitches are where they should be. <b>None has been loaded on a real machine.</b> Test on scrap fabric first; colours in JEF / PES / SEW are the nearest of that machine's own palette.</small></div>
+    <div id="fmList" class="note"></div>
+    <div class="row"><button type="button" id="fmClose">Close</button></div>
+  </div>
 </dialog>
 <dialog id="dlgMachine">
   <div class="fidwrap">

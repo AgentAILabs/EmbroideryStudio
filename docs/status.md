@@ -14,7 +14,7 @@ Full evidence and its limits: [`docs/testing/current-validation-report.md`](test
 | Fabric presets | ⚠ **experimental** | unverified starting values; labelled in the UI, sheet and test pack |
 | Trim / jump defaults (3 trim jumps, trim above 3 mm, 1.0 mm locks) | ⚠ unverified | design `12_trims_locks` exists to measure them |
 | Stitch time estimate | ⚠ estimated, not verified | assumed 700 spm + 20 s / colour change + 6 s / trim; labelled everywhere it is shown |
-| Only DST export is supported | ✅ | EXP writer exists but is **not exposed** (opt-in `ES_EXPERIMENTAL_FORMATS=1`, dev only); PES / JEF not started. Registry: `engine/stitchcraft_engine/formats.py` |
+| Only DST is fully validated | ✅ | DST = full pipeline; EXP / JEF / PES / XXX / U01 / SEW are `software_verified` (read back by an independent library, never machine-tested); VP3 / HUS planned. Registry: `engine/stitchcraft_engine/formats.py` |
 | PES / JEF / EXP need valid reference files first | ✅ policy | documented in `formats.py` and the roadmap |
 | PDF import unsupported | ✅ | UI + API message: "PDF import is not currently supported. Please export your artwork as SVG, PNG or JPG." |
 | Bezier node handles | ❌ not implemented | roadmap #5 |
@@ -64,6 +64,7 @@ Audit register: `docs/testing/technical-audit-report.md`. Roadmap: `docs/roadmap
 | Defect found: wide satin trims and jumps its own length after the underlay | 🟡 fix available, **off by default** | machine setting `underlay_entry`; default unchanged so delivered hash-pinned DSTs stay identical (see stitch-quality-validation.md) |
 | Thread-separation digitizing of garment photos (hue classes, radial-satin rosettes, one smooth border line, stray removal, leaf angles) | 🟡 heuristic | `thread_separation.py`, `POST /api/garment/digitize`, garment dialog button; tuned on pink silk; curved borders / individual petals / midribs not handled |
 | DST header label sanitised, machine-safe file name, byte-level pre-flight | ✅ software | `machine_compat.py`; root cause of a field report of a file not showing on a Ricoma display NOT established |
+| Machine formats EXP / JEF / PES(v1+PEC) / XXX / U01 / SEW | 🟡 software-verified | `encoders.py`; independent read-back with pyembroidery compares every stitch; formats dialog; **no format machine-tested**; VP3 / HUS not implemented; formats tier policy in `formats.py` |
 | Shape recognition (circle / ellipse / rectangle / square) + stitch-type presets for the vector digitizer | ✅ software | `smart_design.py`, `shapes=` / `preset=` on import / auto-digitize, `GET /api/presets`, dialog + wizard controls; text and other polygons are not recognised |
 | "Instant smart design..." one-click import (quality check -> routed workflow -> editor) | ✅ software | More menu; `docs/roadmap/wilcom-instant-smart-design-analysis.md` (what Wilcom publishes vs what we have; Wilcom source is not public) |
 | Physical machine validation | ❌ **NOT DONE** | no stitch-out has been performed; nothing in this upgrade claims otherwise |

@@ -121,7 +121,7 @@ def package(design: dict):
         f"{n}.stitchcraft.json": json.dumps(pattern.to_dict()).encode(),
         f"{n}.colours.csv": colour_report_csv(design, st).encode(),
     }
-    if formats.is_exposed("exp"):                       # EXPERIMENTAL, off by default: DST is the only supported machine format
+    if formats.experimental_enabled() and formats.is_exposed("exp"):   # packages stay DST-only unless the operator enables experimental formats (the Formats dialog exports the rest)
         files[f"{n}.exp"] = formats.get_writer("exp")(pattern, trim_jumps=m["trim_jumps"])
     cut = applique_cut_svg(design)
     if cut:

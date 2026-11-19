@@ -1579,51 +1579,53 @@ class ExpExportTests(unittest.TestCase):
         try:
             base = f"http://127.0.0.1:{srv.server_address[1]}/api/export/exp"
             with urllib.request.urlopen(urllib.request.Request(base, data=json.dumps(dict(self.D(), name="My Design")).encode(), method="POST")) as r:
-                self.assertIn('filename="My_Design.exp"', r.headers["Content-Disposition"]); self.assertGreater(len(r.read()), 500)
+                self.assertIn('filename="MYDESIGN.EXP"', r.headers["Content-Disposition"]); self.assertGreater(len(r.read()), 500)
             bad = doc({"id": "a", "type": "fill", "color": "#f00", "rings": [[[0, 0], [300, 0], [300, 10], [0, 10]]]})
             with self.assertRaises(urllib.error.HTTPError) as cm: urllib.request.urlopen(urllib.request.Request(base, data=json.dumps(bad).encode(), method="POST"))
             self.assertEqual(cm.exception.code, 422)
         finally: srv.shutdown(); srv.server_close()
         web = Path(__file__).resolve().parent.parent / "web"
-        self.assertNotIn('id="bExp"', (web / "index.html").read_text()); self.assertNotIn("exportExp", (web / "app.js").read_text())     # never a button, even in experimental mode
+        self.assertNotIn('id="bExp"', (web / "index.html").read_text())                                                                      # one generic formats dialog, no per-format button
 
 
-class ExpNotExposedByDefault(unittest.TestCase):
-    """DST is the only supported machine export: no EXP API, no EXP file in packages, no EXP / PES / JEF button."""
-    def setUp(self):
-        import os; self._old = os.environ.pop("ES_EXPERIMENTAL_FORMATS", None)
-    def tearDown(self):
-        import os
-        if self._old is not None: os.environ["ES_EXPERIMENTAL_FORMATS"] = self._old
+class FormatTiers(unittest.TestCase):
+    """Policy (owner decision 2026-11-19): DST = full pipeline; EXP / JEF / PES / XXX / U01 / SEW = 'software_verified' (read back by an independent library, never machine-tested);
+    VP3 / HUS planned. Packages stay DST-only. No format claims machine validation."""
     D = ExpExportTests.D
-    def test_api_refuses_with_a_clear_message(self):
-        with self.assertRaises(ValueError) as e: server.api_exp(self.D())
-        self.assertIn("DST is the only supported machine format", str(e.exception))
-    def test_package_has_no_exp_file(self):
+    def test_registry_tiers(self):
+        from stitchcraft_engine import formats
+        self.assertEqual([f.id for f in formats.exposed_formats()], ["dst", "exp", "jef", "pes", "xxx", "u01", "sew"])
+        self.assertEqual({f.id: f.status for f in formats.FORMATS.values()}["dst"], "supported")
+        self.assertTrue(all(f.status == "software_verified" for f in formats.FORMATS.values() if f.id in ("exp", "jef", "pes", "xxx", "u01", "sew")))
+        d = formats.describe(); self.assertEqual({f["id"] for f in d["planned"]}, {"vp3", "hus"}); self.assertEqual(d["machine_validation"], "not_yet_physically_validated")
+        for f in formats.FORMATS.values():
+            if f.status != "supported": self.assertIn("machine", f.note.lower() + " machine") ; self.assertNotIn("validated on a machine", f.note.lower())
+        with self.assertRaises(formats.UnsupportedFormat): formats.get_writer("svg")
+        with self.assertRaises(formats.UnsupportedFormat): formats.get_writer("vp3")
+    def test_package_stays_dst_only(self):
         import zipfile
         z = zipfile.ZipFile(io.BytesIO(server.sheet.package(self.D())[0]))
-        self.assertEqual([n for n in z.namelist() if n.lower().endswith((".exp", ".pes", ".jef"))], []); self.assertTrue(any(n.endswith(".dst") for n in z.namelist()))
-    def test_registry_exposes_only_dst_and_plans_the_rest(self):
-        from stitchcraft_engine import formats
-        self.assertEqual([f.id for f in formats.exposed_formats()], ["dst"])
-        for fmt in ("pes", "jef", "exp"):
-            with self.assertRaises(formats.UnsupportedFormat) as e: formats.get_writer(fmt)
-            self.assertIn("DST is the only supported machine format", str(e.exception))
-        with self.assertRaises(formats.UnsupportedFormat): formats.get_writer("svg")
-        d = formats.describe(); self.assertEqual([f["id"] for f in d["export"]], ["dst"]); self.assertEqual({f["id"] for f in d["planned"]}, {"exp", "pes", "jef"})
-        self.assertEqual(d["machine_validation"], "not_yet_physically_validated")
-    def test_ui_has_no_export_button_for_other_formats(self):
-        web = Path(__file__).resolve().parent.parent / "web"; html = (web / "index.html").read_text(); js = (web / "app.js").read_text()
-        for bad in ('id="bExp"', '"#bExp"', 'id="bPes"', 'id="bJef"', "Export EXP", "Export PES", "Export JEF", "exportExp"):
-            self.assertNotIn(bad, html, bad); self.assertNotIn(bad, js, bad)
-    def test_http_endpoint_is_closed_and_formats_endpoint_reports_dst_only(self):
+        self.assertEqual([n for n in z.namelist() if n.lower().endswith((".exp", ".pes", ".jef", ".xxx", ".u01", ".sew"))], []); self.assertTrue(any(n.endswith(".dst") for n in z.namelist()))
+    def test_http_export_formats_and_refusals(self):
         import threading, urllib.request, urllib.error
         from http.server import ThreadingHTTPServer
         srv = ThreadingHTTPServer(("127.0.0.1", 0), server.H); threading.Thread(target=srv.serve_forever, daemon=True).start()
         try:
             base = f"http://127.0.0.1:{srv.server_address[1]}"
-            with self.assertRaises(urllib.error.HTTPError) as cm: urllib.request.urlopen(urllib.request.Request(base + "/api/export/exp", data=json.dumps(self.D()).encode(), method="POST"))
-            self.assertEqual(cm.exception.code, 400)
+            for fmt in ("exp", "jef", "pes", "xxx", "u01", "sew"):
+                with urllib.request.urlopen(urllib.request.Request(f"{base}/api/export/{fmt}", data=json.dumps(dict(self.D(), name="My Design")).encode(), method="POST")) as r:
+                    self.assertIn(f'filename="MYDESIGN.{fmt.upper()}"', r.headers["Content-Disposition"]); self.assertEqual(r.headers["X-Format-Tier"], "software_verified"); self.assertGreater(len(r.read()), 300)
+            for fmt in ("vp3", "hus"):
+                with self.assertRaises(urllib.error.HTTPError) as cm: urllib.request.urlopen(urllib.request.Request(f"{base}/api/export/{fmt}", data=json.dumps(self.D()).encode(), method="POST"))
+                self.assertEqual(cm.exception.code, 422)
+            bad = doc({"id": "a", "type": "fill", "color": "#f00", "rings": [[[0, 0], [300, 0], [300, 10], [0, 10]]]})
+            with self.assertRaises(urllib.error.HTTPError) as cm: urllib.request.urlopen(urllib.request.Request(f"{base}/api/export/jef", data=json.dumps(bad).encode(), method="POST"))
+            self.assertEqual(cm.exception.code, 422)                                                              # same gating as DST: oversize design is refused
             with urllib.request.urlopen(base + "/api/formats") as r: info = json.loads(r.read())
-            self.assertEqual([f["id"] for f in info["export"]], ["dst"])
+            self.assertEqual([f["id"] for f in info["export"]], ["dst", "exp", "jef", "pes", "xxx", "u01", "sew"])
         finally: srv.shutdown(); srv.server_close()
+    def test_ui_has_one_formats_dialog_and_no_per_format_buttons(self):
+        web = Path(__file__).resolve().parent.parent / "web"; html = (web / "index.html").read_text()
+        self.assertIn('id="bFormats"', html); self.assertIn("None has been loaded on a real machine", html)
+        for bad in ('id="bExp"', 'id="bPes"', 'id="bJef"'): self.assertNotIn(bad, html)
+

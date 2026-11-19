@@ -1,6 +1,10 @@
 """Machine-format registry (the architecture for future format adapters).
 
-Only DST is a supported machine export. A format becomes *exposed* (API, UI button, package file) only when its adapter is registered here as
+DST is the only format validated by the full pipeline (decode-compare + independent decoder). The other encoders are "software_verified": each is read back with the independent
+pyembroidery library and every stitch position is compared (tests/test_encoders.py, CI, and at export time when the library is present). That is software evidence only - no format
+has been loaded on a real machine and no vendor reference file is in the repository. A format reaches "supported" only after a vendor reference file / machine confirms it.
+
+(Original policy text follows; the extra tier above was introduced on the project owner's decision.) Only DST is a supported machine export. A format becomes *exposed* (API, UI button, package file) only when its adapter is registered here as
 "supported". That requires, per format, ALL of:
   1. a valid reference file written by real vendor software (committed under tests/fixtures/<fmt>/ with its provenance), and
   2. byte-level fixture tests (hand-written expected bytes, not derived from the writer's own tables), and
@@ -31,13 +35,14 @@ class FormatInfo:
 FORMATS: Dict[str, FormatInfo] = {
     "dst": FormatInfo("dst", "Tajima DST", "supported", ".dst",
                       "Validated in software (hand-written byte vectors, independent pyembroidery reader in CI, six-stage verifier). NOT yet validated on a physical machine."),
-    "exp": FormatInfo("exp", "Melco EXP", "experimental", ".exp",
-                      "Writer exists and is read back by pyembroidery in CI, but no vendor reference file or machine has confirmed it.",
-                      "a valid EXP reference file from vendor software + format-specific fixtures"),
-    "pes": FormatInfo("pes", "Brother PES", "planned", ".pes", "Not implemented.",
-                      "valid PES reference files (several versions) + the thread palette table + fixtures; PES also embeds a colour / thread block"),
-    "jef": FormatInfo("jef", "Janome JEF", "planned", ".jef", "Not implemented.",
-                      "valid JEF reference files + the 78-colour JEF palette + fixtures"),
+    "exp": FormatInfo("exp", "Melco EXP", "software_verified", ".exp", "Read back by pyembroidery; no machine confirmation. Trims are zero-move jumps (unverified)."),
+    "jef": FormatInfo("jef", "Janome JEF", "software_verified", ".jef", "Read back by pyembroidery; colours = nearest of the 78 Janome colours. No machine confirmation."),
+    "pes": FormatInfo("pes", "Brother PES", "software_verified", ".pes", "PES version 1 layout with the PEC block (no CEmbOne object blocks); colours = nearest of the 65 PEC colours. Read back by pyembroidery; no machine confirmation."),
+    "xxx": FormatInfo("xxx", "Singer XXX", "software_verified", ".xxx", "Read back by pyembroidery; at most 20 colours. No machine confirmation."),
+    "u01": FormatInfo("u01", "Barudan U01", "software_verified", ".u01", "Read back by pyembroidery (needle changes). No machine confirmation."),
+    "sew": FormatInfo("sew", "Janome / Elna SEW", "software_verified", ".sew", "Read back by pyembroidery; colours = nearest of the SEW palette. No machine confirmation."),
+    "vp3": FormatInfo("vp3", "Husqvarna Viking VP3", "planned", ".vp3", "Not implemented yet.", "an encoder + read-back verification (VP3 stores per-colour blocks and a thread chart)"),
+    "hus": FormatInfo("hus", "Husqvarna HUS", "planned", ".hus", "Not implemented yet.", "an encoder + the HUS compression + read-back verification"),
 }
 
 
@@ -47,7 +52,7 @@ def experimental_enabled() -> bool:
 
 def is_exposed(fmt: str) -> bool:
     info = FORMATS.get(fmt)
-    return bool(info) and (info.status == "supported" or (info.status == "experimental" and experimental_enabled()))
+    return bool(info) and (info.status in ("supported", "software_verified") or (info.status == "experimental" and experimental_enabled()))
 
 
 def exposed_formats() -> List[FormatInfo]:
@@ -60,13 +65,16 @@ def get_writer(fmt: str) -> Callable:
     if info is None:
         raise UnsupportedFormat(f"unknown format {fmt!r}")
     if not is_exposed(fmt):
-        raise UnsupportedFormat(f"{info.label} export is not available. DST is the only supported machine format." + (f" Needs: {info.needs}." if info.needs else ""))
+        raise UnsupportedFormat(f"{info.label} export is not available. DST is the only fully validated machine format." + (f" Needs: {info.needs}." if info.needs else ""))
     if fmt == "dst":
         from .dst import write_dst
         return lambda pattern, trim_jumps=3: write_dst(pattern, trim_jumps=trim_jumps).data
     if fmt == "exp":
         from .exp import write_exp
         return write_exp
+    from .encoders import WRITERS
+    if fmt in WRITERS:
+        return lambda pattern, trim_jumps=3: WRITERS[fmt](pattern, trim_jumps=trim_jumps)
     raise UnsupportedFormat(f"no writer for {fmt!r}")
 
 
@@ -77,7 +85,8 @@ def describe() -> dict:
             "machine_validation": "not_yet_physically_validated",
             "fabric_presets": "experimental",
             "time_estimate": "estimated_not_verified",
-            "import": {"supported": ["svg", "png", "jpg"], "unsupported": ["pdf"], "pdf_message": PDF_MESSAGE}}
+            "validation_tiers": {"supported": "DST: full software pipeline, not machine-tested", "software_verified": "read back by an independent library, not machine-tested"},
+            "import": {"supported": ["svg", "png", "jpg", "bmp"], "unsupported": ["pdf"], "pdf_message": PDF_MESSAGE}}
 
 
 PDF_MESSAGE = "PDF import is not currently supported. Please export your artwork as SVG, PNG or JPG."

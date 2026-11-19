@@ -539,7 +539,7 @@ def api_dst_report(d):
 
 
 def api_exp(d):
-    """EXPERIMENTAL Melco EXP - not exposed unless ES_EXPERIMENTAL_FORMATS=1 (see engine/stitchcraft_engine/formats.py)."""
+    """Melco EXP (software-verified tier; see engine/stitchcraft_engine/formats.py)."""
     writer = formats.get_writer("exp")              # raises UnsupportedFormat while EXP is not exposed
     check_design(d)
     pattern, notes, st = generate(d)
@@ -699,6 +699,18 @@ class H(BaseHTTPRequestHandler):
         ops.log_event("warning" if ms > ops.SLOW_SECONDS * 1000 else "info", "slow_request" if ms > ops.SLOW_SECONDS * 1000 else "request", rid=self._rid,
                       method=self.command, path=self.path.split("?")[0], status=self._status, ms=ms, client=self.client_address[0] if self.client_address else "?")
 
+    def _export_format(self, fmt, d):
+        check_design(d)
+        try:
+            res = export_pipeline.export_format(d, fmt)
+        except export_pipeline.ExportError as e:
+            ops.log_event("warning", "export_format", rid=self._rid, format=fmt, result="refused", stage=e.stage, code=e.code)
+            return self._send(422, e.to_dict())
+        from stitchcraft_engine import machine_compat
+        fn = machine_compat.filename_for(d.get("name")).rsplit(".", 1)[0] + "." + fmt.upper()
+        ops.log_event("info", "export_format", rid=self._rid, format=fmt, bytes=len(res.data), sha256=res.sha256, result="released")
+        return self._send(200, res.data, "application/octet-stream", {"Content-Disposition": f'attachment; filename="{fn}"', "X-SHA256": res.sha256, "X-Format-Tier": res.report["validation"]["tier"]})
+
     def do_GET(self):
         if not self._begin():
             return
@@ -793,10 +805,21 @@ class H(BaseHTTPRequestHandler):
             if path == "/api/template":
                 return self._send(200, {"objects": templates.build(d.get("id", ""), (d.get("params") or {}), d.get("color", "#c8102e"))})
             if path == "/api/export/exp":
-                data, err = api_exp(d)
-                if err:
-                    return self._send(422, err)
-                return self._send(200, data, "application/octet-stream", {"Content-Disposition": f'attachment; filename="{sheet._safe(d.get("name"))}.exp"'})
+                return self._export_format("exp", d)
+            if path == "/api/export/jef":
+                return self._export_format("jef", d)
+            if path == "/api/export/pes":
+                return self._export_format("pes", d)
+            if path == "/api/export/xxx":
+                return self._export_format("xxx", d)
+            if path == "/api/export/u01":
+                return self._export_format("u01", d)
+            if path == "/api/export/sew":
+                return self._export_format("sew", d)
+            if path == "/api/export/vp3":
+                return self._export_format("vp3", d)
+            if path == "/api/export/hus":
+                return self._export_format("hus", d)
             if path == "/api/export/package":
                 check_design(d)
                 data, err = sheet.package(d)
