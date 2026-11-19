@@ -145,3 +145,5 @@ dialog#dlgStatus .row2{display:flex;justify-content:flex-end;margin-top:10px}.st
 .vd{display:inline-block;padding:2px 8px;border-radius:10px;font-weight:600;color:#fff}.vd.PASSED{background:#15803d}.vd.PASSED_WITH_WARNINGS{background:#b45309}.vd.FAILED{background:#b91c1c}
 
 .qt{border-collapse:collapse;font-size:12px;margin:4px 0}.qt td{padding:1px 8px;border-bottom:1px solid #e5e7eb}.qg{padding:0 6px;border-radius:8px;color:#fff;font-size:11px}.qg.good{background:#15803d}.qg.fair{background:#b45309}.qg.poor{background:#b91c1c}.qg.info{background:#6b7280}
+
+#dlgPhoto{width:min(1200px,96vw);max-height:94vh;padding:12px}.phimgs{display:grid;grid-template-columns:1fr 1fr;gap:8px}.phimgs figure{margin:0}.phimgs img{width:100%;border:1px solid #9ca3af;border-radius:6px;background:#fff;image-rendering:auto}.phimgs figcaption{font-size:11px;color:#555}

@@ -15,7 +15,7 @@ GET  /api/templates       template catalogue
 POST /api/tools/column-from-outline  {ring} -> {rail1, rail2, ...} or 400 with the reason
 POST /api/template        {id, params, color} -> objects
 GET  /api/health"""
-import base64, json, math, os, re, sys, time, hashlib
+import base64, io, json, math, os, re, sys, time, hashlib
 import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -304,6 +304,45 @@ def _autodigitize_core(d):
     design, l4 = sequence.optimize_sequence(design)
     return ({"design": design, "log": log + l2 + l3 + l4, "import_report": imp.get("report"), "source": imp.get("source"), "inventory": imp.get("inventory", []),
              "checklist": checklist.evaluate(design)}, full, original)
+
+
+def api_photo_stitch(d):
+    """Photo Stitch Engine: image -> tonal flow-field hatching design -> validated DST -> thread-texture preview from the DECODED DST -> photo validation.
+    Software validation only; physical machine validation is separate and PENDING."""
+    from stitchcraft_engine import photo, photo_validation as PV
+    ops.check_base64_upload(d.get("data"), "image")
+    raw = base64.b64decode(d["data"])
+    if not (raw[:8] == b"\x89PNG\r\n\x1a\n" or raw[:3] == b"\xff\xd8\xff"):
+        raise ValueError("unsupported image type: only PNG and JPEG are accepted")
+    keys = ("mode", "colors", "levels", "density", "angle", "direction", "dither", "gamma", "cross_hatch", "equalize", "fabric", "thread", "stitch_mm")
+    kw = {k: d[k] for k in keys if k in d}
+    if "thread_palette" in d:
+        tp = d["thread_palette"]
+        if not isinstance(tp, list) or len(tp) > 24 or not all(isinstance(h, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", h) for h in tp):
+            raise ValueError("thread_palette must be a list of up to 24 #rrggbb colours")
+        kw["thread_palette"] = tp
+    try:
+        res = photo.photo_stitch(raw, float(d.get("width_mm", 100)), **kw)
+    except OSError as e:
+        raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
+    w, h = res["size_mm"]
+    hoop = {"w": float(d.get("hoop_w") or max(100, math.ceil(w + 20))), "h": float(d.get("hoop_h") or max(100, math.ceil(h + 20))), "margin": 3}
+    design = {"name": placements_mod.slug(d.get("name") or "photo"), "hoop": hoop, "thread": str(d.get("thread_weight", "40wt")), "stabiliser": d.get("stabiliser", "cut-away"),
+              "fabric": d.get("fabric_preset", "cotton"), "machine": {"micro_clean": 0.4}, "source": {"type": "photo", "report": res["report"]}, "objects": res["objects"]}
+    check_design(design)
+    try:
+        exp = export_pipeline.export_dst(design)
+        sim = export_pipeline.decoded_simulation(design)
+    except export_pipeline.ExportError as e:
+        return {"error": str(e), "export_error": e.to_dict(), "design": design, "report": res["report"]}
+    segs = PV.segments_from_sim(sim["stitches"], sim["threads"])
+    prev = PV.render_preview(segs, w, h, str(d.get("fabric", "#ffffff")))
+    buf = io.BytesIO(); prev.save(buf, "PNG")
+    val = PV.compare(raw, prev, w, res["report"]["mode"], str(d.get("fabric", "#ffffff")))
+    return {"design": design, "report": res["report"], "preview_png": base64.b64encode(buf.getvalue()).decode(), "validation": val, "stitch_metrics": PV.stitch_metrics(sim["stitches"], sim["threads"]),
+            "dst": {"sha256": exp.sha256, "bytes": len(exp.data), "records": exp.record_count, "export_report": exp.report},
+            "source": fidelity.source_record(raw, float(d.get("width_mm", 100))),
+            "honesty": ["Thread cannot show continuous tone: tone is line spacing / thread colour; lines are visible.", "The validation compares a simulated thread image with the photo; it is not stitch-out quality.", "Physical machine validation is PENDING."]}
 
 
 def api_image_quality(d):
@@ -657,6 +696,8 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_lettering(d))
             if path == "/api/to_manual":
                 return self._send(200, api_to_manual(d))
+            if path == "/api/photo/stitch":
+                return self._send(200, api_photo_stitch(d))
             if path == "/api/image/quality":
                 return self._send(200, api_image_quality(d))
             if path == "/api/image/validate":

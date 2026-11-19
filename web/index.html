@@ -29,6 +29,7 @@
   <button id="bSet" title="Make the same design for left / right / neck ... as separate, named, verified DST files">Placement set</button>
   <button id="bQuality" title="Run the six-stage DST verification on this design (or on the .dst you are viewing)">Quality check</button>
   <details class="menu" id="mMore"><summary title="More exports and tools">More ▾</summary><div class="pop">
+    <button id="bPhoto" title="Photo stitch: turn a photograph into tonal thread hatching (separate from vector artwork)">Photo stitch…</button>
     <button id="bEnhance" title="Upscale a PNG / JPG 200 % and sharpen it if it is blurry or small, then download it (also built into the import dialog)">Enhance image 2×…</button>
     <button id="bLetter" title="Lettering from a TrueType / OpenType font - Telugu, Devanagari, Tamil ... with proper shaping">TrueType lettering…</button>
     <button id="bViewDst" title="Inspect an existing .dst file (view + verification report)">Open DST to inspect…</button>
@@ -126,6 +127,33 @@
     <div class="row2"><button value="close" class="primary">Close</button></div>
   </form>
 </dialog>
+<dialog id="dlgPhoto">
+  <div class="fidwrap">
+    <div class="fidhead"><h3>Photo stitch (tonal thread hatching)</h3>
+      <small>Thread cannot show continuous tone. Tone becomes line spacing and thread colour; lines stay visible, at most 12 colours, the fabric shows through. The check below compares a simulated thread image with your photo; it is NOT stitch-out quality, and physical machine validation is pending.</small></div>
+    <div class="fidbody">
+      <div class="fidleft">
+        <div class="phimgs"><figure><img id="phOrig" alt="original photo"><figcaption>original (unchanged)</figcaption></figure><figure><img id="phPrev" alt="thread simulation"><figcaption>thread simulation (drawn from the exported DST)</figcaption></figure></div>
+        <div id="phVal"></div>
+      </div>
+      <div class="fidright">
+        <div class="row"><label>Image</label><input type="file" id="phFile" accept="image/png,image/jpeg"></div>
+        <div class="row"><label>Width mm</label><input type="number" id="phW" value="100" min="20" max="400"></div>
+        <div class="row"><label>Mode</label><select id="phMode"><option value="grayscale">Grayscale (one thread)</option><option value="multicolour">Multicolour (thread palette)</option></select></div>
+        <div class="row"><label>Colours (multicolour)</label><input type="number" id="phColors" value="5" min="2" max="12"></div>
+        <div class="row"><label>Tone levels</label><input type="number" id="phLevels" value="6" min="2" max="8"></div>
+        <div class="row"><label title="Higher = denser lines">Density</label><input type="number" id="phDensity" value="1" step="0.1" min="0.4" max="2.5"></div>
+        <div class="row"><label title="flow = stitches follow the contours; fixed = one angle">Direction</label><select id="phDir"><option value="flow">Follow contours</option><option value="fixed">Fixed angle</option></select></div>
+        <div class="row"><label>Base angle °</label><input type="number" id="phAngle" value="45" step="5"></div>
+        <div class="row"><label title="Ordered dithering of the tone (breaks up banding)">Dither</label><input type="number" id="phDither" value="0.5" step="0.1" min="0" max="1"></div>
+        <div class="row"><label>Cross-hatch darkest</label><input type="checkbox" id="phCross" checked></div>
+        <div class="row"><label>Fabric colour</label><input type="color" id="phFabric" value="#ffffff"></div>
+        <div id="phStats" class="note"></div><div id="phNotes" class="note"></div>
+      </div>
+    </div>
+    <div class="row"><button type="button" id="phRun" class="primary">Generate</button><button type="button" id="phUse" disabled>Use in the editor</button><button type="button" id="phDst" disabled>Download DST</button><button type="button" id="phClose">Close</button></div>
+  </div>
+</dialog>
 <dialog id="dlgFid">
   <div class="fidwrap">
     <div class="fidhead"><h3 id="fidTitle">Image fidelity report</h3><div id="fidVerdict"></div><small id="fidDisc"></small></div>
@@ -169,7 +197,7 @@
     <label>Quality <select id="impQ"><option value="draft">Draft (fast, coarse)</option><option value="standard">Standard</option><option value="high" selected>High (keeps small details)</option><option value="maximum">Maximum (finest detail, slower)</option></select></label>
     <label>Enhance image (2× upscale + sharpen) <select id="impE"><option value="auto" selected>Auto – only if blurry / low-res</option><option value="always">Always</option><option value="off">Off</option></select></label>
     <div id="impReport" hidden></div>
-    <div class="row"><button value="cancel" id="impCancel">Cancel</button><button value="go" class="primary" id="impGo">Import</button></div>
+    <div class="row"><button value="cancel" id="impCancel">Cancel</button><button value="photo" id="impPhoto" title="For photographs: tonal thread hatching instead of flat colour regions">Photo stitch instead…</button><button value="go" class="primary" id="impGo">Import as vector artwork</button></div>
   </form>
 </dialog>
 

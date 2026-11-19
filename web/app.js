@@ -487,7 +487,7 @@ function qualityPanelHtml(q) {
 function askImport(qrep) {
   return new Promise(resolve => {
     const dlg = $("#dlgImport"); $("#impW").value = Math.round(S.doc.hoop.w * .7); $("#impReport").hidden = !qrep; $("#impReport").innerHTML = qualityPanelHtml(qrep);
-    dlg.onclose = () => resolve(dlg.returnValue === "go" ? {w: parseFloat($("#impW").value), c: parseInt($("#impC").value) || 6, q: $("#impQ").value, e: $("#impE").value} : null);
+    dlg.onclose = () => resolve(dlg.returnValue === "go" ? {w: parseFloat($("#impW").value), c: parseInt($("#impC").value) || 6, q: $("#impQ").value, e: $("#impE").value} : dlg.returnValue === "photo" ? {photo: true, w: parseFloat($("#impW").value)} : null);
     dlg.showModal();
   });
 }
@@ -538,6 +538,36 @@ function reviewRegions(objs, extent) {      // segmentation review: keep / recol
     dlg.onclose = () => resolve(dlg.returnValue === "go" ? result() : dlg.returnValue === "redo" ? {redo: JSON.parse(dlg.dataset.redo || "[]")} : null); dlg.showModal();
   });
 }
+/* ---------------------------------------------------------------- photo stitch workflow */
+const PH = {b64: null, url: null, res: null, name: "photo"};
+async function phLoad(file) {
+  PH.name = file.name.replace(/\.[^.]+$/, ""); PH.url = URL.createObjectURL(file); PH.b64 = b64(new Uint8Array(await file.arrayBuffer())); PH.res = null;
+  $("#phOrig").src = PH.url; $("#phPrev").removeAttribute("src"); $("#phVal").innerHTML = ""; $("#phStats").textContent = ""; $("#phNotes").textContent = ""; $("#phUse").disabled = $("#phDst").disabled = true;
+}
+function openPhoto(file, w) { if (w) $("#phW").value = Math.round(w); $("#dlgPhoto").showModal(); if (file) phLoad(file); }
+async function photoRun() {
+  if (!PH.b64) { alert("Choose a photo first."); return; }
+  $("#phVal").textContent = "Tracing thread paths, exporting and validating the DST…"; $("#phRun").disabled = true;
+  try {
+    const r = await post("/api/photo/stitch", {data: PH.b64, width_mm: +$("#phW").value || 100, mode: $("#phMode").value, colors: +$("#phColors").value || 5, levels: +$("#phLevels").value || 6, density: +$("#phDensity").value || 1,
+      direction: $("#phDir").value, angle: +$("#phAngle").value || 0, dither: +$("#phDither").value, cross_hatch: $("#phCross").checked, fabric: $("#phFabric").value, name: PH.name});
+    if (r.error) { $("#phVal").textContent = "Export refused: " + r.error; return; }
+    PH.res = r; $("#phPrev").src = "data:image/png;base64," + r.preview_png;
+    const v = r.validation, m = r.stitch_metrics, rep = r.report;
+    $("#phVal").innerHTML = `<b>Thread image vs photo (software, simulated)</b>: <span class="vd ${v.verdict === "PASSED" ? "PASSED" : "PASSED_WITH_WARNINGS"}">${v.verdict}</span><table class="qt"><tr><td>luminance correlation</td><td>${v.luminance_corr}</td></tr><tr><td>structure similarity</td><td>${v.structure_ssim}</td></tr><tr><td>tonal histogram distance</td><td>${v.histogram_distance}</td></tr><tr><td>edge correlation</td><td>${v.edge_corr}</td></tr>${v.mode === "multicolour" ? `<tr><td>colour distance (Lab)</td><td>${v.colour_de}</td></tr>` : ""}</table><small>${esc(v.meaning)}</small>`;
+    $("#phStats").innerHTML = `<b>DST (validated, SHA-256 ${r.dst.sha256.slice(0, 12)}…)</b>: ${m.stitches} stitches · ${m.jumps} jumps · ${m.trims} trims · ${m.colour_changes} colour changes · min / max stitch ${m.min_stitch_mm} / ${m.max_stitch_mm} mm · max ${m.max_penetrations_per_mm2} penetrations/mm²<br>Physical machine validation: <b>PENDING</b>`;
+    $("#phNotes").textContent = (rep.notes || []).join(" ") + " " + r.honesty.join(" ");
+    $("#phUse").disabled = $("#phDst").disabled = false;
+  } catch (e) { $("#phVal").textContent = "Photo stitch failed: " + e.message; } finally { $("#phRun").disabled = false; }
+}
+async function photoDst() {
+  const r = await fetch("/api/export/dst", {method: "POST", body: JSON.stringify(PH.res.design)});
+  if (!r.ok) { const j = await r.json().catch(() => ({})); alert("DST not produced: " + (j.error || r.statusText)); return; }
+  download(PH.name.replace(/[^\w-]+/g, "_") + ".dst", new Uint8Array(await r.arrayBuffer()), "application/octet-stream");
+}
+$("#phRun").onclick = photoRun; $("#phClose").onclick = () => $("#dlgPhoto").close(); $("#phFile").onchange = e => e.target.files[0] && phLoad(e.target.files[0]);
+$("#phUse").onclick = () => { loadDoc(PH.res.design); $("#dlgPhoto").close(); setView("stitch"); };
+$("#phDst").onclick = photoDst; $("#bPhoto").onclick = () => openPhoto(null, null);
 /* ---------------------------------------------------------------- fidelity workspace */
 const FID = {mode: "orig", z: 1, x: 0, y: 0, rep: null, imgs: {}};
 function fidApply() {
@@ -614,7 +644,7 @@ async function importFile(file) {
     else {
       const buf0 = new Uint8Array(await file.arrayBuffer());
       let qrep = null; try { let b0 = ""; for (let i = 0; i < buf0.length; i += 8192) b0 += String.fromCharCode(...buf0.subarray(i, i + 8192)); qrep = await post("/api/image/quality", {data: btoa(b0), width_mm: Math.round(S.doc.hoop.w * .7)}); } catch (e) { qrep = null; }
-      const o = await askImport(qrep); if (!o || !o.w) return;
+      const o = await askImport(qrep); if (o && o.photo) { openPhoto(file, o.w); return; } if (!o || !o.w) return;
       const buf = new Uint8Array(await file.arrayBuffer()); let bin = ""; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
       S.imgSrc = {name: file.name, b64: btoa(bin), url: URL.createObjectURL(file), opts: o};       // the original stays in memory exactly as uploaded
       let erase = [];
