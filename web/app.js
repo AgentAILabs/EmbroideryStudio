@@ -538,6 +538,11 @@ async function enhanceFile(file) {
     alert(`Enhanced ${j.info.source_px.join("×")} → ${j.info.result_px.join("×")} px (${j.info.steps.join(", ")}).\nSharpness ${j.info.sharpness_before} → ${j.info.sharpness_after}.` + (j.info.photographic ? "\nLooks like a photo: only resampled and lightly sharpened." : ""));
   } catch (e) { alert("Enhance failed: " + e.message); }
 }
+function qualityScoreHtml(q) {
+  const rows = q.categories.map(c => `<tr><td>${esc(c.name)}</td><td><b>${c.score}</b>/100</td><td>${esc(c.detail.join(" "))}</td></tr>`).join("");
+  const iss = q.issues.map(i => `<li class="${i.severity === "error" ? "e" : "w"}">${i.severity === "error" ? "✖" : "⚠"} ${esc(i.object)}: ${esc(i.message)} ${esc(i.advice || "")}</li>`).join("");
+  return `<div class="qscore"><h4>Software quality score: ${q.score}/100</h4><table>${rows}</table>${iss ? `<ul>${iss}</ul>` : ""}<p><small>${esc(q.disclaimer)}</small></p></div>`;
+}
 async function qualityCheck() {
   const dlg = $("#dlgQuality"); $("#qBody").textContent = "Running…"; dlg.showModal();
   try {
@@ -551,7 +556,10 @@ async function qualityCheck() {
     }
     const j = await post("/api/dst/report", {data: raw, name, hoop_w: S.doc.hoop.w, hoop_h: S.doc.hoop.h, thread: S.doc.thread || "40wt"});
     renderQuality(j, "Quality check - " + name + (S.viewDstB64 ? " (viewed file)" : ""));
-    if (!S.viewDstB64) { const cl = await post("/api/checklist", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", checklistHtml(cl)); }
+    if (!S.viewDstB64) {
+      const cl = await post("/api/checklist", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", checklistHtml(cl));
+      const qr = await post("/api/quality", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", qualityScoreHtml(qr));
+    }
   } catch (e) { $("#qBody").textContent = "Check failed: " + e.message; }
 }
 async function viewDst(file) {

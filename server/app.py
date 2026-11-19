@@ -192,6 +192,13 @@ def api_to_manual(d):
     return {"objects": out, "replaces": oid, "stitches": sum(len(r) for r in runs)}
 
 
+def api_quality(d):
+    check_design(d)
+    from stitchcraft_engine import quality
+    pattern, _notes, _st = generate(d)
+    return quality.quality_report(d, pattern)
+
+
 def api_checklist(d):
     check_design(d)
     return checklist.evaluate(d)
@@ -404,6 +411,8 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_lettering(d))
             if path == "/api/to_manual":
                 return self._send(200, api_to_manual(d))
+            if path == "/api/quality":
+                return self._send(200, api_quality(d))
             if path == "/api/checklist":
                 return self._send(200, api_checklist(d))
             if path == "/api/autodigitize":

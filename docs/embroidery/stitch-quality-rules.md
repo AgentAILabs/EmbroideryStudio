@@ -1,0 +1,38 @@
+# Stitch-quality rules (software validation)
+
+Implemented in `engine/stitchcraft_engine/quality.py`; API `POST /api/quality`; the score is also in every export report.
+**Everything here is software validation of the design and the stitch plan. It is not a prediction of stitch-out quality on any machine, fabric or thread.**
+
+## Geometry rules (`validate_geometry`) - errors block DST export
+| Code | Severity | Rule |
+|---|---|---|
+| GEO_NON_FINITE | error | missing / NaN / infinite coordinate |
+| GEO_TOO_FEW_POINTS | error | ring < 3 points; run/satin/rail < 2 points |
+| GEO_ZERO_AREA | error | ring area < 0.05 mm2 |
+| GEO_ZERO_LENGTH | error | all points of a run/satin identical |
+| GEO_DUPLICATE_RING | error (auto-fixable) | identical rings cancel under the even-odd rule and leave a hole |
+| GEO_SELF_INTERSECT | error | ring crosses itself |
+| GEO_RING_CROSS | error | hole crosses or touches the outline / another ring |
+| GEO_RAIL_CROSS | error | the two rails of a satin column cross |
+| GEO_HOLE_IN_HOLE | warning | ring inside a hole becomes an island |
+| GEO_DISJOINT_RING | warning | ring outside the first outline stitches as a separate piece, not a hole |
+| GEO_SATIN_SELF_CROSS | warning | satin centre line crosses itself |
+| GEO_TINY | warning | fill < 1 mm2 |
+
+## Runtime checks on the generated stitches (warnings)
+* `Q_OUTSIDE_BOUNDARY` - sampled stitches farther outside their object than the compensation tolerance.
+* `Q_COVERAGE_GAP` - raster check (cell 0.5 mm or coarser for big designs, each stitch covers its cell + 8 neighbours): >3 % of a fill interior unstitched. Patterned fills are skipped; designs over 200k stitches skip the check and say so.
+
+## Score (0-100, unweighted mean of 8 categories; each category lists its evidence)
+| Category | How it is scored |
+|---|---|
+| Geometry | 100 - 30/error - 8/warning - 6/boundary or coverage warning |
+| Stitch length | each 1 % of stitches outside min-max length costs 10 points |
+| Density | each 1 % of occupied 1 mm cells above the penetration limit costs 5 points |
+| Underlay | share of large fills / wide satins that have none (advisory; depends on fabric) |
+| Path optimisation | jump length vs stitched length; ratio 0.5 scores 0 |
+| Jumps and trims | -10 per long jump carried without a trim, -2 per trim before a very short jump |
+| Hoop fit | 0 if outside the safe area, 85 if >95 % used, else 100 |
+| DST format | -50 per format error (limit, END, thread index) |
+
+The weights are documented, simple and deliberately not tuned to flatter designs. A high score does not mean the design will stitch well; it means the software found fewer problems.
