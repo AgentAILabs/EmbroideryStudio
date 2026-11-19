@@ -222,6 +222,56 @@ def _pca(pts):
 def _circle(cx, cy, r, n=72): return [[round(cx + r * math.cos(2 * math.pi * i / n), 3), round(cy + r * math.sin(2 * math.pi * i / n), 3)] for i in range(n + 1)]
 
 
+def _lens(cx, cy, ang_deg, L, W, n=14):
+    """Pointed leaf / petal as two satin rails from tip to tip: half-width follows sin(pi t)^0.8, stitches run across the leaf."""
+    a = math.radians(ang_deg); ux, uy = math.cos(a), math.sin(a); nx, ny = -uy, ux; r1, r2 = [], []
+    for i in range(n + 1):
+        t = i / n; h = (W / 2) * (math.sin(math.pi * t) ** 0.8); c = (t - 0.5) * L
+        r1.append([round(cx + ux * c + nx * h, 3), round(cy + uy * c + ny * h, 3)]); r2.append([round(cx + ux * c - nx * h, 3), round(cy + uy * c - ny * h, 3)])
+    return r1, r2
+
+
+def _extent(pts, ang_deg):
+    a = math.radians(ang_deg); ux, uy = math.cos(a), math.sin(a); u = [p[0] * ux + p[1] * uy for p in pts]; v = [-p[0] * uy + p[1] * ux for p in pts]
+    return min(u), max(u), min(v), max(v)
+
+
+def _centroid(r):
+    return sum(p[0] for p in r) / len(r), sum(p[1] for p in r) / len(r)
+
+
+def motifs(design: dict, plan: dict, ox: float, oy: float) -> dict:
+    """Replace detected red leaf blobs by pointed satin leaves along their axis and rebuild the six-petal flower inside every large gold ring. Mutates design['objects']."""
+    s = plan["scale"]; red_hex = next((t["hex"] for t in plan["threads"] if not t.get("rosette")), None); stats = {"leaves": 0, "flowers": 0}
+    if red_hex is None: return stats
+    objs = design["objects"]; out = []
+    rings = [(px * s + ox, py * s + oy, ri) for (_t, px, py, Re, ri) in plan["rosettes"] if ri >= 2.6]
+    dead = set()
+    for k, (cx, cy, ri) in enumerate(rings, 1):                                    # six-petal flower in the ring hole, stone seat left open in the middle
+        R = ri * 0.88; rho0 = max(0.9, ri * 0.22); L = R - rho0; W = max(1.6, L * 0.62)
+        for o in objs:
+            if o["type"] == "fill" and o.get("color") == red_hex and o.get("rings") and math.hypot(*[a - b for a, b in zip(_centroid(o["rings"][0]), (cx, cy))]) < ri * 0.95: dead.add(o["id"])
+        for j in range(6):
+            ang = j * 60 + 30; mid = rho0 + L / 2
+            r1, r2 = _lens(cx + math.cos(math.radians(ang)) * mid, cy + math.sin(math.radians(ang)) * mid, ang, L, W)
+            out.append({"id": f"fl{k}p{j + 1}", "type": "column", "color": red_hex, "name": f"flower {k} petal {j + 1}", "rail1": r1, "rail2": r2, "params": {"spacing": 0.4, "underlay": "none", "pull_comp": 0.12}})
+        stats["flowers"] += 1
+    kept = []; n = 0
+    for o in objs:
+        if o["id"] in dead: continue
+        if o["type"] == "fill" and o.get("color") == red_hex and o.get("rings") and len(o["rings"]) == 1:
+            r = o["rings"][0]; A = _area(r); ang, ratio = _pca(r)
+            if A >= 5 and ratio >= 1.3:
+                u0, u1, v0, v1 = _extent(r, ang); L, W = u1 - u0, v1 - v0
+                if 5.0 <= L <= 14.5 and 2.0 <= W <= 7.5 and 0.6 <= A / (0.64 * L * W) <= 1.35:
+                    a = math.radians(ang); uc, vc = (u0 + u1) / 2, (v0 + v1) / 2
+                    cx = uc * math.cos(a) - vc * math.sin(a); cy = uc * math.sin(a) + vc * math.cos(a)
+                    r1, r2 = _lens(cx, cy, ang, L, W); n += 1
+                    out.append({"id": f"leaf{n}", "type": "column", "color": red_hex, "name": f"leaf {n}", "rail1": r1, "rail2": r2, "params": {"spacing": 0.42, "underlay": "auto", "pull_comp": 0.12}}); continue
+        kept.append(o)
+    stats["leaves"] = n; design["objects"] = kept + out; return stats
+
+
 def finish(design: dict, plan: dict) -> dict:
     """Add rosette columns and the border line, remove strays, angle leaf fills. Mutates + returns `design`; adds design['source']['thread_separation'] (counts)."""
     s = plan["scale"]; hexes = {t["id"]: t["hex"] for t in plan["threads"]}
@@ -250,5 +300,8 @@ def finish(design: dict, plan: dict) -> dict:
         cx, cy = round(px * s + ox, 3), round(py * s + oy, 3)
         design["objects"].append({"id": f"ros{k}", "type": "column", "color": hexes[tid], "name": f"rosette {k}", "rail1": _circle(cx, cy, r_in), "rail2": _circle(cx, cy, Re),
                                   "params": {"spacing": 0.42, "underlay": "auto", "pull_comp": 0.2}})
-    src = dict(design.get("source") or {}); src["thread_separation"] = dict(plan["counts"], strays_removed=removed, leaf_fills_angled=angled); design["source"] = src
+    mo = motifs(design, plan, ox, oy)
+    order = {t["hex"]: i for i, t in enumerate(plan["threads"])}
+    design["objects"].sort(key=lambda o: order.get(o.get("color"), 99))                 # exactly one colour block per thread (stable: red first, gold on top)
+    src = dict(design.get("source") or {}); src["thread_separation"] = dict(plan["counts"], strays_removed=removed, leaf_fills_angled=angled, leaf_motifs=mo["leaves"], flower_motifs=mo["flowers"]); design["source"] = src
     return design

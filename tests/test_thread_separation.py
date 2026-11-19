@@ -78,6 +78,38 @@ class Separation(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE, "Pillow/NumPy not installed")
+class Motifs(unittest.TestCase):
+    def test_lens_is_a_pointed_two_rail_leaf(self):
+        r1, r2 = TS._lens(0, 0, 0, 10, 4)
+        self.assertEqual(r1[0], r2[0]); self.assertEqual(r1[-1], r2[-1])                      # both rails meet at the tips
+        mid = len(r1) // 2; self.assertAlmostEqual(abs(r1[mid][1] - r2[mid][1]), 4.0, delta=0.2)   # full width in the middle
+        self.assertAlmostEqual(r1[0][0], -5.0, delta=0.01); self.assertAlmostEqual(r1[-1][0], 5.0, delta=0.01)
+
+    def test_leaf_blobs_become_satin_columns_and_size_limits_hold(self):
+        def leaf(cx, cy, L, W, i):
+            a = [[cx + (-L / 2 + L * t / 12), cy + (W / 2) * math.sin(math.pi * t / 12)] for t in range(13)]; b = [[x, cy - (y - cy)] for x, y in reversed(a)]
+            return {"id": f"f{i}", "type": "fill", "color": "#d02a34", "rings": [a + b], "params": {}}
+        d = {"objects": [leaf(0, 0, 10, 4, 1), leaf(30, 0, 40, 4, 2), leaf(60, 0, 10, 12, 3)]}
+        plan = {"scale": 0.1, "threads": [{"id": "red", "hex": "#d02a34"}, {"id": "gold", "hex": "#c9a23f", "rosette": True}], "rosettes": []}
+        st = TS.motifs(d, plan, 0.0, 0.0)
+        self.assertEqual(st["leaves"], 1)                                                      # 40 mm long (a fern sprig) and 12 mm wide shapes stay fills
+        self.assertEqual(sorted(o["type"] for o in d["objects"]), ["column", "fill", "fill"])
+
+    def test_six_petal_flower_replaces_red_inside_a_ring_hole(self):
+        red = {"id": "x", "type": "fill", "color": "#d02a34", "rings": [[[-1, -1], [1, -1], [1, 1], [-1, 1]]], "params": {}}
+        d = {"objects": [red]}
+        plan = {"scale": 0.1, "threads": [{"id": "red", "hex": "#d02a34"}, {"id": "gold", "hex": "#c9a23f", "rosette": True}], "rosettes": [("gold", 0.0, 0.0, 8.0, 5.0)]}
+        st = TS.motifs(d, plan, 0.0, 0.0)
+        self.assertEqual(st["flowers"], 1); petals = [o for o in d["objects"] if o["id"].startswith("fl1p")]
+        self.assertEqual(len(petals), 6); self.assertFalse(any(o["id"] == "x" for o in d["objects"]))
+
+    def test_objects_sorted_so_each_thread_is_one_colour_block(self):
+        r = server.api_garment_digitize({"data": base64.b64encode(garment()).decode(), "width_mm": 120, "name": "t"})
+        cols = [o["color"] for o in r["design"]["objects"]]; changes = sum(1 for a, b in zip(cols, cols[1:]) if a != b)
+        self.assertEqual(changes, len(set(cols)) - 1)
+
+
+@unittest.skipUnless(HAVE, "Pillow/NumPy not installed")
 class Api(unittest.TestCase):
     def setUp(self):
         self.r = server.api_garment_digitize({"data": base64.b64encode(garment()).decode(), "width_mm": 120, "name": "Test Garment"})
