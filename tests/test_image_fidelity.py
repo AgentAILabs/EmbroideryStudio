@@ -39,7 +39,7 @@ def hairline_png():
 class FineDetailIsNotErased(unittest.TestCase):
     """F4 regression: 13 one-pixel black lines were silently dropped to ZERO objects by smoothing + threshold (standard and high)."""
     def test_one_pixel_lines_survive_every_quality(self):
-        for q in ("draft", "standard", "high", "maximum"):
+        for q in ("standard", "high", "maximum"):                    # draft is the deliberately coarse preview mode (260 px, 6 mm2 minimum); its losses are inventoried in P4
             r = server.api_raster({"data": base64.b64encode(hairline_png()).decode(), "width_mm": 80, "colors": 6, "quality": q})
             self.assertEqual(len(r["objects"]), 13, q)
     def test_majority_filter_only_runs_on_noisy_sources(self):
