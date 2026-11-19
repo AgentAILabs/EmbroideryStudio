@@ -4,7 +4,7 @@ from datetime import datetime
 
 from stitchcraft_engine.design import generate, run_checks, machine
 from stitchcraft_engine.dst import write_dst, read_dst
-from stitchcraft_engine import formats, export_pipeline
+from stitchcraft_engine import formats, export_pipeline, report as report_mod
 from stitchcraft_engine.preview import preview_svg
 from stitchcraft_engine.checklist import colour_report_csv, evaluate as checklist_evaluate
 
@@ -107,11 +107,14 @@ def package(design: dict):
         res = export_pipeline.export_dst(design)              # write -> re-read -> decode-compare; refuses a file that differs from the plan
     except export_pipeline.ExportError as e:
         return None, e.to_dict()
+    prod_report = report_mod.build_report(design, res)
     n = _safe(design.get("name"))
     h = design.get("hoop", {})
     files = {
         f"{n}.dst": res.data,
         f"{n}.export-report.json": json.dumps(res.report, indent=1).encode(),
+        f"{n}.production-report.json": json.dumps(prod_report, indent=1).encode(),
+        f"{n}.production-report.html": report_mod.render_html(prod_report).encode(),
         f"{n}.esproj": json.dumps({"app": "EmbroideryStudio", "version": 1, "doc": design}, indent=1).encode(),
         f"{n}.preview.svg": preview_svg(pattern, float(h.get("w", 0)), float(h.get("h", 0))).encode(),
         f"{n}.production-sheet.html": sheet_html(design, pattern, notes, st, rep.issues).encode(),

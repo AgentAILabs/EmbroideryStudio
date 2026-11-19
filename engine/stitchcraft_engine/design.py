@@ -35,6 +35,7 @@ FABRICS = {  # EXPERIMENTAL: unverified starting points (no physical stitch-out 
     "cotton": {"pull_comp": 0.2, "spacing": 0.40}, "silk": {"pull_comp": 0.3, "spacing": 0.45},
     "georgette": {"pull_comp": 0.35, "spacing": 0.45}, "velvet": {"pull_comp": 0.4, "spacing": 0.38},
     "denim": {"pull_comp": 0.1, "spacing": 0.40}, "knit": {"pull_comp": 0.4, "spacing": 0.42},
+    "satin_fabric": {"pull_comp": 0.25, "spacing": 0.45}, "net": {"pull_comp": 0.3, "spacing": 0.50}, "thick": {"pull_comp": 0.15, "spacing": 0.38},
 }
 # Thread-weight presets. `spacing` is the stitch-line spacing in mm (a satin advances this far per stitch); a line of thread covers
 # about its own diameter, so finer thread needs closer lines: 40 wt (~0.35-0.4 mm) -> 0.40, 60 wt -> 0.30, 120/2 (~0.2 mm) -> 0.22.

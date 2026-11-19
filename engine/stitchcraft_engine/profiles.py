@@ -29,7 +29,30 @@ FABRICS = {
     "velvet":    {"label": "Velvet",                                 "k": 0.95, "pull": 0.30, "under": 1},
     "stretch":   {"label": "Stretch / knit",                         "k": 1.00, "pull": 0.40, "under": 1, "push": 0.2},
     "denim":     {"label": "Denim / canvas",                         "k": 1.00, "pull": 0.15, "under": 0},
+    # Added in the enterprise upgrade - ALL EXPERIMENTAL starting points, no stitch-out evidence (see docs/embroidery/fabric-profile-guide.md)
+    "satin_fabric": {"label": "Satin (slippery weave)",               "k": 1.10, "pull": 0.25, "under": -1},
+    "net":       {"label": "Net / tulle",                            "k": 1.15, "pull": 0.30, "under": -1},
+    "thick":     {"label": "Thick / heavy fabric",                   "k": 0.95, "pull": 0.15, "under": 1},
 }
+FABRIC_INFO = {
+    "cotton": "Stable woven base case.", "blouse": "Raw silk / cotton-silk blouse cloth.", "silk": "Fine and slippery; lighter underlay, firm stabiliser.",
+    "georgette": "Sheer and shifting; needs stabiliser, light underlay.", "velvet": "Pile crushes; heavier underlay so stitches do not sink.",
+    "stretch": "Stretches during stitching; push compensation and heavier underlay.", "denim": "Firm and thick; small pull compensation.",
+    "satin_fabric": "Smooth, slippery, shows needle holes. Use a firm stabiliser; keep underlay light.",
+    "net": "Open mesh: dense fills cut or sink into it. Needs water-soluble or tear-away backing; prefer satin and open fills.",
+    "thick": "Heavy cloth needs more underlay and a suitable needle; stitches tend to sink.",
+}
+FABRIC_WARNINGS = {
+    "net": "Net / tulle: stitch-outs on this material need a stabiliser on both sides or a water-soluble backing. Dense fills will cut the net.",
+    "satin_fabric": "Satin fabric shows needle holes and puckers easily: stitch a test sample first.",
+    "thick": "Thick fabric: check needle size and hooping before production.",
+}
+
+
+def fabric_catalog():
+    """Every fabric profile, honestly labelled: all are experimental and none is validated on a machine."""
+    return [{"id": k, "label": v["label"], "experimental": True, "validated": False, "explanation": FABRIC_INFO.get(k, ""),
+             "warning": FABRIC_WARNINGS.get(k, ""), "pull_comp": v["pull"], "underlay_shift": v["under"], "density_factor": v["k"]} for k, v in FABRICS.items()]
 CATEGORIES = {
     "blouse_neck":  {"label": "Maggam blouse neck",      "run_len": 2.0, "under": 0,  "detail": "high"},
     "floral":       {"label": "Maggam floral motif",     "run_len": 2.0, "under": 0,  "detail": "high"},
@@ -99,9 +122,11 @@ def apply_profile(design: dict, fabric: str = None, category: str = None, overwr
     tk = THREADS.get(d.get("thread") or "40wt", THREADS["40wt"])["k"]
     shift = max(-1, min(1, F["under"] + C["under"]))
     d["profile"] = {"fabric": fabric, "category": category}
-    d["fabric"] = fabric if fabric in ("cotton", "silk", "georgette", "velvet", "denim") else d.get("fabric", "cotton")
+    d["fabric"] = fabric if fabric in ("cotton", "silk", "georgette", "velvet", "denim", "satin_fabric", "net", "thick") else d.get("fabric", "cotton")
     m = dict(d.get("machine") or {}); m.setdefault("max_stitch", 7.0); d["machine"] = m
     log = [f"profile: {C['label']} on {F['label']}, thread {d.get('thread') or '40wt'} (starting values - confirm with a stitch-out)"]
+    if fabric in FABRIC_WARNINGS:
+        log.append("warning: " + FABRIC_WARNINGS[fabric])
     counts = {}
 
     def put(o, k, v):

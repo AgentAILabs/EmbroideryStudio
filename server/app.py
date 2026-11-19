@@ -27,7 +27,7 @@ from stitchcraft_engine import formats                                          
 from stitchcraft_engine.model import Cmd                                        # noqa: E402
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
 from stitchcraft_engine.raster import digitize_image, enhance_image, RasterUnavailable        # noqa: E402
-from stitchcraft_engine import templates, dst_analyze, dst_verify, checklist, profiles, sequence, export_pipeline, placements as placements_mod                                        # noqa: E402
+from stitchcraft_engine import machines, report as report_mod, templates, dst_analyze, dst_verify, checklist, profiles, sequence, export_pipeline, placements as placements_mod                                        # noqa: E402
 from stitchcraft_engine.outline import column_from_outline                      # noqa: E402
 import sheet                                                                   # noqa: E402
 
@@ -216,6 +216,23 @@ def api_quality(d):
     return quality.quality_report(d, pattern)
 
 
+def api_report(d):
+    check_design(d)
+    try:
+        r = report_mod.build_report(d)
+    except export_pipeline.ExportError as e:
+        if e.code == "EXPORT_NO_STITCHES":
+            raise ValueError(str(e)) from e
+        return None, e.to_dict()
+    return ({"report": r, "html": report_mod.render_html(r)} if d.get("html") else {"report": r}), None
+
+
+def api_machine_check(d):
+    check_design(d)
+    pattern, _n, _s = generate(d)
+    return {"profile": machines.resolve(d), "issues": machines.check_design(d, pattern)}
+
+
 def api_travel(d):
     check_design(d)
     from stitchcraft_engine import travel
@@ -375,6 +392,10 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, data, ctype, extra)
         if path == "/api/templates":
             return self._send(200, {"templates": templates.catalog()})
+        if path == "/api/machines":
+            return self._send(200, {"machines": machines.catalog(), "note": "No machine profile is validated. Output format: DST only."})
+        if path == "/api/fabrics":
+            return self._send(200, {"fabrics": profiles.fabric_catalog()})
         if path == "/api/formats":
             return self._send(200, formats.describe())
         if path == "/api/health":
@@ -435,6 +456,11 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, api_lettering(d))
             if path == "/api/to_manual":
                 return self._send(200, api_to_manual(d))
+            if path == "/api/report":
+                res, err = api_report(d)
+                return self._send(400 if err else 200, err or res)
+            if path == "/api/machine/check":
+                return self._send(200, api_machine_check(d))
             if path == "/api/travel":
                 return self._send(200, api_travel(d))
             if path == "/api/quality":

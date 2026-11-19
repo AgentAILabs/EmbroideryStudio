@@ -77,7 +77,7 @@ class JumpAndHoop(unittest.TestCase):
 class Fabrics(unittest.TestCase):
     def test_each_preset_design_uses_that_presets_values_and_is_labelled_provisional(self):
         from stitchcraft_engine.design import FABRICS
-        for k, (fab, vals) in enumerate(FABRICS.items()):
+        for k, (fab, vals) in enumerate((f, FABRICS[f]) for f in ("cotton", "silk", "georgette", "velvet", "denim", "knit")):
             d = json.loads((PACK / f"{17 + k}_fabric_{fab}.esproj").read_text())["doc"]
             self.assertEqual(d["fabric"], fab)
             fill = next(o for o in d["objects"] if o["type"] == "fill")

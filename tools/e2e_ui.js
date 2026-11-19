@@ -148,6 +148,16 @@ await step('Phase 5b: clicking a region in the review preview leaves it out',asy
   const box=await pg.evaluate(()=>{const c=document.querySelector('#segCv').getBoundingClientRect();return {x:c.left,y:c.top,w:c.width,h:c.height}});
   let changed=false;for(const fx of [.5,.3,.7,.4,.6]){for(const fy of [.5,.3,.7]){await pg.mouse.click(box.x+box.w*fx,box.y+box.h*fy);const a=await pg.evaluate(()=>document.querySelector('#segSum').innerText.split(' ')[0]);if(a!==before){changed=true;break}}if(changed)break}
   if(!changed)throw new Error('no region toggled');await pg.click('#segGo');await wait(1500);return 'regions '+before+' -> fewer'});
+await step('Phase 6: machine profile limits block export; production report downloads with 3 validation sections',async()=>{
+  await pg.click('#bNew');await wait(300);await pg.setInputFiles('#fileImport',ROOT+'/engine/samples/flower.svg');await wait(1500);
+  await pg.selectOption('#mProf','ricoma_unvalidated');await wait(300);
+  const [dl]=await Promise.all([pg.waitForEvent('download',{timeout:30000}),pg.click('#bReport')]);await dl.saveAs(SP+'/report.html');
+  const html=fs.readFileSync(SP+'/report.html','utf8');for(const t of ['Software validation','Independent reader validation','Physical machine validation','NOT DONE','not validated'])if(!html.includes(t))throw new Error('report lacks '+t);
+  await pg.fill('#mpW','20');await pg.dispatchEvent('#mpW','change');await pg.fill('#mpH','20');await pg.dispatchEvent('#mpH','change');await wait(300);
+  let msg='';pg.removeAllListeners('dialog');pg.on('dialog',d=>{msg=d.message();d.accept()});
+  await pg.click('#bExport');await wait(1500);if(!/hoop limit|machine profile/i.test(msg))throw new Error('export not blocked: '+msg);
+  const fi=await pg.evaluate(()=>{__ES.doc.fabric='net';__ESapi.renderAll();return document.querySelector('#fabInfo').innerText});if(!/stabiliser/i.test(fi))throw new Error('net warning missing');
+  pg.removeAllListeners('dialog');pg.on('dialog',d=>d.accept());return 'report ok; export blocked by profile; net warning shown'});
 await pg.screenshot({path:SP+'/e2e-final.png'});
 for(const r of res)console.log(r[0],'|',r[1],'|',r[2]);
 console.log('page errors:',errs.length?errs:'none','| HTTP 5xx:',bad.length?bad:'none');console.log('artifacts in',SP);await b.close();

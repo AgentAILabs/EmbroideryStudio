@@ -226,6 +226,12 @@ def export_dst(design: dict, *, use_checklist: bool = True) -> ExportResult:
         if fails:
             raise ExportError("Export blocked by the production checklist", "checklist", "EXPORT_BLOCKED", fails)
         stages.append({"stage": "checklist", "result": "PASS", "passed": f"{cl['passed']}/{cl['total']}"})
+    from .machines import check_design as machine_check
+    mi = machine_check(design, pattern)
+    merrs = [i for i in mi if i["severity"] == "error"]
+    if merrs:
+        raise ExportError("Export blocked by the machine profile", "machine-profile", "EXPORT_BLOCKED", merrs)
+    stages.append({"stage": "machine-profile", "result": "PASS", "warnings": len(mi)})
     m = machine(design)
     res = write_dst(pattern, trim_jumps=m["trim_jumps"])
     stages.append({"stage": "write", "result": "PASS", "records": res.record_count})

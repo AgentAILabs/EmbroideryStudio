@@ -5,7 +5,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const PALETTE = ["#000000","#ffffff","#7f7f7f","#c8102e","#e4572e","#f28c28","#ffc72c","#f6e27a","#9bd13b","#2e9e44","#0b6e4f","#14b8a6","#4cc3ff","#2563eb","#1e3a8a","#6d28d9","#c026d3","#ec4899","#f9a8d4","#7c4a2d","#d2a679","#b08d57","#d4af37","#a8a29e"];
 const HOOPS = {"100 × 100 mm":[100,100],"130 × 180 mm":[130,180],"4 × 4 in":[101.6,101.6],"5 × 7 in":[127,177.8],"200 × 300 mm":[200,300],"240 × 150 mm":[240,150]};
 const THREADS = {"40wt": "40 wt (standard)", "60wt": "60 wt (fine)", "120": "120/2 (blouse / fine)"};
-const FABRICS = {cotton:{pull_comp:.2,spacing:.40},silk:{pull_comp:.3,spacing:.45},georgette:{pull_comp:.35,spacing:.45},velvet:{pull_comp:.4,spacing:.38},denim:{pull_comp:.1,spacing:.40},knit:{pull_comp:.4,spacing:.42}};
+const FABRICS = {cotton:{pull_comp:.2,spacing:.40},silk:{pull_comp:.3,spacing:.45},georgette:{pull_comp:.35,spacing:.45},velvet:{pull_comp:.4,spacing:.38},denim:{pull_comp:.1,spacing:.40},knit:{pull_comp:.4,spacing:.42},satin_fabric:{pull_comp:.25,spacing:.45},net:{pull_comp:.3,spacing:.50},thick:{pull_comp:.15,spacing:.38}};
 const DEF = {fill:{angle:45,spacing:.4,stitch_len:3.5,underlay:"tatami",pull_comp:.2,pattern:"tatami",cross_size:2,regions:true,cut_hidden:false,overlap_mm:.6,push_comp:0,expand_mm:0,comp_x:0,comp_y:0,min_row:0},satin:{width:3,spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true,shorten:false,push_comp:0,style:"satin",corners:false,corner_angle:60,end_at_start:false},run:{stitch_len:2.5,style:"single",motif:"wave",motif_size:4,motif_amp:1.5},manual:{},column:{spacing:.4,underlay:"auto",pull_comp:.2,auto_split:true,shorten:false,push_comp:0,style:"satin",comp_x:0,comp_y:0,end_at_start:false},text:{spacing:1,underlay:"auto",pull_comp:.1,auto_split:true},applique:{width:2.5,spacing:.4,stitch_len:2.5},embellishment:{}};
 const TOOLHINT = {select:"Click to select, drag to move, drag the white handles to edit points. Space+drag or right-drag pans, wheel zooms.",fill:"Click points of the shape. Double-click, Enter or click the first point to finish. Esc cancels.",satin:"Click along the centre line of the column. Double-click or Enter to finish.",column:"Draw the FIRST edge (double-click/Enter to finish), then the SECOND edge. Stitches zig-zag between them.",run:"Click points of the line. Double-click or Enter to finish.",rect:"Drag to draw a rectangle.",ellipse:"Drag to draw an ellipse.",text:"Click where the text should start.",bead:"Click to place beads / stones / sequins. They are NOT stitched: they appear on the production sheet. Click again to add more to the same group.",applique:"Click the outline of the appliqué patch. Double-click or Enter to finish."};
 
@@ -577,7 +577,7 @@ function checklistHtml(cl) {
 }
 /* ---------------------------------------------------------------- auto-digitize wizard */
 const CATS = {blouse_neck: "Maggam blouse neck", floral: "Maggam floral motif", saree_border: "Saree border / motif", logo: "Logo / lettering"};
-const FABS = {cotton: "Cotton (experimental)", blouse: "Blouse fabric (experimental)", silk: "Silk (experimental)", georgette: "Georgette / chiffon (experimental)", velvet: "Velvet (experimental)", stretch: "Stretch / knit (experimental)", denim: "Denim / canvas (experimental)"};
+const FABS = {cotton: "Cotton (experimental)", blouse: "Blouse fabric (experimental)", silk: "Silk (experimental)", georgette: "Georgette / chiffon (experimental)", velvet: "Velvet (experimental)", stretch: "Stretch / knit (experimental)", denim: "Denim / canvas (experimental)", satin_fabric: "Satin - slippery weave (experimental)", net: "Net / tulle (experimental)", thick: "Thick / heavy fabric (experimental)"};
 const WZ = {step: 1, file: null, res: null};
 const TESTSTEPS = ["Load the DST on the Ricoma and check the size shown matches the report", "Trace the design outline: it must clear the hoop", "Select needle, thread and stabiliser listed on the production sheet",
   "Stitch on a sample of the real garment fabric", "Watch for thread breaks, puckering, skipped stitches, registration (outlines on fills)", "Note what to change (density, underlay, pull comp) and adjust in the editor",
@@ -659,6 +659,7 @@ async function qualityCheck() {
     renderQuality(j, "Quality check - " + name + (S.viewDstB64 ? " (viewed file)" : ""));
     if (!S.viewDstB64) {
       const cl = await post("/api/checklist", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", checklistHtml(cl));
+      const mc = await post("/api/machine/check", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", `<div class="qscore"><h4>Machine profile: ${esc(mc.profile.manufacturer + " " + mc.profile.model)}</h4><p><b>Not validated</b> - ${esc(mc.profile.validation_statement)}</p>${mc.issues.length ? "<ul>" + mc.issues.map(i => `<li class="${i.severity === "error" ? "e" : "w"}">${i.severity === "error" ? "✖" : "⚠"} ${esc(i.message)}</li>`).join("") + "</ul>" : "<p>No profile problems found.</p>"}</div>`);
       const tr = await post("/api/travel", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", travelHtml(tr));
       const qr = await post("/api/quality", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", qualityScoreHtml(qr));
     }
@@ -797,7 +798,12 @@ function renderDesign() {
   <div class="row"><label title="Digitizing category: sets running-stitch length and underlay weight">Category</label><select id="pfCat">${Object.entries(CATS).map(([k, l]) => `<option value="${k}" ${k === ((d.profile || {}).category || "blouse_neck") ? "selected" : ""}>${l}</option>`).join("")}</select></div>
   <div class="row"><label title="Experimental: values come from measurements of other files and have not been stitched on a machine">Profile fabric</label><select id="pfFab">${Object.entries(FABS).map(([k, l]) => `<option value="${k}" ${k === ((d.profile || {}).fabric || "cotton") ? "selected" : ""}>${l}</option>`).join("")}</select></div>
   <div class="btns"><button id="pfApply" title="Set density, underlay, pull / push compensation, corners, cut-hidden-layers on every object from the fabric + category + thread (values you set yourself are kept) and optimise the sewing order. Undoable.">Apply profile</button><button id="pfReset" title="Same, but replace values you set yourself too">Apply &amp; overwrite</button><button id="pfSeq" title="Only reorder objects (same colours, same layering) to cut trims and travel">Optimise sequence</button></div>
+  <div class="note" id="fabInfo">${(() => { const f = (S.fabrics || []).find(x => x.id === (d.fabric || "cotton")); return f ? esc(f.explanation) + (f.warning ? " ⚠ " + esc(f.warning) : "") : ""; })()}</div>
   <div class="note"><b>Experimental:</b> fabric presets are starting values that have not been tested on a machine. They apply to new objects. <button id="fabApply" style="padding:1px 6px">Apply to all</button></div>
+  <div class="row"><label title="Limits the design is checked against. No machine profile is validated: none has been stitched out.">Machine profile</label><select id="mProf">${(S.machines || [{id: "generic_tajima_dst", model: "Generic Tajima-compatible DST"}]).map(m => `<option value="${m.id}" ${m.id === ((d.machine_profile || {}).id || "generic_tajima_dst") ? "selected" : ""}>${esc((m.manufacturer ? m.manufacturer + " " : "") + m.model)}</option>`).join("")}</select></div>
+  <div class="row"><label title="Largest hoop of YOUR machine (mm). Blank = not checked.">Machine max hoop W × H</label><span style="display:flex;gap:4px"><input type="number" id="mpW" value="${(((d.machine_profile || {}).overrides || {}).max_hoop || {}).w ?? ""}" style="width:50%" min="10"><input type="number" id="mpH" value="${(((d.machine_profile || {}).overrides || {}).max_hoop || {}).h ?? ""}" style="width:50%" min="10"></span></div>
+  <div class="row"><label title="Number of needles / thread colours your machine holds. Blank = not checked.">Machine needles</label><input type="number" id="mpN" value="${((d.machine_profile || {}).overrides || {}).needles ?? ""}" min="1" max="64"></div>
+  <div class="note"><b>Not validated:</b> no stitch-out evidence exists for any machine profile. These limits only check the design against the numbers you enter. <button id="bReport" style="padding:1px 6px">Production report</button></div>
   <div class="row"><label>Max stitch mm</label><input type="number" id="mMax" value="${(d.machine || {}).max_stitch ?? 7}" step=".5" min="1" max="12.1"></div>
   <div class="row"><label title="Jumps longer than this get a trim">Trim above mm</label><input type="number" id="mTrim" value="${(d.machine || {}).trim_distance ?? 3}" step=".5" min=".5"></div>
   <div class="row"><label title="DST has no trim command; machines differ. Confirm on yours.">Trim jumps</label><input type="number" id="mJ" value="${(d.machine || {}).trim_jumps ?? 3}" step="1" min="1" max="6"></div>
@@ -847,6 +853,18 @@ function renderDesign() {
   $("#fab").onchange = e => { S.doc.fabric = e.target.value; commit(); };
   $("#fabApply").onclick = () => { const f = FABRICS[S.doc.fabric]; S.doc.objects.forEach(o => { if (o.type === "fill" || o.type === "satin") o.params = Object.assign(o.params || {}, f); }); commit(); renderAll(); };
   $("#bCenter").onclick = centerAll;
+  const setMP = fn => { S.doc.machine_profile = S.doc.machine_profile || {id: "generic_tajima_dst"}; S.doc.machine_profile.overrides = S.doc.machine_profile.overrides || {}; fn(S.doc.machine_profile); commit(); renderAll(); };
+  $("#mProf").onchange = e => setMP(mp => { mp.id = e.target.value; const pr = (S.machines || []).find(m => m.id === mp.id); if (pr) { S.doc.machine = Object.assign(S.doc.machine || {}, {max_stitch: pr.max_stitch, min_stitch: pr.min_stitch, trim_distance: pr.trim_distance, trim_jumps: pr.trim_jumps, lock_len: pr.lock_len, trim_at_color_change: pr.trim_at_color_change, trim_at_end: pr.trim_at_end}); } });
+  const hoopMP = () => setMP(mp => { const w = +$("#mpW").value, h = +$("#mpH").value; if (w > 0 && h > 0) mp.overrides.max_hoop = {w, h}; else delete mp.overrides.max_hoop; });
+  $("#mpW").onchange = hoopMP; $("#mpH").onchange = hoopMP;
+  $("#mpN").onchange = () => setMP(mp => { const n = parseInt($("#mpN").value); if (n >= 1) mp.overrides.needles = n; else delete mp.overrides.needles; });
+  $("#bReport").onclick = downloadReport;
+}
+async function downloadReport() {
+  if (!S.doc.objects.length) { alert("Nothing to report yet."); return; }
+  const r = await fetch("/api/report", {method: "POST", body: JSON.stringify(Object.assign({}, S.doc, {html: true}))}), j = await r.json().catch(() => ({}));
+  if (!r.ok) { alert("No report: the DST could not be released.\n" + (j.issues || [{message: j.error}]).filter(i => !i.severity || i.severity === "error").map(i => "• " + friendlyLine(i)).join("\n")); return; }
+  download((S.doc.name || "design").replace(/[^\w-]+/g, "_") + ".production-report.html", j.html, "text/html");
 }
 function renderSeq() {
   const g = S.gen; $("#seq").innerHTML = g && g.stats ? g.stats.color_sequence.map((s, i) => `<div class="seqrow"><i style="background:${s.hex}"></i>${i + 1}. ${s.hex} <span class="note">· ${s.stitches} st</span></div>`).join("") : `<div class="note">—</div>`;
@@ -875,6 +893,7 @@ const HELP = {
   NO_END: () => ["The file does not end properly.", "Try exporting again; if it repeats, report it."],
   MULTI_END: () => ["The file ends more than once.", "Try exporting again; if it repeats, report it."],
   THREAD_INDEX: () => ["A thread colour is missing.", "Check the colours of your objects."],
+  MACHINE_HOOP: m => ["The design is larger than the hoop limit of the selected machine profile.", m],
   EXPORT_MISMATCH: () => ["The generated file did not match the stitch plan, so it was not released.", "Nothing was downloaded. Try again; if it repeats, report it with the design file."],
   EXPORT_TRUNCATED: () => ["The generated file was cut short, so it was not released.", "Try again; if it repeats, report it."],
   EXPORT_DIMENSIONS: () => ["The generated file has a different size or orientation than the design, so it was not released.", "Report it with the design file."],
@@ -950,6 +969,8 @@ addEventListener("resize", () => { resize(); if (S.vmode === "3d") Viewer3D.resi
 
 (async function init() {
   try { S.font = await (await fetch("/api/font")).json(); } catch (e) {}
+  try { S.machines = (await (await fetch("/api/machines")).json()).machines; } catch (e) {}
+  try { S.fabrics = (await (await fetch("/api/fabrics")).json()).fabrics; renderDesign(); } catch (e) {}
   let saved = null; try { saved = localStorage.getItem("es.autosave"); } catch (e) {}
   resize(); if (saved) { try { const d = JSON.parse(saved); if (d.objects) { S.doc = Object.assign(newDoc(), d); S.n = 1 + Math.max(0, ...S.doc.objects.map(o => parseInt(String(o.id).replace(/\D/g, "")) || 0)); } } catch (e) {} }
   $("#docName").value = S.doc.name; commit(); renderAll(); fit(); setTool("select");

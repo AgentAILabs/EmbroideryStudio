@@ -133,7 +133,8 @@ def designs():
     # 17-22. fabric-specific: one small design per PROVISIONAL fabric preset (30 mm tatami square + 40 mm satin column + outline), parameters
     #     exactly as the editor applies that preset. Stitch each on that fabric; none of the preset values has been verified on a machine.
     from stitchcraft_engine.design import FABRICS
-    for k, (fab, vals) in enumerate(FABRICS.items()):
+    PACK_FABRICS = ["cotton", "silk", "georgette", "velvet", "denim", "knit"]      # the original six; satin / net / thick are experimental and get their own pack when you want to test them
+    for k, (fab, vals) in enumerate((f, FABRICS[f]) for f in PACK_FABRICS):
         pr = {"spacing": vals["spacing"], "pull_comp": vals["pull_comp"]}
         out[f"{17 + k}_fabric_{fab}"] = D(f"{17 + k}_fabric_{fab}", [
             {"id": "f", "type": "fill", "color": RED, "rings": [rect(-15, -22, 30, 22)], "params": dict(pr)},
