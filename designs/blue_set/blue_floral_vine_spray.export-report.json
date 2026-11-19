@@ -1,0 +1,105 @@
+{
+ "engine_version": "0.9.0",
+ "contract_version": "1.0",
+ "format": "dst",
+ "exported_utc": "2026-11-19T08:01:02+00:00",
+ "sha256": "408d3916afb12337dde280dbf37801a9b2a6869aca3417b6286fc9d23517c6f5",
+ "bytes": 7529,
+ "records": 2339,
+ "stages": [
+  {
+   "stage": "generate",
+   "result": "PASS",
+   "stitches": 2138
+  },
+  {
+   "stage": "validate",
+   "result": "PASS",
+   "warnings": 0
+  },
+  {
+   "stage": "geometry",
+   "result": "PASS",
+   "warnings": 0
+  },
+  {
+   "stage": "checklist",
+   "result": "PASS",
+   "passed": "15/15"
+  },
+  {
+   "stage": "machine-profile",
+   "result": "PASS",
+   "warnings": 2
+  },
+  {
+   "stage": "write",
+   "result": "PASS",
+   "records": 2339
+  },
+  {
+   "stage": "decode-compare",
+   "result": "PASS",
+   "stitch": 2138,
+   "jump": 62,
+   "color_change": 1,
+   "trim_jumps": 102,
+   "end": 1,
+   "size_mm": [
+    40.8,
+    111.8
+   ]
+  },
+  {
+   "stage": "independent-reader",
+   "result": "NOT RUN",
+   "detail": "not run in this process (pyembroidery not installed); CI runs it"
+  }
+ ],
+ "counts": {
+  "stitch": 2138,
+  "jump": 62,
+  "color_change": 1,
+  "trim_jumps": 102,
+  "end": 1
+ },
+ "size_mm": [
+  40.8,
+  111.8
+ ],
+ "quality": {
+  "score": 92,
+  "categories": {
+   "geometry": 100,
+   "stitch_length": 71,
+   "density": 100,
+   "underlay": 98,
+   "path": 71,
+   "jump_trim": 100,
+   "hoop": 100,
+   "dst_format": 100
+  },
+  "warnings": 0,
+  "disclaimer": "Software validation only. This score describes the design and the generated stitch plan; it is not a prediction of stitch-out quality on any machine, fabric or thread."
+ },
+ "travel": {
+  "verdicts": {
+   "trimmed": 32,
+   "carried": 28,
+   "colour change": 1
+  },
+  "jump_mm": 655.1,
+  "trims": 34,
+  "colour_changes": 1,
+  "distinct_threads": 2,
+  "minimum_colour_changes": 1,
+  "avoidable_colour_changes": 0,
+  "carried_over_empty_mm": 0.0,
+  "estimated_travel_seconds": 208.6
+ },
+ "validation": {
+  "software": "PASSED: plan -> file -> decode -> compare (kind, count, position, size, orientation)",
+  "independent_reader": "NOT RUN in this process",
+  "physical_machine": "NOT DONE - no stitch-out evidence exists for this file"
+ }
+}

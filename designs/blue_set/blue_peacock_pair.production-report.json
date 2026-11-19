@@ -1,0 +1,287 @@
+{
+ "report_version": "1.0",
+ "design": {
+  "name": "blue_peacock_pair",
+  "size_mm": [
+   98.6,
+   52.4
+  ],
+  "objects": 49
+ },
+ "machine_profile": {
+  "id": "generic_tajima_dst",
+  "manufacturer": "Generic",
+  "model": "Tajima-compatible DST (unspecified machine)",
+  "format": "dst",
+  "max_hoop": null,
+  "needles": null,
+  "max_stitch": 7.0,
+  "min_stitch": 0.3,
+  "trim_distance": 3.0,
+  "trim_jumps": 3,
+  "lock_len": 1.0,
+  "validated": false,
+  "validation_statement": "NOT VALIDATED: no stitch-out evidence recorded for this machine. The checks below compare the design with the numbers above only."
+ },
+ "hoop_mm": {
+  "w": 130,
+  "h": 100,
+  "margin": 8
+ },
+ "fabric": {
+  "id": "silk",
+  "experimental": true,
+  "validated": false,
+  "stabiliser": "cut-away",
+  "thread": "120"
+ },
+ "counts": {
+  "stitches": 3027,
+  "jumps": 64,
+  "trims": 32,
+  "trim_jump_records": 96,
+  "colour_changes": 1,
+  "dst_records": 3231
+ },
+ "thread_sequence": [
+  {
+   "order": 1,
+   "hex": "#3fd6b4",
+   "stitches": 2391,
+   "objects": [
+    "Left bird swirl",
+    "Right bird swirl",
+    "Centre daisy petal",
+    "Right bird tail",
+    "Right bird body",
+    "Right bird neck",
+    "Right bird head",
+    "Left bird tail",
+    "Left bird body",
+    "Left bird neck",
+    "Left bird head"
+   ]
+  },
+  {
+   "order": 2,
+   "hex": "#b85a2b",
+   "stitches": 636,
+   "objects": [
+    "Left bird crest",
+    "Left bird beak",
+    "Right bird crest",
+    "Right bird beak",
+    "Centre daisy centre",
+    "Left bird wing 2",
+    "Left bird wing 1",
+    "Left bird tail eye",
+    "Left bird swirl line",
+    "Right bird swirl line",
+    "Base sprig L stem",
+    "Base sprig L leaflet"
+   ]
+  }
+ ],
+ "estimated_time": {
+  "minutes": 7.9,
+  "note": "Estimated machine time. Not verified on any machine; real time depends on the machine's speed settings."
+ },
+ "quality": {
+  "score": 94,
+  "categories": [
+   {
+    "name": "Geometry",
+    "score": 100
+   },
+   {
+    "name": "Stitch length",
+    "score": 79
+   },
+   {
+    "name": "Density",
+    "score": 100
+   },
+   {
+    "name": "Underlay",
+    "score": 93
+   },
+   {
+    "name": "Path optimisation",
+    "score": 83
+   },
+   {
+    "name": "Jumps and trims",
+    "score": 100
+   },
+   {
+    "name": "Hoop fit",
+    "score": 100
+   },
+   {
+    "name": "DST format",
+    "score": 100
+   }
+  ],
+  "disclaimer": "Software validation only. This score describes the design and the generated stitch plan; it is not a prediction of stitch-out quality on any machine, fabric or thread."
+ },
+ "travel": {
+  "verdicts": {
+   "carried": 32,
+   "trimmed": 30,
+   "colour change": 1
+  },
+  "jump_mm": 722.4,
+  "trims": 32,
+  "colour_changes": 1,
+  "distinct_threads": 2,
+  "minimum_colour_changes": 1,
+  "avoidable_colour_changes": 0,
+  "carried_over_empty_mm": 0.0,
+  "estimated_travel_seconds": 197.1
+ },
+ "warnings": [
+  {
+   "source": "machine profile",
+   "severity": "warning",
+   "message": "This machine profile has no maximum hoop size, so the design could not be checked against your machine. Enter it in the profile."
+  },
+  {
+   "source": "machine profile",
+   "severity": "warning",
+   "message": "This machine profile has no needle count; the number of thread colours was not checked."
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c35: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c36: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c37: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c38: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c39: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c40: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c43: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c44: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c45: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c46: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c47: column is very narrow (0.9 mm)"
+  },
+  {
+   "source": "design",
+   "severity": "info",
+   "message": "c48: column is very narrow (0.9 mm)"
+  }
+ ],
+ "file": {
+  "sha256": "c4bfcf446226b609e73a19dea5a05e87313685e1f6b28342e1caecd14516f3df",
+  "bytes": 10205,
+  "format": "dst"
+ },
+ "engine_version": "0.9.0",
+ "exported_utc": "2026-11-19T08:01:03+00:00",
+ "stages": [
+  {
+   "stage": "generate",
+   "result": "PASS",
+   "stitches": 3027
+  },
+  {
+   "stage": "validate",
+   "result": "PASS",
+   "warnings": 0
+  },
+  {
+   "stage": "geometry",
+   "result": "PASS",
+   "warnings": 0
+  },
+  {
+   "stage": "checklist",
+   "result": "PASS",
+   "passed": "15/15"
+  },
+  {
+   "stage": "machine-profile",
+   "result": "PASS",
+   "warnings": 2
+  },
+  {
+   "stage": "write",
+   "result": "PASS",
+   "records": 3231
+  },
+  {
+   "stage": "decode-compare",
+   "result": "PASS",
+   "stitch": 3027,
+   "jump": 64,
+   "color_change": 1,
+   "trim_jumps": 96,
+   "end": 1,
+   "size_mm": [
+    98.6,
+    52.4
+   ]
+  },
+  {
+   "stage": "independent-reader",
+   "result": "NOT RUN",
+   "detail": "not run in this process (pyembroidery not installed); CI runs it"
+  }
+ ],
+ "validation": {
+  "1_software": {
+   "result": "PASSED",
+   "what": "stitch plan -> DST -> independent decode -> compared record by record (kind, count, position, size, orientation, header)"
+  },
+  "2_independent_reader": {
+   "result": "NOT RUN in this process",
+   "what": "a separate DST parser (pyembroidery) read the file and its stitch count was compared"
+  },
+  "3_physical_machine": {
+   "result": "NOT DONE",
+   "what": "NOT DONE - no stitch-out evidence exists for this file",
+   "how_to_change": "Stitch the test pack on your machine and record the result; this software cannot do it."
+  }
+ },
+ "limits": "This report does not predict stitch-out quality and does not guarantee the absence of thread breaks, puckering or registration errors."
+}

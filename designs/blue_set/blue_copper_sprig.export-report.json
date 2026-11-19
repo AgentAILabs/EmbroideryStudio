@@ -1,0 +1,104 @@
+{
+ "engine_version": "0.9.0",
+ "contract_version": "1.0",
+ "format": "dst",
+ "exported_utc": "2026-11-19T08:01:02+00:00",
+ "sha256": "69941dfa286aa8db0ed69b8e4aaa344f14a5b15292d5cda713578562ca4b2e0c",
+ "bytes": 1751,
+ "records": 413,
+ "stages": [
+  {
+   "stage": "generate",
+   "result": "PASS",
+   "stitches": 389
+  },
+  {
+   "stage": "validate",
+   "result": "PASS",
+   "warnings": 0
+  },
+  {
+   "stage": "geometry",
+   "result": "PASS",
+   "warnings": 0
+  },
+  {
+   "stage": "checklist",
+   "result": "PASS",
+   "passed": "15/15"
+  },
+  {
+   "stage": "machine-profile",
+   "result": "PASS",
+   "warnings": 2
+  },
+  {
+   "stage": "write",
+   "result": "PASS",
+   "records": 413
+  },
+  {
+   "stage": "decode-compare",
+   "result": "PASS",
+   "stitch": 389,
+   "jump": 6,
+   "color_change": 0,
+   "trim_jumps": 15,
+   "end": 1,
+   "size_mm": [
+    14.6,
+    33.6
+   ]
+  },
+  {
+   "stage": "independent-reader",
+   "result": "NOT RUN",
+   "detail": "not run in this process (pyembroidery not installed); CI runs it"
+  }
+ ],
+ "counts": {
+  "stitch": 389,
+  "jump": 6,
+  "color_change": 0,
+  "trim_jumps": 15,
+  "end": 1
+ },
+ "size_mm": [
+  14.6,
+  33.6
+ ],
+ "quality": {
+  "score": 97,
+  "categories": {
+   "geometry": 100,
+   "stitch_length": 85,
+   "density": 100,
+   "underlay": 100,
+   "path": 92,
+   "jump_trim": 100,
+   "hoop": 100,
+   "dst_format": 100
+  },
+  "warnings": 0,
+  "disclaimer": "Software validation only. This score describes the design and the generated stitch plan; it is not a prediction of stitch-out quality on any machine, fabric or thread."
+ },
+ "travel": {
+  "verdicts": {
+   "trimmed": 4,
+   "carried": 1
+  },
+  "jump_mm": 35.5,
+  "trims": 5,
+  "colour_changes": 0,
+  "distinct_threads": 1,
+  "minimum_colour_changes": 0,
+  "avoidable_colour_changes": 0,
+  "carried_over_empty_mm": 0.0,
+  "estimated_travel_seconds": 30.3
+ },
+ "validation": {
+  "software": "PASSED: plan -> file -> decode -> compare (kind, count, position, size, orientation)",
+  "independent_reader": "NOT RUN in this process",
+  "physical_machine": "NOT DONE - no stitch-out evidence exists for this file"
+ }
+}

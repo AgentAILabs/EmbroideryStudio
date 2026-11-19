@@ -179,6 +179,9 @@ def placement_set(design: dict, spec: list, source_side: str = "left", thread=No
             rows.append(row); continue
         files[f"{name}.dst"] = res.data
         files[f"{name}.export-report.json"] = json.dumps(res.report, indent=1).encode()
+        prod = report_mod.build_report(d, res)
+        files[f"{name}.production-report.json"] = json.dumps(prod, indent=1).encode()
+        files[f"{name}.production-report.html"] = report_mod.render_html(prod).encode()
         files[f"{name}.esproj"] = json.dumps({"app": "EmbroideryStudio", "version": 1, "doc": d}, indent=1).encode()
         files[f"{name}.preview.svg"] = preview_svg(pattern, float(h.get("w", 0)), float(h.get("h", 0))).encode()
         files[f"{name}.production-sheet.html"] = sheet_html(d, pattern, notes, st, rep.issues).encode()

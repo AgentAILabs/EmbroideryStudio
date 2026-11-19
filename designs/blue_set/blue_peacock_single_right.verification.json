@@ -1,0 +1,164 @@
+{
+ "file": "blue_peacock_single_right.dst",
+ "grade": "PASS",
+ "stages": [
+  {
+   "stage": "1 container",
+   "result": "PASS",
+   "checks": [
+    {
+     "level": "PASS",
+     "what": "END record is the last record",
+     "evidence": "ends_properly=True"
+    },
+    {
+     "level": "PASS",
+     "what": "nothing but an EOF marker after END",
+     "evidence": "0 trailing byte(s)"
+    },
+    {
+     "level": "PASS",
+     "what": "header ST equals the record count (incl. END, as Wilcom/Tajima files do)",
+     "evidence": "ST=1381 records=1381"
+    },
+    {
+     "level": "PASS",
+     "what": "header CO matches colour changes",
+     "evidence": "CO=1 changes=1"
+    },
+    {
+     "level": "PASS",
+     "what": "header extents (+X -X +Y -Y) match the stitches",
+     "evidence": "header=[252, 252, 256, 256] actual=[252, 252, 256, 256] (0.1 mm)"
+    }
+   ]
+  },
+  {
+   "stage": "2 encoding",
+   "result": "PASS",
+   "checks": [
+    {
+     "level": "PASS",
+     "what": "every record re-encodes to the same bytes (movement + command flag)",
+     "evidence": "0 mismatch(es) in 1381 records"
+    },
+    {
+     "level": "PASS",
+     "what": "independent decoder cross-check",
+     "evidence": "skipped (pyembroidery not installed; runs in CI)"
+    }
+   ]
+  },
+  {
+   "stage": "3 machine",
+   "result": "PASS",
+   "checks": [
+    {
+     "level": "PASS",
+     "what": "no record exceeds 12.1 mm",
+     "evidence": "0 record(s)"
+    },
+    {
+     "level": "PASS",
+     "what": "long stitches (> 7 mm) are rare",
+     "evidence": "0.08% of stitches"
+    },
+    {
+     "level": "PASS",
+     "what": "no runs of very short stitches (< 0.5 mm, two or more in a row)",
+     "evidence": "0.0% clustered (6.88% incl. lone row-turn / lock stitches)"
+    },
+    {
+     "level": "PASS",
+     "what": "colour blocks fit the 15 needles",
+     "evidence": "2 block(s)"
+    },
+    {
+     "level": "PASS",
+     "what": "design fits the 100x100 mm hoop",
+     "evidence": "50.4x51.2 mm"
+    }
+   ]
+  },
+  {
+   "stage": "4 stitch",
+   "result": "PASS",
+   "checks": [
+    {
+     "level": "PASS",
+     "what": "needle penetrations per mm2 <= 39",
+     "evidence": "max 9, p90 3.0"
+    },
+    {
+     "level": "PASS",
+     "what": "no thread-break / fabric-cut cluster (<= 12 penetrations in 0.2 mm)",
+     "evidence": "max 3"
+    },
+    {
+     "level": "PASS",
+     "what": "satin line spacing 0.15-0.55 mm (coverage vs. thread-break)",
+     "evidence": "median 0.28 mm over 456 zig-zags (thread preset k=0.55)"
+    }
+   ]
+  },
+  {
+   "stage": "5 thread path",
+   "result": "PASS",
+   "checks": [
+    {
+     "level": "PASS",
+     "what": "travel (jumps) is not wildly more than stitching",
+     "evidence": "travel 250 mm vs stitched 3772 mm"
+    },
+    {
+     "level": "PASS",
+     "what": "trims are jump trains of >= 3 records",
+     "evidence": "15 trim(s), 9 carried jump(s)"
+    },
+    {
+     "level": "PASS",
+     "what": "fresh thread starts are tied in (>= half of the starts after a trim / colour change)",
+     "evidence": "14 tie-in(s) over 14 thread start(s); 8 carried continuation(s) need none"
+    },
+    {
+     "level": "PASS",
+     "what": "few orphan pieces (1-2 stitches between two cuts)",
+     "evidence": "0 of 14 thread start(s)"
+    }
+   ]
+  },
+  {
+   "stage": "6 simulation",
+   "result": "PASS",
+   "checks": [
+    {
+     "level": "PASS",
+     "what": "replayed needle path stays inside the hoop",
+     "evidence": "span 50.4x51.2 mm"
+    },
+    {
+     "level": "PASS",
+     "what": "end position (information: the frame returns home itself)",
+     "evidence": "end offset 28.3 mm from start"
+    },
+    {
+     "level": "PASS",
+     "what": "run time is reasonable",
+     "evidence": "~3.9 min at 700 spm"
+    }
+   ]
+  }
+ ],
+ "metrics": {
+  "stitches": 1301,
+  "colour_blocks": 2,
+  "trims": 15,
+  "size_mm": [
+   50.4,
+   51.2
+  ],
+  "est_minutes": 3.9,
+  "dens_max": 9,
+  "len_median": 3.06
+ }
+}

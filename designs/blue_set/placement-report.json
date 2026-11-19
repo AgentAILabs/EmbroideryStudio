@@ -1,0 +1,48 @@
+{
+ "design": "blue_peacock_single",
+ "source_side": "left",
+ "placements": [
+  {
+   "placement": "left",
+   "label": "Left sleeve / left side",
+   "file": "blue_peacock_single_left.dst",
+   "mirror": false,
+   "rotate": 0.0,
+   "log": [],
+   "status": "ok",
+   "grade": "PASS",
+   "stitches": 1301,
+   "colours": 2,
+   "trims": 14,
+   "size_mm": [
+    50.44,
+    51.27
+   ],
+   "minutes": 3.6,
+   "sha256": "39bca6f924e32a59e63c777eed7ba22473ceaf99909a4ed36bdaa07298bc8b6a",
+   "notes": []
+  },
+  {
+   "placement": "right",
+   "label": "Right sleeve / right side",
+   "file": "blue_peacock_single_right.dst",
+   "mirror": true,
+   "rotate": 0.0,
+   "log": [
+    "true mirror image (fill directions mirrored; lettering kept readable)"
+   ],
+   "status": "ok",
+   "grade": "PASS",
+   "stitches": 1301,
+   "colours": 2,
+   "trims": 14,
+   "size_mm": [
+    50.44,
+    51.27
+   ],
+   "minutes": 3.6,
+   "sha256": "569b9875f9e66eb3f2921ff21507c4279625582e1358d00619d27458a5db2e20",
+   "notes": []
+  }
+ ]
+}
