@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from .builder import StitchObject, build_pattern
 from .font import layout_text
-from .geometry import polygon_area, smooth, inset_ring, rotate_closed, ring_self_intersections, trim_polyline, outset_ring, scale_axes
+from .geometry import dist, polygon_area, smooth, inset_ring, rotate_closed, ring_self_intersections, trim_polyline, outset_ring, scale_axes
 from .model import Cmd, Pattern, ThreadColor
 from .stitches import (DigitizingError, satin_from_rails, contour_fill, cross_fill, center_walk_underlay, edge_walk_underlay, running_stitch,
                        satin_stitch, tatami_fill, underlay_path, zigzag_underlay, rails_from_centerline)
@@ -114,7 +114,7 @@ def _covering_shapes(objs, idx):
 UNDERLAYS = ("auto", "none", "center", "edge", "zigzag", "edge+zigzag")
 
 
-def _satin_objs(oid, th, path, width, spacing, pull, underlay, split=0.0, shorten=False):
+def _satin_objs(oid, th, path, width, spacing, pull, underlay, split=0.0, shorten=False, end_at_start=False):
     if underlay == "auto":
         underlay = "center" if width >= 2.0 else "none"
     under = []
@@ -125,10 +125,13 @@ def _satin_objs(oid, th, path, width, spacing, pull, underlay, split=0.0, shorte
     if underlay in ("zigzag", "edge+zigzag") and width > 2.0:
         l, r = rails_from_centerline(path, width)
         under.append(zigzag_underlay(l, r))
-    return StitchObject(oid, "satin", th, [satin_stitch(path, width, spacing, pull, split, shorten)], under)
+    top = satin_stitch(path[::-1] if end_at_start and under else path, width, spacing, pull, split, shorten)
+    if end_at_start and under and dist(under[-1][-1], top[0]) > 1e-6:
+        top = [tuple(under[-1][-1])] + top
+    return StitchObject(oid, "satin", th, [top], under)
 
 
-def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0, shorten=False):
+def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0, shorten=False, end_at_start=False):
     """Two-rail satin: stitches zig-zag between the rails. Rails are resampled by arc length, so
     unequal rail lengths simply stretch the stitch angle. pull_comp pushes each rail outwards."""
     from .geometry import dist, polyline_length, resample_n
@@ -156,6 +159,12 @@ def _column(oid, th, r1, r2, spacing, pull, underlay, notes, split=0.0, shorten=
             [running_stitch(underlay_path(a), 2.5), running_stitch(underlay_path(b[::-1]), 2.5)] if underlay in ("edge", "edge+zigzag") else []
     if underlay in ("zigzag", "edge+zigzag") and width > 2.0:
         under.append(zigzag_underlay(a, b))
+    if end_at_start and under:          # underlay travels out, the satin comes back: the object ends where it started (no trim to the next)
+        top = satin_from_rails(a[::-1], b[::-1], spacing, split, shorten)
+        tail = under[-1][-1]
+        if dist(tail, top[0]) > 1e-6:
+            top = [tuple(tail)] + top     # one short stitch inside the tip instead of a jump + duplicate needle drop
+        return StitchObject(oid, "satin", th, [top], under)
     return StitchObject(oid, "satin", th, [satin_from_rails(a, b, spacing, split, shorten)], under)
 
 
@@ -275,7 +284,8 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                     path = trim_polyline(path, push / 2, push / 2)
                 zz = _p(ob, "style") == "zigzag"
                 objs.append(_satin_objs(oid, th, path, _p(ob, "width"), max(_p(ob, "spacing"), 1.2) if zz else _p(ob, "spacing"),
-                                        _p(ob, "pull_comp") or 0.0, "none" if zz else _p(ob, "underlay"), split_of(ob), bool(_p(ob, "shorten")) and not zz))
+                                        _p(ob, "pull_comp") or 0.0, "none" if zz else _p(ob, "underlay"), split_of(ob), bool(_p(ob, "shorten")) and not zz,
+                                        bool(_p(ob, "end_at_start"))))
             elif typ == "column":
                 r1, r2 = _pts(ob["rail1"], ob), _pts(ob["rail2"], ob)
                 cx_, cy_ = _axis_comp(r1 + r2, ob)
@@ -286,7 +296,8 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                     r1, r2 = trim_polyline(r1, push / 2, push / 2), trim_polyline(r2, push / 2, push / 2)
                 zz = _p(ob, "style") == "zigzag"
                 objs.append(_column(oid, th, r1, r2, max(_p(ob, "spacing"), 1.2) if zz else _p(ob, "spacing"),
-                                    _p(ob, "pull_comp") or 0.0, "none" if zz else _p(ob, "underlay"), notes, split_of(ob), bool(_p(ob, "shorten")) and not zz))
+                                    _p(ob, "pull_comp") or 0.0, "none" if zz else _p(ob, "underlay"), notes, split_of(ob), bool(_p(ob, "shorten")) and not zz,
+                                    bool(_p(ob, "end_at_start"))))
             elif typ == "run":
                 pts = _pts(ob["points"], ob, bool(ob.get("closed")))
                 objs.append(StitchObject(oid, "running", th,

@@ -1,0 +1,122 @@
+{
+ "log": [
+  "profile: Maggam blouse neck on Silk, thread 120 (starting values - confirm with a stitch-out)",
+  "set pull_comp on 44 object(s), shorten on 44 object(s), spacing on 19 object(s)",
+  "centred in the hoop",
+  "sequence kept: already optimal for this design (trims 6, travel 169 mm)"
+ ],
+ "items": [
+  {
+   "n": 1,
+   "title": "Reference image cleaned and vectorised",
+   "level": "N/A",
+   "evidence": "vector / hand-digitized design (no raster source)"
+  },
+  {
+   "n": 2,
+   "title": "Design dimensions within hoop limits",
+   "level": "PASS",
+   "evidence": "43.29 x 33.35 mm in a 100 x 100 mm hoop (margin 5 mm)"
+  },
+  {
+   "n": 3,
+   "title": "Satin columns have suitable widths",
+   "level": "PASS",
+   "evidence": "44 satin/column object(s), widths 1.4-2.7 mm"
+  },
+  {
+   "n": 4,
+   "title": "Fill density appropriate for fabric",
+   "level": "N/A",
+   "evidence": "target ~0.24 mm line spacing for this fabric + thread; 0 fill(s) in range"
+  },
+  {
+   "n": 5,
+   "title": "Underlay generated where required",
+   "level": "PASS",
+   "evidence": "every satin >= 2 mm and fill >= 60 mm2 has underlay"
+  },
+  {
+   "n": 6,
+   "title": "Pull compensation configured",
+   "level": "PASS",
+   "evidence": "set on every fill / satin / column"
+  },
+  {
+   "n": 7,
+   "title": "No excessive overlapping stitches",
+   "level": "PASS",
+   "evidence": "0% of the filled area is covered by more than one fill object"
+  },
+  {
+   "n": 8,
+   "title": "No excessively short stitches",
+   "level": "PASS",
+   "evidence": "0 stitch(es) under 0.3 mm; 0.0% in clusters of 2+ stitches < 0.5 mm (0.0% incl. lone row turns and locks)"
+  },
+  {
+   "n": 9,
+   "title": "Long stitches appropriately split",
+   "level": "PASS",
+   "evidence": "longest stitch 3.3 mm (machine profile max 7 mm, DST limit 12.1 mm)"
+  },
+  {
+   "n": 10,
+   "title": "No unintended long jumps",
+   "level": "PASS",
+   "evidence": "every travel over 3 mm is trimmed (6 trims)"
+  },
+  {
+   "n": 11,
+   "title": "Thread trims and colour stops checked",
+   "level": "PASS",
+   "evidence": "1 colour stop(s) for 2 colour block(s); 6 trims; trim at colour change on"
+  },
+  {
+   "n": 12,
+   "title": "Tie-in and tie-off points checked",
+   "level": "PASS",
+   "evidence": "30 lock stitches of 1 mm; 6 tie-in(s) over 6 thread start(s); 22 carried continuation(s) need none"
+  },
+  {
+   "n": 13,
+   "title": "Stitch count within production limits",
+   "level": "PASS",
+   "evidence": "921 stitches, ~2.2 min at 700 spm (limit 150,000)"
+  },
+  {
+   "n": 14,
+   "title": "DST header and command sequence validated",
+   "level": "PASS",
+   "evidence": "container PASS, encoding PASS; 975 records, sha256 374b1105b106"
+  },
+  {
+   "n": 15,
+   "title": "DST reopened and simulated successfully",
+   "level": "PASS",
+   "evidence": "reopened: 921 stitch records, ends with END=True; simulation PASS (span 43.2x33.4 mm)"
+  }
+ ],
+ "passed": 15,
+ "total": 15,
+ "export_allowed": true,
+ "verify_grade": "PASS",
+ "stats": {
+  "stitches": 921,
+  "color_changes": 1,
+  "trims": 6,
+  "width_mm": 43.29,
+  "height_mm": 33.35,
+  "est_minutes": 2.2
+ },
+ "colour_sequence": [
+  {
+   "hex": "#d0102c",
+   "stitches": 450
+  },
+  {
+   "hex": "#c9a227",
+   "stitches": 471
+  }
+ ]
+}

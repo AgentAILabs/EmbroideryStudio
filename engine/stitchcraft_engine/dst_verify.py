@@ -152,12 +152,12 @@ def verify(data: bytes, hoop=(100.0, 100.0), thread_k: float = 1.0, needles: int
             cur = 0
     long_runs = [r for r in jump_runs if r >= 3]
     c.append(("PASS", "trims are jump trains of >= 3 records", f"{len(long_runs)} trim(s), {len(jump_runs) - len(long_runs)} carried jump(s)"))
-    # runs of real length that start with no tie-in
-    n_runs = sum(1 for r in runs if len(r) >= 12)
-    locks = a["lock_runs"]
-    c.append(("PASS" if n_runs == 0 or locks >= 0.5 * n_runs else "WARN", "runs are tied in/off with lock stitches (>= half of the runs)", f"{locks} lock(s) over {n_runs} run(s)"))
-    tiny = sum(1 for r in runs if len(r) <= 2)
-    c.append(("PASS" if tiny <= max(2, 0.05 * len(runs)) else "WARN", "few orphan runs of 1-2 stitches", f"{tiny} of {len(runs)}"))
+    # fresh thread starts (after a trim or colour change) need a tie-in; carried short jumps do not
+    n_cut, locks = a["cut_runs"], a["lock_runs"]
+    c.append(("PASS" if n_cut == 0 or locks >= 0.5 * n_cut else "WARN", "fresh thread starts are tied in (>= half of the starts after a trim / colour change)",
+              f"{locks} tie-in(s) over {n_cut} thread start(s); {len(runs) - n_cut} carried continuation(s) need none"))
+    tiny = a["orphan_cut_runs"]
+    c.append(("PASS" if tiny <= max(2, 0.05 * max(n_cut, 1)) else "WARN", "few orphan pieces (1-2 stitches between two cuts)", f"{tiny} of {n_cut} thread start(s)"))
     stages.append(_stage("5 thread path", c))
     # ---------------- stage 6: simulation
     c = []
