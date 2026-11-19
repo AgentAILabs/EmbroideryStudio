@@ -22,7 +22,7 @@ def _item(n, title, level, evidence):
 
 def _width(o):
     if o["type"] == "satin":
-        return float((o.get("params") or {}).get("width", DEFAULTS["satin"]["width"]))
+        return float(((o.get("params") or {})).get("width", DEFAULTS["satin"]["width"]))
     r1, r2 = o.get("rail1") or [], o.get("rail2") or []
     n = min(len(r1), len(r2))
     inner = list(zip(r1[1:n - 1], r2[1:n - 1])) or list(zip(r1[:n], r2[:n]))
@@ -83,7 +83,7 @@ def evaluate(design: dict) -> dict:
     from .profiles import FABRICS
     fk = FABRICS.get((design.get("profile") or {}).get("fabric") or design.get("fabric") or "cotton", FABRICS["cotton"])["k"]
     target = 0.4 * k * fk
-    fills = [(o.get("name") or o["id"], float((o.get("params") or {}).get("spacing", DEFAULTS["fill"]["spacing"] * k))) for o in objs if o["type"] == "fill"]
+    fills = [(o.get("name") or o["id"], float(((o.get("params") or {})).get("spacing", DEFAULTS["fill"]["spacing"] * k))) for o in objs if o["type"] == "fill"]
     off = [f"{n} ({s:.2f})" for n, s in fills if not 0.75 * target <= s <= 1.35 * target]
     items.append(_item(4, "Fill density appropriate for fabric", ("WARN" if off else "PASS") if fills else "N/A",
                        f"target ~{target:.2f} mm line spacing for this fabric + thread" + (f"; outside 0.75-1.35x: {', '.join(off[:5])}" if off else f"; {len(fills)} fill(s) in range")))
@@ -92,7 +92,7 @@ def evaluate(design: dict) -> dict:
     light = underlay_shift(design) < 0
     fill_min = 60 if light else 25                      # light fabric / saree profile: minimal underlay by design (spec section 3)
     for o in objs:
-        p = o.get("params") or {}
+        p = (o.get("params") or {})
         if o["type"] in ("satin", "column") and _width(o) >= 2.0 and p.get("underlay", "auto") == "none":
             need.append(o.get("name") or o["id"])
         if o["type"] == "fill" and o.get("rings") and abs(polygon_area(o["rings"][0])) >= fill_min and p.get("underlay", "tatami") in ("none", False):
@@ -100,7 +100,7 @@ def evaluate(design: dict) -> dict:
     items.append(_item(5, "Underlay generated where required", "WARN" if need else "PASS",
                        f"missing on: {', '.join(need[:6])}" if need else f"every satin >= 2 mm and fill >= {fill_min} mm2 has underlay"))
     # 6 pull compensation
-    nopc = [o.get("name") or o["id"] for o in objs if o["type"] in ("fill", "satin", "column") and not float((o.get("params") or {}).get("pull_comp", DEFAULTS[o["type"]].get("pull_comp", 0)) or 0)]
+    nopc = [o.get("name") or o["id"] for o in objs if o["type"] in ("fill", "satin", "column") and not float(((o.get("params") or {})).get("pull_comp", DEFAULTS[o["type"]].get("pull_comp", 0)) or 0)]
     items.append(_item(6, "Pull compensation configured", "WARN" if nopc else "PASS",
                        f"no pull compensation on: {', '.join(nopc[:6])}" if nopc else "set on every fill / satin / column"))
     # 7 overlapping stitches

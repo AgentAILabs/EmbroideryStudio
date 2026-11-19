@@ -82,7 +82,7 @@ def applique_cut_svg(design: dict):
     shapes = []
     for o in apps:
         ring = [tuple(p) for p in o["rings"][0]]
-        w = float((o.get("params") or {}).get("width", 2.5))
+        w = float(((o.get("params") or {})).get("width", 2.5))
         cut = outset_ring(ring, w / 3) or ring
         shapes.append((o.get("name") or o["id"], ring, cut, w / 3))
     xs = [p[0] for _, _, c, _ in shapes for p in c]; ys = [p[1] for _, _, c, _ in shapes for p in c]

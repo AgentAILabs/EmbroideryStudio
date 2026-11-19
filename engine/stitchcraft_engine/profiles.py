@@ -94,7 +94,7 @@ def fill_underlay(area: float, shift: int) -> str:
 
 def column_width(o: dict) -> float:
     if o["type"] == "satin":
-        return float((o.get("params") or {}).get("width", DEFAULTS["satin"]["width"]))
+        return float(((o.get("params") or {})).get("width", DEFAULTS["satin"]["width"]))
     r1, r2 = o["rail1"], o["rail2"]
     n = min(len(r1), len(r2))
     inner = list(zip(r1[1:n - 1], r2[1:n - 1])) or list(zip(r1[:n], r2[:n]))
@@ -130,7 +130,7 @@ def apply_profile(design: dict, fabric: str = None, category: str = None, overwr
     counts = {}
 
     def put(o, k, v):
-        p = dict(o.get("params") or {})
+        p = dict((o.get("params") or {}))
         if overwrite or k not in p:
             if p.get(k) != v:
                 p[k] = v; o["params"] = p; counts[k] = counts.get(k, 0) + 1

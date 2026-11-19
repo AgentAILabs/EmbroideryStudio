@@ -16,6 +16,7 @@ POST /api/tools/column-from-outline  {ring} -> {rail1, rail2, ...} or 400 with t
 POST /api/template        {id, params, color} -> objects
 GET  /api/health"""
 import base64, json, os, re, sys, time, hashlib
+import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -27,6 +28,7 @@ from stitchcraft_engine import formats                                          
 from stitchcraft_engine.model import Cmd                                        # noqa: E402
 from stitchcraft_engine.svg_input import parse_svg, UnsupportedSvg              # noqa: E402
 from stitchcraft_engine.raster import digitize_image, enhance_image, RasterUnavailable        # noqa: E402
+from stitchcraft_engine.schema import validate_design                                       # noqa: E402
 import ops                                                                                  # noqa: E402
 from stitchcraft_engine import machines, report as report_mod, templates, dst_analyze, dst_verify, checklist, profiles, sequence, export_pipeline, placements as placements_mod                                        # noqa: E402
 from stitchcraft_engine.outline import column_from_outline                      # noqa: E402
@@ -62,6 +64,7 @@ MAX_OBJECTS, MAX_POINTS, MAX_SVG = 3000, 400_000, 5 * 1024 * 1024
 
 
 def check_design(d):
+    validate_design(d)                                   # types / finite numbers / parameter ranges -> a clear 400, never a 500 from deep inside the engine
     objs = d.get("objects", [])
     if not isinstance(objs, list) or len(objs) > MAX_OBJECTS:
         raise ValueError(f"too many objects (limit {MAX_OBJECTS})")
@@ -327,7 +330,10 @@ def api_svg(d):
         raise ValueError("SVG with DOCTYPE/ENTITY declarations is rejected for safety; re-save it as plain SVG")
     if txt.lstrip()[:4] == "%PDF":
         raise ValueError(formats.PDF_MESSAGE)
-    doc = parse_svg(txt)
+    try:
+        doc = parse_svg(txt)
+    except (ET.ParseError, IndexError, ZeroDivisionError, OverflowError) as e:
+        raise ValueError(f"this SVG could not be read ({type(e).__name__}); re-save it as plain SVG") from e
     objs = []
     for sh in doc.shapes:
         if sh.fill and sh.closed:
@@ -352,19 +358,28 @@ def api_raster(d):
     if mode not in ("off", "auto", "always"):
         raise ValueError("enhance must be off, auto or always")
     if mode != "off":
-        out, info = enhance_image(raw, 2.0, "sharpen" if mode == "always" else "auto")
+        try:
+            out, info = enhance_image(raw, 2.0, "sharpen" if mode == "always" else "auto")
+        except OSError as e:
+            raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
         if len(info["steps"]) > 1:                       # only use it when it actually cleaned something
             raw, enh = out, info
         else:
             enh = dict(info, skipped="image is already sharp and high-resolution")
-    r = digitize_image(raw, float(d.get("width_mm", 80)), int(d.get("colors", 6)), str(d.get("quality", "standard")))
+    try:
+        r = digitize_image(raw, float(d.get("width_mm", 80)), int(d.get("colors", 6)), str(d.get("quality", "standard")))
+    except OSError as e:                                  # PIL: truncated / damaged / unrecognised image data
+        raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
     return {"objects": r["objects"], "notes": r["notes"], "width_mm": r["size_mm"][0], "height_mm": r["size_mm"][1], "report": dict(r["report"], enhance=enh)}
 
 
 def api_enhance(d):
     ops.check_base64_upload(d.get("data"), "image")
     raw = base64.b64decode(d["data"])
-    out, info = enhance_image(raw, float(d.get("scale", 2.0)), str(d.get("mode", "auto")))
+    try:
+        out, info = enhance_image(raw, float(d.get("scale", 2.0)), str(d.get("mode", "auto")))
+    except OSError as e:
+        raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
     return {"png": base64.b64encode(out).decode(), "info": info}
 
 
@@ -478,7 +493,7 @@ class H(BaseHTTPRequestHandler):
                     raise ValueError("ring must be a list of [x, y] points (max 5000)")
                 return self._send(200, column_from_outline([(float(a), float(b)) for a, b in ring]))
             if path == "/api/template":
-                return self._send(200, {"objects": templates.build(d.get("id", ""), d.get("params") or {}, d.get("color", "#c8102e"))})
+                return self._send(200, {"objects": templates.build(d.get("id", ""), (d.get("params") or {}), d.get("color", "#c8102e"))})
             if path == "/api/export/exp":
                 data, err = api_exp(d)
                 if err:

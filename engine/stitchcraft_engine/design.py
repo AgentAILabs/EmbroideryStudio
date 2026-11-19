@@ -51,7 +51,7 @@ COLOR_CHANGE_S, TRIM_S = 20.0, 6.0
 
 
 def _p(obj: dict, key: str):
-    return obj.get("params", {}).get(key, DEFAULTS.get(obj["type"], {}).get(key))
+    return (obj.get("params") or {}).get(key, DEFAULTS.get(obj["type"], {}).get(key))
 
 
 def _pts(v, ob: Optional[dict] = None, closed: bool = False) -> list:
@@ -284,12 +284,12 @@ def generate(design: dict, trim_distance: Optional[float] = None):
         raise ValueError("unknown thread preset %r (use %s)" % (design.get("thread"), ", ".join(THREADS)))
     if th["k"] != 1.0:                                   # closer stitch lines for finer thread, unless an object sets its own
         design = dict(design, objects=[
-            dict(ob, params=dict(ob.get("params") or {}, spacing=max(MIN_SPACING, round(DEFAULTS[ob["type"]]["spacing"] * th["k"], 3))))
-            if ob.get("type") in ("fill", "satin", "column", "applique") and "spacing" not in (ob.get("params") or {}) else ob
+            dict(ob, params=dict((ob.get("params") or {}), spacing=max(MIN_SPACING, round(DEFAULTS[ob["type"]]["spacing"] * th["k"], 3))))
+            if ob.get("type") in ("fill", "satin", "column", "applique") and "spacing" not in ((ob.get("params") or {})) else ob
             for ob in design.get("objects", [])])
     if th["lock_len"] and "lock_len" not in (design.get("machine") or {}):
         mach["lock_len"] = th["lock_len"]
-    split_of = lambda ob: (mach["max_stitch"] if ob.get("params", {}).get("auto_split", True) else 0.0)
+    split_of = lambda ob: (mach["max_stitch"] if (ob.get("params") or {}).get("auto_split", True) else 0.0)
     all_objs = design.get("objects", [])
     for idx, ob in enumerate(all_objs):
         if ob.get("hidden") or ob.get("guide") or ob.get("type") == "embellishment":
@@ -410,8 +410,8 @@ def generate(design: dict, trim_distance: Optional[float] = None):
                              "place fabric then, trim after tack-down.")
             else:
                 notes.append(f"{oid}: unknown type {typ!r} skipped")
-        except (DigitizingError, KeyError, TypeError, ValueError) as e:
-            notes.append(f"{oid}: skipped ({e})")
+        except (DigitizingError, KeyError, TypeError, ValueError, IndexError, ZeroDivisionError, OverflowError) as e:
+            notes.append(f"{oid}: skipped ({type(e).__name__}: {e})" if not isinstance(e, (DigitizingError, ValueError)) else f"{oid}: skipped ({e})")
     notes += _order_notes(design)
     _apply_entry_exit(design, objs, notes)
     pattern = build_pattern(objs, threads, design.get("name", "design"), trim_distance, lock_len=mach["lock_len"],
@@ -469,6 +469,9 @@ def _bbox(ob: dict):
             pts = [(p[0] + dx, p[1] + dy) for p in ob["path"] for dx, dy in ((-h, -h), (h, h))]
         else:
             pts = [(ob.get("x", 0), ob.get("y", 0)), (ob.get("x", 0) + max(2, len(ob.get("text", "")) * 0.9 * h), ob.get("y", 0) + h)]
+    if not pts:
+        return None
+    pts = [p for p in pts if len(p) >= 2]
     if not pts:
         return None
     xs, ys = [p[0] for p in pts], [p[1] for p in pts]

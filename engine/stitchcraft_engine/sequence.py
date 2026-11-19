@@ -28,7 +28,7 @@ def _ends(o):
     for k in ("points", "rail1"):
         if o.get(k):
             a = tuple(o[k][0])
-            p = o.get("params") or {}
+            p = (o.get("params") or {})
             if o.get("type") in ("satin", "column") and p.get("end_at_start") and p.get("underlay", "auto") not in ("none", "edge"):
                 return a, a
             return a, tuple(o[k][-1])

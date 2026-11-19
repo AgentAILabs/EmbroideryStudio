@@ -65,10 +65,10 @@ def transform_design(d: dict, scale: float = 1.0, mirror: bool = False, rotate: 
             o["x"] = round(ncx - w / 2, 3); o["y"] = round(ncy - o["height"] / 2, 3)
             continue
         if t == "fill":
-            ang = float((o.get("params") or {}).get("angle", DEFAULTS["fill"]["angle"]))
+            ang = float(((o.get("params") or {})).get("angle", DEFAULTS["fill"]["angle"]))
             if mirror:
                 ang = 180.0 - ang
-            o["params"] = dict(o.get("params") or {}, angle=round((ang + rotate) % 180.0, 3))
+            o["params"] = dict((o.get("params") or {}), angle=round((ang + rotate) % 180.0, 3))
         if "rings" in o:
             o["rings"] = [[_pt(p, scale, mirror, cs, sn) for p in r] for r in o["rings"]]
         for k in ("points", "rail1", "rail2"):
@@ -157,7 +157,7 @@ def autofix(design: dict, max_rounds: int = 3) -> Tuple[dict, List[str]]:
                     mid = [[(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] for a, b in zip(o["rail1"][:n], o["rail2"][:n])]
                     o = {"id": o["id"], "type": "run", "color": o.get("color"), "name": o.get("name"), "points": mid, "smooth": o.get("smooth", False)}
                     log.append(f"'{name}': column only {w:.2f} mm wide - converted to a running stitch along its centre line")
-        if t == "satin" and float((o.get("params") or {}).get("width", DEFAULTS["satin"]["width"])) < 0.8 and len(o.get("points", [])) >= 2:
+        if t == "satin" and float(((o.get("params") or {})).get("width", DEFAULTS["satin"]["width"])) < 0.8 and len(o.get("points", [])) >= 2:
             o = {"id": o["id"], "type": "run", "color": o.get("color"), "name": o.get("name"), "points": o["points"], "smooth": o.get("smooth", False),
                  "closed": bool(o.get("closed"))}                       # a closed satin ring stays a closed outline
             log.append(f"'{name}': satin narrower than 0.8 mm - converted to a running stitch")
@@ -188,17 +188,17 @@ def autofix(design: dict, max_rounds: int = 3) -> Tuple[dict, List[str]]:
         th = THREADS.get(d.get("thread") or "40wt", THREADS["40wt"])
         stitched = [o for o in d["objects"] if o.get("type") in ("fill", "satin", "column", "applique") and not o.get("hidden") and not o.get("guide")]
         # values the user chose stay untouched as long as opening the default ones is possible; only then are explicit ones opened (named)
-        pool = [o for o in stitched if "spacing" not in (o.get("params") or {}) or o.get("_autospaced")]
+        pool = [o for o in stitched if "spacing" not in ((o.get("params") or {})) or o.get("_autospaced")]
         explicit = False
-        if not pool or all(round(min((o.get("params") or {}).get("spacing", 0.4) * 1.15, 0.7), 3) <= (o.get("params") or {}).get("spacing", 0.4) + 1e-9 for o in pool):
+        if not pool or all(round(min(((o.get("params") or {})).get("spacing", 0.4) * 1.15, 0.7), 3) <= ((o.get("params") or {})).get("spacing", 0.4) + 1e-9 for o in pool):
             pool, explicit = stitched, True
         changed = []
         for o in pool:
-            cur = (o.get("params") or {}).get("spacing")
+            cur = ((o.get("params") or {})).get("spacing")
             base = cur if cur else round(DEFAULTS[o["type"]]["spacing"] * th["k"], 3)
             new = round(min(base * 1.15, 0.7), 3)
             if new > base + 1e-9:
-                o["params"] = dict(o.get("params") or {}, spacing=new); o["_autospaced"] = True
+                o["params"] = dict((o.get("params") or {}), spacing=new); o["_autospaced"] = True
                 changed.append(o.get("name") or o.get("id"))
         if not changed:
             break

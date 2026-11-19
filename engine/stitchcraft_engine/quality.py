@@ -183,7 +183,7 @@ def boundary_check(design: dict, pattern: Pattern, max_points: int = 4000) -> di
         oid = str(ob.get("id")); pts = by.get(oid)
         if not pts or ob.get("type") not in ("fill", "satin", "column"):
             continue
-        prm = ob.get("params", {})
+        prm = (ob.get("params") or {})
         tol = 1.2 + abs(float(prm.get("pull_comp", 0) or 0)) + abs(float(prm.get("push_comp", 0) or 0)) + float(prm.get("overlap_mm", 0) or 0)
         step = max(1, len(pts) // max_points); sample = pts[::step]
         bad = 0
@@ -261,7 +261,7 @@ def coverage_check(design: dict, pattern: Pattern, max_cells: int = 90000, max_s
     issues, total_in, total_gap = [], 0, 0
     for ob in fills:
         oid = str(ob["id"]); rs = rings_by.get(oid)
-        if not rs or (ob.get("params", {}).get("pattern") in ("contour", "cross")):
+        if not rs or ((ob.get("params") or {}).get("pattern") in ("contour", "cross")):
             continue                                                  # patterned fills are not row-based; a raster gap check would be misleading
         bx0 = min(p[0] for r in rs for p in r); bx1 = max(p[0] for r in rs for p in r)
         by0 = min(p[1] for r in rs for p in r); by1 = max(p[1] for r in rs for p in r)
