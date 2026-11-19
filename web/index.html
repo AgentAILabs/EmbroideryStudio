@@ -29,6 +29,7 @@
   <button id="bSet" title="Make the same design for left / right / neck ... as separate, named, verified DST files">Placement set</button>
   <button id="bQuality" title="Run the six-stage DST verification on this design (or on the .dst you are viewing)">Quality check</button>
   <details class="menu" id="mMore"><summary title="More exports and tools">More ▾</summary><div class="pop">
+    <button id="bEnhance" title="Upscale a PNG / JPG 200 % and sharpen it if it is blurry or small, then download it (also built into the import dialog)">Enhance image 2×…</button>
     <button id="bLetter" title="Lettering from a TrueType / OpenType font - Telugu, Devanagari, Tamil ... with proper shaping">TrueType lettering…</button>
     <button id="bViewDst" title="Inspect an existing .dst file (view + verification report)">Open DST to inspect…</button>
     <button id="bExp" title="Export Melco EXP (same stitches as the DST; trims as zero-move jumps)">Export EXP (Melco)</button>
@@ -38,6 +39,7 @@
     <button id="bPkg" title="Download a zip: DST + project + preview + production sheet + manifest">Export package (zip)</button>
   </div></details>
   <button id="bExport" class="primary" title="Download the .dst for your machine">Export DST</button>
+  <input type="file" id="fileEnhance" accept=".png,.jpg,.jpeg" hidden>
   <input type="file" id="fileDst" accept=".dst" hidden>
   <input type="file" id="fileOpen" accept=".esproj,.json" hidden>
   <input type="file" id="fileImport" accept=".svg,.png,.jpg,.jpeg" hidden>
