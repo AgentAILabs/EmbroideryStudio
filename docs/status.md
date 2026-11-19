@@ -147,4 +147,12 @@ the code's tables) and by `tests/test_crosscheck.py` in CI. What is still unprov
 | Bean / triple running stitch | ✅ | BeanStitch tests |
 | Satin corner handling | ✅ | SatinCorners tests (folded stitches 73 → 0) |
 | Appliqué cutting template | ✅ | AppliqueCutTemplate test |
-| Still not built (larger features) | ❌ | TrueType / Indic lettering, text on path, Bezier handles, stitch-level editing, PES/JEF, machine hoop database, motif runs |
+| Still not built | ❌ | Bezier handles; PES/JEF (needs vendor thread palettes); machine hoop database (needs verified Ricoma frame data) |
+
+## New features (2026-11-19)
+| Feature | State | Evidence |
+|---|---|---|
+| Motif run: wave, zigzag, scallop, diamond, leaf | ✅ | MotifRunTests, e2e |
+| Text on a path (built-in font follows a run / satin line; mirroring keeps it readable) | ✅ | TextOnPathTests, e2e |
+| Stitch-level editing: convert to manual stitches | ✅ lossless | 72 / 72 library objects byte-identical after conversion; moving one point changes exactly one stitch |
+| TrueType / OpenType lettering, HarfBuzz shaping via Pillow Raqm | ✅ | Arabic joins (2 shapes vs 5 unshaped); missing glyphs refused. **Telugu / Devanagari need a font upload and were not verified with a real Telugu font (none installed here)** |
