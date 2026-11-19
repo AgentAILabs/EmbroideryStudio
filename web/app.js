@@ -538,6 +538,11 @@ async function enhanceFile(file) {
     alert(`Enhanced ${j.info.source_px.join("×")} → ${j.info.result_px.join("×")} px (${j.info.steps.join(", ")}).\nSharpness ${j.info.sharpness_before} → ${j.info.sharpness_after}.` + (j.info.photographic ? "\nLooks like a photo: only resampled and lightly sharpened." : ""));
   } catch (e) { alert("Enhance failed: " + e.message); }
 }
+function travelHtml(t) {
+  const v = t.verdicts, T = t.totals, bad = (v["missing trim"] || 0) + (v["unnecessary trim"] || 0);
+  const rows = Object.entries(v).map(([k, n]) => `<li class="${k === "missing trim" ? "e" : k === "unnecessary trim" ? "w" : "ok"}">${esc(k)}: ${n}</li>`).join("");
+  return `<div class="qscore"><h4>Travel and trims</h4><ul>${rows}</ul><p>Jump travel ${T.jump_mm} mm, ${T.trims} trims, ${T.colour_changes} colour changes (minimum possible ${T.minimum_colour_changes}), ${T.carried_over_empty_mm} mm of carried thread over empty fabric. ${bad ? "Review the flagged moves." : ""}<br><small>${esc(t.note)}</small></p></div>`;
+}
 function qualityScoreHtml(q) {
   const rows = q.categories.map(c => `<tr><td>${esc(c.name)}</td><td><b>${c.score}</b>/100</td><td>${esc(c.detail.join(" "))}</td></tr>`).join("");
   const iss = q.issues.map(i => `<li class="${i.severity === "error" ? "e" : "w"}">${i.severity === "error" ? "✖" : "⚠"} ${esc(i.object)}: ${esc(i.message)} ${esc(i.advice || "")}</li>`).join("");
@@ -558,6 +563,7 @@ async function qualityCheck() {
     renderQuality(j, "Quality check - " + name + (S.viewDstB64 ? " (viewed file)" : ""));
     if (!S.viewDstB64) {
       const cl = await post("/api/checklist", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", checklistHtml(cl));
+      const tr = await post("/api/travel", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", travelHtml(tr));
       const qr = await post("/api/quality", S.doc); $("#qBody").insertAdjacentHTML("afterbegin", qualityScoreHtml(qr));
     }
   } catch (e) { $("#qBody").textContent = "Check failed: " + e.message; }

@@ -41,7 +41,7 @@ Severity: Critical / High / Medium / Low / Info.
 | 2 | +/- movement encoding | byte-pin vectors (`engine/tests`), axis suite |
 | 3 | Scaling / units | 0.1 mm units; rectangle / non-square dimension tests |
 | 4 | Centring, hoop positioning | centring + hoop tests. **Note:** the design is centred on its **bounding box**, not on a hoop centre; where the machine puts DST (0,0) is machine-dependent → physical test 13 |
-| 5 | Trims | implemented (3 zero-move jumps) - **unverified on a machine**; Phase 4 adds a trim justification report |
+| 5 | Trims | implemented (3 zero-move jumps) - **unverified on a machine**; Phase 4 added the travel/trim report (`travel.py`) for a trim justification report |
 | 6 | Long jumps / travel | `sequence.py`; Phase 4 travel report |
 | 7 | Density | `validate.py` DENSITY, checklist; Phase 3 score |
 | 8 | Short / long stitches | validators; clustered-short metric in `dst_analyze` |

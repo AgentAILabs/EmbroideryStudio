@@ -229,12 +229,15 @@ def export_dst(design: dict, *, use_checklist: bool = True) -> ExportResult:
     stages.append({"stage": "independent-reader", "result": ind["result"] if ind["ran"] else "NOT RUN", "detail": ind.get("result")})
     from .quality import quality_report
     q = quality_report(design, pattern)
+    from .travel import travel_report
+    tr = travel_report(design, pattern)
     report = {
         "engine_version": __version__, "contract_version": CONTRACT_VERSION, "format": "dst",
         "exported_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "sha256": res.sha256, "bytes": len(res.data), "records": res.record_count, "stages": stages,
         "counts": cmp["counts"], "size_mm": cmp["size_mm"],
         "quality": {"score": q["score"], "categories": {c["id"]: c["score"] for c in q["categories"]}, "warnings": len(q["issues"]), "disclaimer": q["disclaimer"]},
+        "travel": {"verdicts": tr["verdicts"], **tr["totals"]},
         "validation": {
             "software": "PASSED: plan -> file -> decode -> compare (kind, count, position, size, orientation)",
             "independent_reader": ("PASSED (pyembroidery)" if ind["ran"] and ind["result"] == "PASS" else "NOT RUN in this process"),

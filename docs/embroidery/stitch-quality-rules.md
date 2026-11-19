@@ -36,3 +36,7 @@ Implemented in `engine/stitchcraft_engine/quality.py`; API `POST /api/quality`; 
 | DST format | -50 per format error (limit, END, thread index) |
 
 The weights are documented, simple and deliberately not tuned to flatter designs. A high score does not mean the design will stitch well; it means the software found fewer problems.
+
+## Travel and trim analysis (`travel.py`, `POST /api/travel`, summary in every export report)
+Every needle move between objects is classified: `colour change`, `trimmed` (justified), `unnecessary trim` (cut before a jump shorter than half the trim distance), `carried` (jump <= trim distance, thread attached), `missing trim` (jump > trim distance carried without a cut). Carried jumps also report the length that crosses empty fabric (no stitches within ~1 mm). The report lists colour changes against the minimum possible (distinct threads - 1; more can be unavoidable because of layering), per-object entry/exit points and the exit-to-next-entry distance. Seconds are estimates only.
+The sequence optimiser (`sequence.py`) is covered by property tests: never worse than the input, nothing lost, colour-block order kept, overlapping objects keep their layering, deterministic.
