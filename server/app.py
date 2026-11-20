@@ -379,8 +379,14 @@ def api_garment_digitize(d):
     except export_pipeline.ExportError as e:
         return {"error": str(e), "export_error": e.to_dict(), "design": design}
     w_mm = plan["size_px"][0] * plan["scale"]; h_mm = plan["size_px"][1] * plan["scale"]; ox = design["source"]["thread_separation"]
-    from stitchcraft_engine import machine_compat
-    return {"design": design, "separation": ox, "dst": {"sha256": exp.sha256, "bytes": len(exp.data), "records": exp.record_count, "counts": exp.report["counts"], "filename": machine_compat.filename_for(design["name"])},
+    from stitchcraft_engine import machine_compat, garment_fidelity
+    try:
+        fid = garment_fidelity.measure(raw, design, plan["threads"], width_mm=width)
+        low = [k for k, v in (fid.get("per_thread") or {}).items() if v["recall"] < 0.85 or v["iou"] < 0.35]
+        fid["review_required"] = bool(low or fid.get("missing_count", 0) > 5); fid["low_threads"] = low
+    except Exception as e:                                   # the measure is advisory: never block the export
+        fid = {"error": f"fidelity measure unavailable: {e}"}
+    return {"design": design, "separation": ox, "fidelity": fid, "dst": {"sha256": exp.sha256, "bytes": len(exp.data), "records": exp.record_count, "counts": exp.report["counts"], "filename": machine_compat.filename_for(design["name"])},
             "preflight": machine_compat.preflight(exp.data, machine_compat.filename_for(design["name"]), hoop), "sections": _sections(design, raw, width, None, None, exp),
             "honesty": ["Heuristic colour-by-hue separation tuned on pink silk; check the result against the photo.", "Stones / beads are not stitched.", "Physical machine validation is PENDING."]}
 

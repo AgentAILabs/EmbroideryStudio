@@ -117,6 +117,12 @@ class Api(unittest.TestCase):
     def setUp(self):
         self.r = server.api_garment_digitize({"data": base64.b64encode(garment()).decode(), "width_mm": 120, "name": "Test Garment"})
 
+    def test_fidelity_measure_is_reported_per_thread(self):
+        f = self.r["fidelity"]; self.assertNotIn("error", f)
+        for t in ("red", "gold"):
+            v = f["per_thread"][t]; self.assertTrue(0 <= v["recall"] <= 1 and 0 <= v["precision"] <= 1 and 0 <= v["iou"] <= 1)
+        self.assertGreater(f["per_thread"]["red"]["recall"], 0.5); self.assertIn("review_required", f); self.assertIn("not a stitch-out", f["note"])
+
     def test_result_shape_and_honesty(self):
         r = self.r; self.assertNotIn("error", r)
         self.assertEqual(r["preflight"]["verdict"], "PASSED"); self.assertRegex(r["dst"]["filename"], r"^[A-Z0-9]{1,8}\.DST$")

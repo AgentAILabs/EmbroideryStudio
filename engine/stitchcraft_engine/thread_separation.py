@@ -376,7 +376,11 @@ def motifs(design: dict, plan: dict, ox: float, oy: float) -> dict:
                 if 5.0 <= L <= 14.5 and 2.0 <= W <= 7.5 and 0.6 <= A / (0.64 * L * W) <= 1.35:
                     a = math.radians(ang); uc, vc = (u0 + u1) / 2, (v0 + v1) / 2
                     cx = uc * math.cos(a) - vc * math.sin(a); cy = uc * math.sin(a) + vc * math.cos(a)
-                    r1, r2 = _lens(cx, cy, ang, L, W, teeth=3 if L >= 8 else 2); n += 1
+                    tt = 3 if L >= 8 else 2; r1, r2 = _lens(cx, cy, ang, L, W, teeth=tt); n += 1
+                    for _ in range(2):                                                          # match the stitched area to the photo's area (width only; clamp 0.85 - 1.25)
+                        al = _area(r1 + r2[::-1]); f = min(1.25, max(0.85, A / max(al, 1e-6)))
+                        if abs(f - 1) < 0.03: break
+                        W *= f; r1, r2 = _lens(cx, cy, ang, L, W, teeth=tt)
                     out.append({"id": f"leaf{n}", "type": "column", "color": red_hex, "name": f"leaf {n}", "rail1": r1, "rail2": r2, "params": {"spacing": 0.42, "underlay": "auto", "pull_comp": 0.12}}); continue
         kept.append(o)
     stats["shrunk"] = _avoid_overlap(out + kept)
