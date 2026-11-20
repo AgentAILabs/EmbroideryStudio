@@ -20,6 +20,9 @@ DEFAULT_THREADS = [
     {"id": "gold", "hex": "#c49a3a", "hue": [26, 62], "sat_min": 0.17, "val_min": 0.38, "min_px": 140, "rosette": True},
 ]
 UP = 2
+# Switchable motif features. Measured on the pink-silk photos (decoded DST vs photo, PINK3): thin-line tracing lowered gold IoU .54 -> .48, fern / small-flower rebuilds lowered red IoU .61 -> .59,
+# so those three are OFF by default (opt in per request); petals, serrated teeth, uniform sizes and leaf area matching are ON.
+FEATURES = {"thin": False, "petals": True, "ferns": False, "small": False, "uniform": True, "teeth": True}
 
 
 def _np():
@@ -230,8 +233,8 @@ def prepare(data: bytes, width_mm: float, threads=None, border: bool = True, max
             if ln:
                 lines = [(t["id"], l) for l in ln]; t_px = tpx; m = m & ~band
                 m[int(0.80 * H):, :int(0.035 * W)] = False; m[int(0.80 * H):, int(0.965 * W):] = False; masks[t["id"]] = m
-        rs, cover = rosettes(m, s); rs = uniform_sizes(rs); ros += [(t["id"],) + r for r in rs]; covered |= cover
-        if border:
+        rs, cover = rosettes(m, s); rs = uniform_sizes(rs) if FEATURES["uniform"] else rs; ros += [(t["id"],) + r for r in rs]; covered |= cover
+        if border and FEATURES["thin"]:
             try:
                 tl, tcov = thin_lines(m & ~_filt(cover, "dil", 5, np, Image, IF), s)
             except (ImportError, MemoryError):
@@ -343,14 +346,14 @@ def motifs(design: dict, plan: dict, ox: float, oy: float) -> dict:
         if o["type"] == "fill" and o.get("color") == red_hex and o.get("rings") and len(o["rings"]) == 1:
             r = o["rings"][0]; A = _area(r); ang, ratio = _pca(r)
             ccx, ccy = _centroid(r); rmax = max(math.hypot(p[0] - ccx, p[1] - ccy) for p in r)
-            if ratio < 1.35 and 2.2 <= rmax <= 7.0 and A / (math.pi * rmax ** 2) >= 0.5:         # small standalone red flower (stone in the middle): six satin petals
+            if FEATURES["small"] and ratio < 1.35 and 2.2 <= rmax <= 7.0 and A / (math.pi * rmax ** 2) >= 0.5:         # small standalone red flower (stone in the middle): six satin petals
                 nf += 1; R = rmax * 1.02; rho0 = max(0.8, R * 0.22); Lp = R - rho0; Wp = max(1.5, Lp * 0.66)
                 for j in range(6):
                     a2 = j * 60 + 30; mid = rho0 + Lp / 2
                     r1, r2 = _lens(ccx + math.cos(math.radians(a2)) * mid, ccy + math.sin(math.radians(a2)) * mid, a2, Lp, Wp)
                     out.append({"id": f"sf{nf}p{j + 1}", "type": "column", "color": red_hex, "name": f"small flower {nf} petal {j + 1}", "rail1": r1, "rail2": r2, "params": {"spacing": 0.4, "underlay": "none", "pull_comp": 0.12}})
                 stats["stones"].append((ccx, ccy)); continue
-            if A >= 14 and ratio >= 1.6:
+            if FEATURES["ferns"] and A >= 14 and ratio >= 1.6:
                 u0, u1, v0, v1 = _extent(r, ang); L, W = u1 - u0, v1 - v0
                 if (L > 14.5 or W > 7.5) and 12.0 <= L <= 45.0 and W >= 4.0:                       # fern sprig: stem along the axis, leaflet pairs pointing to the tip
                     a = math.radians(ang); ux, uy = math.cos(a), math.sin(a); nx, ny = -uy, ux
@@ -376,7 +379,7 @@ def motifs(design: dict, plan: dict, ox: float, oy: float) -> dict:
                 if 5.0 <= L <= 14.5 and 2.0 <= W <= 7.5 and 0.6 <= A / (0.64 * L * W) <= 1.35:
                     a = math.radians(ang); uc, vc = (u0 + u1) / 2, (v0 + v1) / 2
                     cx = uc * math.cos(a) - vc * math.sin(a); cy = uc * math.sin(a) + vc * math.cos(a)
-                    tt = 3 if L >= 8 else 2; r1, r2 = _lens(cx, cy, ang, L, W, teeth=tt); n += 1
+                    tt = (3 if L >= 8 else 2) if FEATURES["teeth"] else 0; r1, r2 = _lens(cx, cy, ang, L, W, teeth=tt); n += 1
                     for _ in range(2):                                                          # match the stitched area to the photo's area (width only; clamp 0.85 - 1.25)
                         al = _area(r1 + r2[::-1]); f = min(1.25, max(0.85, A / max(al, 1e-6)))
                         if abs(f - 1) < 0.03: break
@@ -417,7 +420,7 @@ def finish(design: dict, plan: dict) -> dict:
     stones = []
     for k, (tid, px, py, Re, r_in) in enumerate(plan["rosettes"], 1):
         cx, cy = round(px * s + ox, 3), round(py * s + oy, 3)
-        np_ = 8 if Re < 4.5 else (10 if Re < 6.5 else 12)                         # individual petals: one radial satin column per petal, scalloped outer edge
+        np_ = (8 if Re < 4.5 else (10 if Re < 6.5 else 12)) if FEATURES["petals"] else 0                         # individual petals: one radial satin column per petal, scalloped outer edge
         for j in range(np_):
             t0 = 2 * math.pi * j / np_; t1 = 2 * math.pi * (j + 1) / np_ - math.radians(3.0); m = 7
             r1 = [[round(cx + r_in * math.cos(t0 + (t1 - t0) * i / m), 3), round(cy + r_in * math.sin(t0 + (t1 - t0) * i / m), 3)] for i in range(m + 1)]
@@ -427,6 +430,8 @@ def finish(design: dict, plan: dict) -> dict:
                 r2.append([round(cx + rr * math.cos(ang), 3), round(cy + rr * math.sin(ang), 3)])
             design["objects"].append({"id": f"ros{k}p{j + 1}", "type": "column", "color": hexes[tid], "name": f"rosette {k} petal {j + 1}", "rail1": r1, "rail2": r2,
                                       "params": {"spacing": 0.42, "underlay": "auto", "pull_comp": 0.2}})
+        if not np_:
+            design["objects"].append({"id": f"ros{k}", "type": "column", "color": hexes[tid], "name": f"rosette {k}", "rail1": _circle(cx, cy, r_in), "rail2": _circle(cx, cy, Re), "params": {"spacing": 0.42, "underlay": "auto", "pull_comp": 0.2}})
         stones.append((cx, cy))
     mo = motifs(design, plan, ox, oy)
     sp = stones + [(round(x, 3), round(y, 3)) for x, y in mo["stones"]]

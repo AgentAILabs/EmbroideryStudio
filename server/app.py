@@ -359,14 +359,30 @@ def api_garment_digitize(d):
     raw = _accept_image(raw)
     width = float(d.get("width_mm", 130))
     raw = MI.crop_region(raw, d.get("region"))
+    feats = d.get("features")
+    if feats is not None:
+        if not isinstance(feats, dict) or any(k not in TS.FEATURES or not isinstance(v, bool) for k, v in feats.items()):
+            raise ValueError("features must be an object of booleans with keys: " + ", ".join(TS.FEATURES))
+    saved = dict(TS.FEATURES)
+    TS.FEATURES.update(feats or {})
     try:
         plan = TS.prepare(raw, width, _threads_param(d.get("threads")), border=bool(d.get("border", True)))
     except OSError as e:
+        TS.FEATURES.clear(); TS.FEATURES.update(saved)
         raise ValueError("the image is damaged or is not a valid PNG / JPEG file") from e
+    except BaseException:
+        TS.FEATURES.clear(); TS.FEATURES.update(saved); raise
     hoop = {"w": float(d.get("hoop_w") or 180), "h": float(d.get("hoop_h") or 220), "margin": 3}
-    out = api_autodigitize({"data": base64.b64encode(plan["layer_png"]).decode(), "width_mm": width, "colors": max(2, len(plan["threads"]) + 1), "quality": "high",
-                            "hoop_w": hoop["w"], "hoop_h": hoop["h"], "name": d.get("name") or "garment", "fabric": d.get("fabric", "silk"), "category": d.get("category", "blouse_neck")})
-    design = TS.finish(out["design"], plan); design["hoop"] = hoop; design["name"] = placements_mod.slug(d.get("name") or "garment")
+    try:
+        out = api_autodigitize({"data": base64.b64encode(plan["layer_png"]).decode(), "width_mm": width, "colors": max(2, len(plan["threads"]) + 1), "quality": "high",
+                                "hoop_w": hoop["w"], "hoop_h": hoop["h"], "name": d.get("name") or "garment", "fabric": d.get("fabric", "silk"), "category": d.get("category", "blouse_neck")})
+    except BaseException:
+        TS.FEATURES.clear(); TS.FEATURES.update(saved); raise
+    try:
+        design = TS.finish(out["design"], plan)
+    finally:
+        TS.FEATURES.clear(); TS.FEATURES.update(saved)
+    design["hoop"] = hoop; design["name"] = placements_mod.slug(d.get("name") or "garment")
     from stitchcraft_engine import sequence as _seq
     pts = [p for o in design["objects"] if o.get("type") not in ("embellishment", "text") for p in _seq._pts(o)]
     seq_log = []

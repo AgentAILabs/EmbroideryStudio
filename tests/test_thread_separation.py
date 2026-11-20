@@ -91,6 +91,7 @@ class Motifs(unittest.TestCase):
             return {"id": f"f{i}", "type": "fill", "color": "#d02a34", "rings": [a + b], "params": {}}
         d = {"objects": [leaf(0, 0, 10, 4, 1), leaf(30, 0, 40, 4, 2), leaf(60, 0, 10, 12, 3)]}
         plan = {"scale": 0.1, "threads": [{"id": "red", "hex": "#d02a34"}, {"id": "gold", "hex": "#c9a23f", "rosette": True}], "rosettes": []}
+        TS.FEATURES.update(ferns=True, small=True); self.addCleanup(lambda: TS.FEATURES.update(ferns=False, small=False))
         st = TS.motifs(d, plan, 0.0, 0.0)
         self.assertEqual(st["leaves"], 1); self.assertEqual(st["ferns"], 1)                    # the 40 x 4 mm shape is a fern sprig (stem + leaflets); the 10 x 12 mm blob becomes a small flower
         self.assertEqual(st["small_flowers"], 1)                                               # the roundish 10 x 12 mm blob is a small standalone flower (six petals), not a fill
@@ -116,6 +117,10 @@ class Motifs(unittest.TestCase):
 class Api(unittest.TestCase):
     def setUp(self):
         self.r = server.api_garment_digitize({"data": base64.b64encode(garment()).decode(), "width_mm": 120, "name": "Test Garment"})
+
+    def test_features_param_is_validated_and_restored(self):
+        with self.assertRaises(ValueError): server.api_garment_digitize({"data": base64.b64encode(garment()).decode(), "width_mm": 120, "features": {"bogus": True}})
+        self.assertFalse(TS.FEATURES["thin"] or TS.FEATURES["ferns"] or TS.FEATURES["small"]); self.assertTrue(TS.FEATURES["petals"])
 
     def test_fidelity_measure_is_reported_per_thread(self):
         f = self.r["fidelity"]; self.assertNotIn("error", f)
