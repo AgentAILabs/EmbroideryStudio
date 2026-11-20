@@ -92,8 +92,11 @@ class Motifs(unittest.TestCase):
         d = {"objects": [leaf(0, 0, 10, 4, 1), leaf(30, 0, 40, 4, 2), leaf(60, 0, 10, 12, 3)]}
         plan = {"scale": 0.1, "threads": [{"id": "red", "hex": "#d02a34"}, {"id": "gold", "hex": "#c9a23f", "rosette": True}], "rosettes": []}
         st = TS.motifs(d, plan, 0.0, 0.0)
-        self.assertEqual(st["leaves"], 1)                                                      # 40 mm long (a fern sprig) and 12 mm wide shapes stay fills
-        self.assertEqual(sorted(o["type"] for o in d["objects"]), ["column", "fill", "fill"])
+        self.assertEqual(st["leaves"], 1); self.assertEqual(st["ferns"], 1)                    # the 40 x 4 mm shape is a fern sprig (stem + leaflets); the 10 x 12 mm blob becomes a small flower
+        self.assertEqual(st["small_flowers"], 1)                                               # the roundish 10 x 12 mm blob is a small standalone flower (six petals), not a fill
+        self.assertFalse(any(o["type"] == "fill" for o in d["objects"]))
+        self.assertTrue(any(o["id"].startswith("fern1s") and o["type"] == "satin" for o in d["objects"]))
+        self.assertGreaterEqual(sum(1 for o in d["objects"] if o["id"].startswith("fern1l")), 6)
 
     def test_six_petal_flower_replaces_red_inside_a_ring_hole(self):
         red = {"id": "x", "type": "fill", "color": "#d02a34", "rings": [[[-1, -1], [1, -1], [1, 1], [-1, 1]]], "params": {}}

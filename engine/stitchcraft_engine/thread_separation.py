@@ -174,6 +174,29 @@ def border_line(mask, np=None):
     return lines, t, band
 
 
+def thin_lines(mask, s, np=None, Image=None, IF=None, min_mm=6.0):
+    """Thin line-like parts of a thread mask (scalloped neckline borders, thin stems to the stones) -> ([(polyline px, width mm)], mask of what they cover).
+    Thin = what an opening with a ~2.4 mm kernel removes; each thin component is thinned to its medial axis and every branch of at least `min_mm` is kept."""
+    np, Image, IF = _np()
+    from .smart_design import _thin, _branches
+    k = int(round(2.4 / s)) | 1
+    op = _filt(_filt(mask, "ero", k, np, Image, IF), "dil", k, np, Image, IF)
+    thin = _clean(mask & ~_filt(op, "dil", 5, np, Image, IF), 3, 40, np, Image, IF)
+    out, cover = [], np.zeros_like(mask); H, W = mask.shape
+    for ys, xs in _comps(thin, 40, np):
+        y0, y1, x0, x1 = max(0, ys.min() - 2), min(H, ys.max() + 3), max(0, xs.min() - 2), min(W, xs.max() + 3)
+        sub = np.zeros((y1 - y0, x1 - x0), bool); sub[ys - y0, xs - x0] = True
+        sk = _thin(sub, np); brs = _branches(sk, np); skpx = max(int(sk.sum()), 1); width = min(max(float(sub.sum()) / skpx * s, 1.2), 2.2)
+        for path, _k in brs:
+            if len(path) * s < min_mm: continue
+            pts = np.array([(x + x0, y + y0) for y, x in path], float); kk = 9; ker = np.ones(kk) / kk
+            sm = np.stack([np.convolve(np.pad(pts[:, i], kk // 2, mode="edge"), ker, mode="valid") for i in range(2)], 1); sm[0] = pts[0]; sm[-1] = pts[-1]
+            step = max(1, int(round(0.8 / s))); idx = list(range(0, len(sm), step))
+            if idx[-1] != len(sm) - 1: idx.append(len(sm) - 1)
+            out.append(([(float(sm[i][0]), float(sm[i][1])) for i in idx], width)); cover[ys, xs] = True
+    return out, cover
+
+
 def prepare(data: bytes, width_mm: float, threads=None, border: bool = True, max_px: int = 700) -> dict:
     """Separate threads and build the layer picture for the vector digitizer. Returns everything `finish` needs."""
     np, Image, IF = _np()
@@ -183,7 +206,7 @@ def prepare(data: bytes, width_mm: float, threads=None, border: bool = True, max
     emb = np.zeros((H, W), bool)
     for m in masks.values(): emb |= m
     if emb.sum() < 400: raise ValueError("no thread colour was found (check the picture, or set the thread hue windows)")
-    ros, lines, covered = [], [], np.zeros_like(emb); t_px = 0.0
+    ros, lines, thin, covered = [], [], [], np.zeros_like(emb); t_px = 0.0
     for t in threads:
         if not t.get("rosette"): continue
         m = masks[t["id"]]
@@ -193,6 +216,13 @@ def prepare(data: bytes, width_mm: float, threads=None, border: bool = True, max
                 lines = [(t["id"], l) for l in ln]; t_px = tpx; m = m & ~band
                 m[int(0.80 * H):, :int(0.035 * W)] = False; m[int(0.80 * H):, int(0.965 * W):] = False; masks[t["id"]] = m
         rs, cover = rosettes(m, s); ros += [(t["id"],) + r for r in rs]; covered |= cover
+        if border:
+            try:
+                tl, tcov = thin_lines(m & ~_filt(cover, "dil", 5, np, Image, IF), s)
+            except (ImportError, MemoryError):
+                tl, tcov = [], None
+            if tl:
+                thin += [(t["id"], pl, w) for pl, w in tl]; m = m & ~_filt(tcov, "dil", 5, np, Image, IF); masks[t["id"]] = m
     layer = np.full((H, W, 3), 255, np.uint8)
     for t in threads:
         c = tuple(int(t["hex"][i:i + 2], 16) for i in (1, 3, 5)); m = masks[t["id"]]
@@ -201,9 +231,9 @@ def prepare(data: bytes, width_mm: float, threads=None, border: bool = True, max
     present = (layer != 255).any(2); yy, xx = np.nonzero(present)
     if len(yy) < 50: raise ValueError("nothing left to digitize after separation")
     buf = io.BytesIO(); Image.fromarray(layer).save(buf, "PNG")
-    return {"layer_png": buf.getvalue(), "scale": s, "centre_mm": ((xx.min() + xx.max()) / 2 * s, (yy.min() + yy.max()) / 2 * s), "rosettes": ros, "border_lines": lines,
+    return {"layer_png": buf.getvalue(), "scale": s, "centre_mm": ((xx.min() + xx.max()) / 2 * s, (yy.min() + yy.max()) / 2 * s), "rosettes": ros, "border_lines": lines, "thin_lines": thin,
             "border_thickness_mm": t_px * s, "size_px": (W, H), "threads": threads,
-            "counts": {"thread_pixels": {k: int(v.sum()) for k, v in masks.items()}, "rosettes": len(ros), "border_lines": len(lines)}}
+            "counts": {"thread_pixels": {k: int(v.sum()) for k, v in masks.items()}, "rosettes": len(ros), "border_lines": len(lines), "thin_lines": len(thin)}}
 
 
 def _area(r): return abs(sum(r[i][0] * r[(i + 1) % len(r)][1] - r[(i + 1) % len(r)][0] * r[i][1] for i in range(len(r)))) / 2
@@ -222,11 +252,14 @@ def _pca(pts):
 def _circle(cx, cy, r, n=72): return [[round(cx + r * math.cos(2 * math.pi * i / n), 3), round(cy + r * math.sin(2 * math.pi * i / n), 3)] for i in range(n + 1)]
 
 
-def _lens(cx, cy, ang_deg, L, W, n=14):
-    """Pointed leaf / petal as two satin rails from tip to tip: half-width follows sin(pi t)^0.8, stitches run across the leaf."""
+def _lens(cx, cy, ang_deg, L, W, n=14, teeth=0):
+    """Pointed leaf / petal as two satin rails from tip to tip: half-width follows sin(pi t)^0.8, stitches run across the leaf.
+    teeth > 0 gives a serrated edge: `teeth` saw teeth per side, each rising slowly and dropping sharply towards the tip."""
     a = math.radians(ang_deg); ux, uy = math.cos(a), math.sin(a); nx, ny = -uy, ux; r1, r2 = [], []
+    if teeth: n = max(n, teeth * 4)
     for i in range(n + 1):
         t = i / n; h = (W / 2) * (math.sin(math.pi * t) ** 0.8); c = (t - 0.5) * L
+        if teeth: ph = (t * teeth) % 1.0; h *= 1.0 - 0.20 * ph * math.sin(math.pi * t) ** 0.5 + 0.02
         r1.append([round(cx + ux * c + nx * h, 3), round(cy + uy * c + ny * h, 3)]); r2.append([round(cx + ux * c - nx * h, 3), round(cy + uy * c - ny * h, 3)])
     return r1, r2
 
@@ -242,7 +275,7 @@ def _centroid(r):
 
 def motifs(design: dict, plan: dict, ox: float, oy: float) -> dict:
     """Replace detected red leaf blobs by pointed satin leaves along their axis and rebuild the six-petal flower inside every large gold ring. Mutates design['objects']."""
-    s = plan["scale"]; red_hex = next((t["hex"] for t in plan["threads"] if not t.get("rosette")), None); stats = {"leaves": 0, "flowers": 0}
+    s = plan["scale"]; red_hex = next((t["hex"] for t in plan["threads"] if not t.get("rosette")), None); stats = {"leaves": 0, "flowers": 0, "small_flowers": 0, "ferns": 0, "stones": []}
     if red_hex is None: return stats
     objs = design["objects"]; out = []
     rings = [(px * s + ox, py * s + oy, ri) for (_t, px, py, Re, ri) in plan["rosettes"] if ri >= 2.6]
@@ -256,20 +289,49 @@ def motifs(design: dict, plan: dict, ox: float, oy: float) -> dict:
             r1, r2 = _lens(cx + math.cos(math.radians(ang)) * mid, cy + math.sin(math.radians(ang)) * mid, ang, L, W)
             out.append({"id": f"fl{k}p{j + 1}", "type": "column", "color": red_hex, "name": f"flower {k} petal {j + 1}", "rail1": r1, "rail2": r2, "params": {"spacing": 0.4, "underlay": "none", "pull_comp": 0.12}})
         stats["flowers"] += 1
-    kept = []; n = 0
+    kept = []; n = 0; nf = 0; nfern = 0
     for o in objs:
         if o["id"] in dead: continue
         if o["type"] == "fill" and o.get("color") == red_hex and o.get("rings") and len(o["rings"]) == 1:
             r = o["rings"][0]; A = _area(r); ang, ratio = _pca(r)
+            ccx, ccy = _centroid(r); rmax = max(math.hypot(p[0] - ccx, p[1] - ccy) for p in r)
+            if ratio < 1.35 and 2.2 <= rmax <= 7.0 and A / (math.pi * rmax ** 2) >= 0.5:         # small standalone red flower (stone in the middle): six satin petals
+                nf += 1; R = rmax * 1.02; rho0 = max(0.8, R * 0.22); Lp = R - rho0; Wp = max(1.5, Lp * 0.66)
+                for j in range(6):
+                    a2 = j * 60 + 30; mid = rho0 + Lp / 2
+                    r1, r2 = _lens(ccx + math.cos(math.radians(a2)) * mid, ccy + math.sin(math.radians(a2)) * mid, a2, Lp, Wp)
+                    out.append({"id": f"sf{nf}p{j + 1}", "type": "column", "color": red_hex, "name": f"small flower {nf} petal {j + 1}", "rail1": r1, "rail2": r2, "params": {"spacing": 0.4, "underlay": "none", "pull_comp": 0.12}})
+                stats["stones"].append((ccx, ccy)); continue
+            if A >= 14 and ratio >= 1.6:
+                u0, u1, v0, v1 = _extent(r, ang); L, W = u1 - u0, v1 - v0
+                if (L > 14.5 or W > 7.5) and 12.0 <= L <= 45.0 and W >= 4.0:                       # fern sprig: stem along the axis, leaflet pairs pointing to the tip
+                    a = math.radians(ang); ux, uy = math.cos(a), math.sin(a); nx, ny = -uy, ux
+                    def wid(lo, hi):
+                        vs = [(-p[0] * uy + p[1] * ux) for p in r if lo <= (p[0] * ux + p[1] * uy) <= hi]; return (max(vs) - min(vs)) if vs else 0
+                    sgn = 1 if wid(u0, u0 + L * 0.3) >= wid(u1 - L * 0.3, u1) else -1             # +1: base at u0, tip at u1
+                    base = u0 if sgn > 0 else u1; vc = (v0 + v1) / 2
+                    def at(u, v): return (u * ux - v * uy, u * uy + v * ux)
+                    stem = [list(map(lambda q: round(q, 3), at(base + sgn * L * t, vc))) for t in (0.0, 0.25, 0.5, 0.75, 0.97)]
+                    nfern += 1
+                    out.append({"id": f"fern{nfern}s", "type": "satin", "color": red_hex, "name": f"fern {nfern} stem", "points": stem, "params": {"width": 1.0, "spacing": 0.4, "underlay": "none", "pull_comp": 0.1}})
+                    nl = max(3, int(L / 2.8))
+                    for q in range(nl):
+                        t = 0.10 + 0.82 * q / max(nl - 1, 1); ll = max(2.2, (W / 2) * (1.05 - 0.55 * t)); u = base + sgn * L * t
+                        for side in (1, -1):
+                            ra = math.radians(ang + (0 if sgn > 0 else 180) + side * 52)
+                            px0, py0 = at(u, vc); cxl, cyl = px0 + math.cos(ra) * ll / 2, py0 + math.sin(ra) * ll / 2
+                            r1, r2 = _lens(cxl, cyl, math.degrees(ra), ll, 1.7)
+                            out.append({"id": f"fern{nfern}l{q}{'a' if side > 0 else 'b'}", "type": "column", "color": red_hex, "name": f"fern {nfern} leaflet", "rail1": r1, "rail2": r2, "params": {"spacing": 0.4, "underlay": "none", "pull_comp": 0.1}})
+                    continue
             if A >= 5 and ratio >= 1.3:
                 u0, u1, v0, v1 = _extent(r, ang); L, W = u1 - u0, v1 - v0
                 if 5.0 <= L <= 14.5 and 2.0 <= W <= 7.5 and 0.6 <= A / (0.64 * L * W) <= 1.35:
                     a = math.radians(ang); uc, vc = (u0 + u1) / 2, (v0 + v1) / 2
                     cx = uc * math.cos(a) - vc * math.sin(a); cy = uc * math.sin(a) + vc * math.cos(a)
-                    r1, r2 = _lens(cx, cy, ang, L, W); n += 1
+                    r1, r2 = _lens(cx, cy, ang, L, W, teeth=3 if L >= 8 else 2); n += 1
                     out.append({"id": f"leaf{n}", "type": "column", "color": red_hex, "name": f"leaf {n}", "rail1": r1, "rail2": r2, "params": {"spacing": 0.42, "underlay": "auto", "pull_comp": 0.12}}); continue
         kept.append(o)
-    stats["leaves"] = n; design["objects"] = kept + out; return stats
+    stats["leaves"] = n; stats["small_flowers"] = nf; stats["ferns"] = nfern; design["objects"] = kept + out; return stats
 
 
 def finish(design: dict, plan: dict) -> dict:
@@ -296,12 +358,28 @@ def finish(design: dict, plan: dict) -> dict:
     for j, (tid, line) in enumerate(plan["border_lines"]):
         design["objects"].append({"id": f"scal{j}", "type": "satin", "color": hexes[tid], "name": f"scalloped border {j + 1}", "points": [[round(px * s + ox, 3), round(py * s + oy, 3)] for px, py in line],
                                   "params": {"width": 1.8, "spacing": 0.42, "underlay": "center", "pull_comp": 0.2}})
+    for j, (tid, pl, w) in enumerate(plan.get("thin_lines", [])):
+        design["objects"].append({"id": f"thin{j}", "type": "satin", "color": hexes[tid], "name": f"{'border' if len(pl) * 0.8 > 25 else 'stem'} line {j + 1}", "points": [[round(px * s + ox, 3), round(py * s + oy, 3)] for px, py in pl],
+                                  "params": {"width": round(w, 2), "spacing": 0.42, "underlay": "center", "pull_comp": 0.15}})
+    stones = []
     for k, (tid, px, py, Re, r_in) in enumerate(plan["rosettes"], 1):
         cx, cy = round(px * s + ox, 3), round(py * s + oy, 3)
-        design["objects"].append({"id": f"ros{k}", "type": "column", "color": hexes[tid], "name": f"rosette {k}", "rail1": _circle(cx, cy, r_in), "rail2": _circle(cx, cy, Re),
-                                  "params": {"spacing": 0.42, "underlay": "auto", "pull_comp": 0.2}})
+        np_ = 8 if Re < 4.5 else (10 if Re < 6.5 else 12)                         # individual petals: one radial satin column per petal, scalloped outer edge
+        for j in range(np_):
+            t0 = 2 * math.pi * j / np_; t1 = 2 * math.pi * (j + 1) / np_ - math.radians(3.0); m = 7
+            r1 = [[round(cx + r_in * math.cos(t0 + (t1 - t0) * i / m), 3), round(cy + r_in * math.sin(t0 + (t1 - t0) * i / m), 3)] for i in range(m + 1)]
+            r2 = []
+            for i in range(m + 1):
+                f = i / m; rr = Re * (0.90 + 0.10 * math.sin(math.pi * f) ** 0.6); ang = t0 + (t1 - t0) * f
+                r2.append([round(cx + rr * math.cos(ang), 3), round(cy + rr * math.sin(ang), 3)])
+            design["objects"].append({"id": f"ros{k}p{j + 1}", "type": "column", "color": hexes[tid], "name": f"rosette {k} petal {j + 1}", "rail1": r1, "rail2": r2,
+                                      "params": {"spacing": 0.42, "underlay": "auto", "pull_comp": 0.2}})
+        stones.append((cx, cy))
     mo = motifs(design, plan, ox, oy)
+    sp = stones + [(round(x, 3), round(y, 3)) for x, y in mo["stones"]]
+    if sp:
+        design["objects"].append({"id": "stones", "type": "embellishment", "kind": "stone", "color": "#e8e8f0", "size_mm": 4.0, "name": f"stones - place by hand ({len(sp)})", "points": [[round(x, 3), round(y, 3)] for x, y in sp]})
     order = {t["hex"]: i for i, t in enumerate(plan["threads"])}
     design["objects"].sort(key=lambda o: order.get(o.get("color"), 99))                 # exactly one colour block per thread (stable: red first, gold on top)
-    src = dict(design.get("source") or {}); src["thread_separation"] = dict(plan["counts"], strays_removed=removed, leaf_fills_angled=angled, leaf_motifs=mo["leaves"], flower_motifs=mo["flowers"]); design["source"] = src
+    src = dict(design.get("source") or {}); src["thread_separation"] = dict(plan["counts"], strays_removed=removed, leaf_fills_angled=angled, leaf_motifs=mo["leaves"], flower_motifs=mo["flowers"], small_flowers=mo["small_flowers"], ferns=mo["ferns"], stone_places=len(sp), thin_lines=len(plan.get("thin_lines", []))); design["source"] = src
     return design
