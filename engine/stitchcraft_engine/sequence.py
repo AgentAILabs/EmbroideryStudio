@@ -176,13 +176,13 @@ def _motif_order(objs: List[dict], start) -> List[int]:
     return [i for g in order for i in groups[g]]
 
 
-def optimize_sequence(design: dict) -> Tuple[dict, List[str]]:
+def optimize_sequence(design: dict, start=None) -> Tuple[dict, List[str]]:
     """Try object-level and motif-level orders inside each same-colour block; keep whichever generated file is best
     (fewer trims, then less travel). Never returns a worse design."""
     base = design
     best_d, best_m, best_log = design, None, []
     for mode in ("objects", "motifs"):
-        cand, log = _optimize(base, mode)
+        cand, log = _optimize(base, mode, start)
         if cand is base:
             continue
         try:
@@ -200,7 +200,7 @@ def optimize_sequence(design: dict) -> Tuple[dict, List[str]]:
     return design, [f"sequence kept: already optimal for this design (trims {before[0]}, travel {before[1]:.0f} mm)"]
 
 
-def _optimize(design: dict, mode: str):
+def _optimize(design: dict, mode: str, start=None):
     objs = design.get("objects", [])
     stitched = [k for k, o in enumerate(objs) if not o.get("hidden") and not o.get("guide") and o.get("type") != "embellishment"]
     if len(stitched) < 3:
@@ -214,7 +214,7 @@ def _optimize(design: dict, mode: str):
         else:
             blocks.append(cur); cur = [k]
     blocks.append(cur)
-    pos = None
+    pos = start
     for blk in blocks:
         if len(blk) >= 3:
             order = (_motif_order if mode == "motifs" else _block_order)([objs[k] for k in blk], pos)

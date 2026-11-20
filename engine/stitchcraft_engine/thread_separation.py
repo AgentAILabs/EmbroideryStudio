@@ -165,13 +165,28 @@ def border_line(mask, np=None):
     for sg in segs:
         if len(sg) < 60: continue
         yy = np.array([q[1] for q in sg]); med = np.array([np.median(yy[max(0, i - 7):i + 8]) for i in range(len(yy))])
-        yy = np.where(np.abs(yy - med) > 3.0, med, yy); sm = np.convolve(np.pad(yy, 4, mode="edge"), np.ones(9) / 9, mode="valid")
+        yy = np.where(np.abs(yy - med) > 3.0, med, yy); sm = np.convolve(np.pad(yy, 10, mode="edge"), np.ones(21) / 21, mode="valid"); sm = np.convolve(np.pad(sm, 5, mode="edge"), np.ones(11) / 11, mode="valid")
         sg = sg[6:-6]; sm = sm[6:-6]
         if len(sg) < 40: continue
         lines.append([(q[0], float(y)) for q, y in zip(sg, sm)][::6])
         for q in sg: band[max(0, int(q[1] - t / 2 - 4)):int(q[1] + t / 2 + 4), q[0]] = True
     if sum(len(l) for l in lines) * 6 < 0.35 * W: return [], 0.0, None
     return lines, t, band
+
+
+def uniform_sizes(rs):
+    """Make the gold flowers uniform: split them into a large and a small size class at the biggest gap in radius (when the classes differ by > 35 %) and give every flower the
+    class median radius (and median open-centre radius). Centres are kept; a flower is only changed within +-30 % so a really different one stays different."""
+    if len(rs) < 3: return rs
+    R = sorted(r[2] for r in rs); gaps = [(R[i + 1] / R[i], i) for i in range(len(R) - 1)]; g, i = max(gaps)
+    classes = [[r for r in rs if r[2] <= R[i]], [r for r in rs if r[2] > R[i]]] if g > 1.35 else [list(rs)]
+    out = []
+    for c in classes:
+        med = sorted(r[2] for r in c)[len(c) // 2]; mi = sorted(r[3] for r in c)[len(c) // 2]
+        for (cx, cy, Re, ri) in c:
+            if abs(Re - med) <= 0.3 * med: Re, ri = med, min(max(mi, 1.5), med - 1.2)
+            out.append((cx, cy, Re, ri))
+    return out
 
 
 def thin_lines(mask, s, np=None, Image=None, IF=None, min_mm=6.0):
@@ -215,7 +230,7 @@ def prepare(data: bytes, width_mm: float, threads=None, border: bool = True, max
             if ln:
                 lines = [(t["id"], l) for l in ln]; t_px = tpx; m = m & ~band
                 m[int(0.80 * H):, :int(0.035 * W)] = False; m[int(0.80 * H):, int(0.965 * W):] = False; masks[t["id"]] = m
-        rs, cover = rosettes(m, s); ros += [(t["id"],) + r for r in rs]; covered |= cover
+        rs, cover = rosettes(m, s); rs = uniform_sizes(rs); ros += [(t["id"],) + r for r in rs]; covered |= cover
         if border:
             try:
                 tl, tcov = thin_lines(m & ~_filt(cover, "dil", 5, np, Image, IF), s)
@@ -271,6 +286,39 @@ def _extent(pts, ang_deg):
 
 def _centroid(r):
     return sum(p[0] for p in r) / len(r), sum(p[1] for p in r) / len(r)
+
+
+def _poly(o):
+    if o.get("type") == "column" and o.get("rail1") and o.get("rail2"): return [tuple(p) for p in o["rail1"]] + [tuple(p) for p in o["rail2"]][::-1]
+    if o.get("type") == "fill" and o.get("rings"): return [tuple(p) for p in o["rings"][0]]
+    return None
+
+
+def _avoid_overlap(objs, tries=4, factor=0.9):
+    """Leaves (ids leaf*) that overlap another thread area (leaf, petal, rosette, fill) are scaled down about their centre until the overlap is gone (<= `tries` times).
+    Shapes are shrunk, never dropped. Returns how many leaves were changed."""
+    from .geometry import point_in_polygon
+    polys = {id(o): _poly(o) for o in objs}; boxes = {}
+    for o in objs:
+        pl = polys[id(o)]
+        if pl: xs = [p[0] for p in pl]; ys = [p[1] for p in pl]; boxes[id(o)] = (min(xs), min(ys), max(xs), max(ys))
+    changed = 0; leaves = [o for o in objs if str(o.get("id", "")).startswith("leaf") and polys[id(o)]]; seen_leaf = set()
+    for lf in leaves:
+        for _ in range(tries):
+            pl = polys[id(lf)]; b = boxes[id(lf)]; mid = [((a[0] + c[0]) / 2, (a[1] + c[1]) / 2) for a, c in zip(lf["rail1"], lf["rail2"])][1:-1]
+            hit = False
+            for o in objs:
+                if o is lf or id(o) not in boxes or (str(o.get("id", "")).startswith("leaf") and id(o) not in seen_leaf): continue
+                ob = boxes[id(o)]
+                if ob[2] < b[0] or ob[0] > b[2] or ob[3] < b[1] or ob[1] > b[3]: continue
+                if any(point_in_polygon(q, [polys[id(o)]]) for q in mid) or any(point_in_polygon(q, [pl]) for q in polys[id(o)][::2]): hit = True; break
+            if not hit: break
+            cx = sum(p[0] for p in pl) / len(pl); cy = sum(p[1] for p in pl) / len(pl)
+            for k in ("rail1", "rail2"): lf[k] = [[round(cx + (x - cx) * factor, 3), round(cy + (y - cy) * factor, 3)] for x, y in lf[k]]
+            polys[id(lf)] = _poly(lf); xs = [p[0] for p in polys[id(lf)]]; ys = [p[1] for p in polys[id(lf)]]; boxes[id(lf)] = (min(xs), min(ys), max(xs), max(ys))
+            if _ == 0: changed += 1
+        seen_leaf.add(id(lf))
+    return changed
 
 
 def motifs(design: dict, plan: dict, ox: float, oy: float) -> dict:
@@ -331,6 +379,7 @@ def motifs(design: dict, plan: dict, ox: float, oy: float) -> dict:
                     r1, r2 = _lens(cx, cy, ang, L, W, teeth=3 if L >= 8 else 2); n += 1
                     out.append({"id": f"leaf{n}", "type": "column", "color": red_hex, "name": f"leaf {n}", "rail1": r1, "rail2": r2, "params": {"spacing": 0.42, "underlay": "auto", "pull_comp": 0.12}}); continue
         kept.append(o)
+    stats["shrunk"] = _avoid_overlap(out + kept)
     stats["leaves"] = n; stats["small_flowers"] = nf; stats["ferns"] = nfern; design["objects"] = kept + out; return stats
 
 
@@ -381,5 +430,5 @@ def finish(design: dict, plan: dict) -> dict:
         design["objects"].append({"id": "stones", "type": "embellishment", "kind": "stone", "color": "#e8e8f0", "size_mm": 4.0, "name": f"stones - place by hand ({len(sp)})", "points": [[round(x, 3), round(y, 3)] for x, y in sp]})
     order = {t["hex"]: i for i, t in enumerate(plan["threads"])}
     design["objects"].sort(key=lambda o: order.get(o.get("color"), 99))                 # exactly one colour block per thread (stable: red first, gold on top)
-    src = dict(design.get("source") or {}); src["thread_separation"] = dict(plan["counts"], strays_removed=removed, leaf_fills_angled=angled, leaf_motifs=mo["leaves"], flower_motifs=mo["flowers"], small_flowers=mo["small_flowers"], ferns=mo["ferns"], stone_places=len(sp), thin_lines=len(plan.get("thin_lines", []))); design["source"] = src
+    src = dict(design.get("source") or {}); src["thread_separation"] = dict(plan["counts"], strays_removed=removed, leaf_fills_angled=angled, leaf_motifs=mo["leaves"], flower_motifs=mo["flowers"], leaves_shrunk=mo.get("shrunk", 0), small_flowers=mo["small_flowers"], ferns=mo["ferns"], stone_places=len(sp), thin_lines=len(plan.get("thin_lines", []))); design["source"] = src
     return design

@@ -367,6 +367,12 @@ def api_garment_digitize(d):
     out = api_autodigitize({"data": base64.b64encode(plan["layer_png"]).decode(), "width_mm": width, "colors": max(2, len(plan["threads"]) + 1), "quality": "high",
                             "hoop_w": hoop["w"], "hoop_h": hoop["h"], "name": d.get("name") or "garment", "fabric": d.get("fabric", "silk"), "category": d.get("category", "blouse_neck")})
     design = TS.finish(out["design"], plan); design["hoop"] = hoop; design["name"] = placements_mod.slug(d.get("name") or "garment")
+    from stitchcraft_engine import sequence as _seq
+    pts = [p for o in design["objects"] if o.get("type") not in ("embellishment", "text") for p in _seq._pts(o)]
+    seq_log = []
+    if pts:                                              # start at the lower-left corner of the design; same colour order, layering kept, never worse than the original order
+        design, seq_log = _seq.optimize_sequence(design, start=(min(p[0] for p in pts), max(p[1] for p in pts)))
+    design["source"] = dict(design.get("source") or {}, sequence=seq_log)
     check_design(design)
     try:
         exp = export_pipeline.export_dst(design); sim = export_pipeline.decoded_simulation(design)
